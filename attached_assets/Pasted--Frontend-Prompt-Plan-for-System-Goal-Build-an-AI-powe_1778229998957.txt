@@ -1,4 +1,4 @@
-# Frontend Prompt Plan for Lovable
+# Frontend Prompt Plan for System
 
 Goal:
 
@@ -38,7 +38,7 @@ Tech Requirements:
 
 # Important Strategy
 
-Do NOT ask Lovable to generate the entire app at once.
+Do NOT ask Replit to generate the entire app at once.
 
 Best approach:
 
@@ -528,7 +528,7 @@ Ensure:
 
 # Important Architecture Instructions
 
-Always tell Lovable:
+Always tell:
 
 ```txt
 
@@ -554,7 +554,7 @@ Use:
 
 # Recommended Frontend Libraries
 
-Tell Lovable to use these:
+Tell Replit to use these:
 
 | Purpose       | Library         |
 
