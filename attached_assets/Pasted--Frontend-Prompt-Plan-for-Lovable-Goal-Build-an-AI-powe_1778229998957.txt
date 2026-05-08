@@ -1,0 +1,597 @@
+# Frontend Prompt Plan for Lovable
+
+Goal:
+
+Build an AI-powered collaborative study workspace frontend only.
+
+Target:
+
+Modern SaaS-quality UI similar to:
+
+* Notion
+
+* Discord
+
+* Quizlet
+
+* Linear
+
+Tech Requirements:
+
+* Next.js 15
+
+* TypeScript
+
+* TailwindCSS
+
+* shadcn/ui
+
+* Responsive
+
+* Dark mode default
+
+* Clean folder structure
+
+* Production-style UI
+
+---
+
+# Important Strategy
+
+Do NOT ask Lovable to generate the entire app at once.
+
+Best approach:
+
+1. Generate layout system first
+
+2. Then dashboard
+
+3. Then notes editor
+
+4. Then study rooms
+
+5. Then AI features
+
+6. Then polish
+
+This avoids:
+
+* messy code
+
+* inconsistent UI
+
+* broken architecture
+
+---
+
+# Phase 1 — Core Design System
+
+## Prompt 1 — App Foundation
+
+```txt
+
+Create a modern SaaS frontend using Next.js 15, TypeScript, TailwindCSS, and shadcn/ui.
+
+Project theme:
+
+AI-powered collaborative study workspace for students.
+
+Design inspiration:
+
+- Notion
+
+- Linear
+
+- Discord
+
+- Raycast
+
+Requirements:
+
+- Dark mode default
+
+- Minimal and modern
+
+- Smooth animations
+
+- Clean spacing
+
+- Rounded cards
+
+- Professional SaaS look
+
+- Responsive for desktop/tablet/mobile
+
+Create:
+
+- Sidebar navigation
+
+- Top navigation bar
+
+- Reusable layout system
+
+- Theme provider
+
+- Global styles
+
+- Reusable card/button/input components
+
+Sidebar items:
+
+- Dashboard
+
+- Notes
+
+- Flashcards
+
+- Study Rooms
+
+- Whiteboard
+
+- AI Tutor
+
+- Pomodoro
+
+- Analytics
+
+- Settings
+
+Use proper folder structure and scalable component architecture.
+
+```
+
+---
+
+# Phase 2 — Dashboard
+
+## Prompt 2 — Dashboard UI
+
+```txt
+
+Create a modern student productivity dashboard page.
+
+Features:
+
+- Welcome section
+
+- Study streak card
+
+- Daily focus hours
+
+- Upcoming study sessions
+
+- Active study rooms
+
+- AI recommendations
+
+- Pomodoro widget
+
+- Weekly productivity chart
+
+- Recent notes
+
+- Flashcard progress
+
+Requirements:
+
+- Modern analytics dashboard style
+
+- Clean charts
+
+- Responsive grid layout
+
+- Smooth hover animations
+
+- Skeleton loading states
+
+- Use shadcn/ui cards and charts
+
+Design should feel like a premium SaaS product.
+
+```
+
+---
+
+# Phase 3 — Notes System
+
+## Prompt 3 — Notes Workspace
+
+```txt
+
+Create a collaborative notes workspace UI similar to Notion.
+
+Features:
+
+- Notes sidebar
+
+- Folder organization
+
+- Rich text editor area
+
+- AI assistant side panel
+
+- Collaborative presence avatars
+
+- Search notes
+
+- Create/delete notes
+
+- Favorite notes
+
+- Recent notes
+
+Editor Features:
+
+- Slash command menu
+
+- Markdown support
+
+- Headings
+
+- Checklists
+
+- Tables
+
+- Code blocks
+
+- Callouts
+
+UI Requirements:
+
+- Clean writing-focused experience
+
+- Sticky top toolbar
+
+- Responsive layout
+
+- Smooth transitions
+
+- Modern SaaS styling
+
+```
+
+---
+
+# Phase 4 — Study Rooms
+
+## Prompt 4 — Study Rooms UI
+
+```txt
+
+Create a Discord-inspired collaborative study room interface.
+
+Features:
+
+- Room list sidebar
+
+- Active room participants
+
+- Voice/video placeholders
+
+- Shared study timer
+
+- Group chat
+
+- Collaborative tasks
+
+- Shared session goals
+
+- Live activity indicators
+
+Requirements:
+
+- Real-time collaboration inspired UI
+
+- Modern glassmorphism cards
+
+- Presence indicators
+
+- Responsive layout
+
+- Smooth transitions
+
+- Minimal distractions
+
+```
+
+---
+
+# Phase 5 — AI Tutor
+
+## Prompt 5 — AI Tutor Interface
+
+```txt
+
+Create an AI tutor chat interface inspired by ChatGPT and Perplexity.
+
+Features:
+
+- Chat conversation UI
+
+- Streaming response effect
+
+- Suggested prompts
+
+- Upload study materials
+
+- AI-generated quizzes
+
+- AI summaries
+
+- Flashcard generation
+
+- Conversation history
+
+Requirements:
+
+- Modern AI SaaS aesthetic
+
+- Clean typography
+
+- Responsive chat layout
+
+- Sidebar conversation history
+
+- Elegant loading animations
+
+```
+
+---
+
+# Phase 6 — Flashcards
+
+## Prompt 6 — Flashcard System
+
+```txt
+
+Create a modern flashcard study interface inspired by Quizlet.
+
+Features:
+
+- Flashcard deck list
+
+- Flashcard editor
+
+- Study mode
+
+- Flip animations
+
+- Progress tracking
+
+- AI-generated flashcards
+
+- Difficulty tagging
+
+- Study statistics
+
+Requirements:
+
+- Smooth card animations
+
+- Mobile-friendly
+
+- Minimal and clean
+
+- Modern education SaaS look
+
+```
+
+---
+
+# Phase 7 — Whiteboard
+
+## Prompt 7 — Collaborative Whiteboard
+
+```txt
+
+Create a collaborative whiteboard interface inspired by Excalidraw and FigJam.
+
+Features:
+
+- Infinite canvas
+
+- Sticky notes
+
+- Drawing tools
+
+- Mind maps
+
+- Collaborative cursors
+
+- Zoom controls
+
+- Layers panel
+
+- Comments
+
+Requirements:
+
+- Minimal modern UI
+
+- Floating toolbar
+
+- Dark mode optimized
+
+- Smooth interactions
+
+- Professional collaboration aesthetic
+
+```
+
+---
+
+# Phase 8 — Pomodoro + Focus Mode
+
+## Prompt 8 — Focus Workspace
+
+```txt
+
+Create a distraction-free focus mode interface for studying.
+
+Features:
+
+- Pomodoro timer
+
+- Ambient sounds section
+
+- Task checklist
+
+- Session goals
+
+- Motivational AI prompts
+
+- Focus analytics
+
+- Minimal fullscreen mode
+
+Requirements:
+
+- Calm modern aesthetic
+
+- Minimal UI
+
+- Smooth timer animations
+
+- Dark mode
+
+- Responsive
+
+```
+
+---
+
+# Phase 9 — Polish & Production Feel
+
+## Prompt 9 — Final SaaS Polish
+
+```txt
+
+Improve the entire frontend to feel like a production-grade SaaS application.
+
+Add:
+
+- Smooth page transitions
+
+- Loading skeletons
+
+- Empty states
+
+- Toast notifications
+
+- Hover interactions
+
+- Keyboard shortcuts
+
+- Better responsive behavior
+
+- Accessibility improvements
+
+- Micro animations
+
+- Consistent spacing system
+
+Ensure:
+
+- Clean component architecture
+
+- Reusable UI components
+
+- Maintainable code
+
+- Professional developer experience
+
+```
+
+---
+
+# Best Workflow
+
+## Recommended Process
+
+```txt
+
+1. Generate foundation
+
+2. Fix layouts manually
+
+3. Generate each module separately
+
+4. Refactor components
+
+5. Connect mock data
+
+6. Add backend later
+
+```
+
+---
+
+# Important Architecture Instructions
+
+Always tell Lovable:
+
+```txt
+
+Use:
+
+- app router
+
+- reusable components
+
+- modular architecture
+
+- server/client component separation
+
+- TypeScript interfaces
+
+- scalable folder structure
+
+- clean naming conventions
+
+```
+
+---
+
+# Recommended Frontend Libraries
+
+Tell Lovable to use these:
+
+| Purpose       | Library         |
+
+| ------------- | --------------- |
+
+| UI            | shadcn/ui       |
+
+| Animation     | Framer Motion   |
+
+| Charts        | Recharts        |
+
+| Forms         | React Hook Form |
+
+| Validation    | Zod             |
+
+| Editor        | Tiptap          |
+
+| Icons         | Lucide React    |
+
+| State         | Zustand         |
+
+| Data fetching | TanStack Query  |
+
+---
+
+# Best Portfolio Strategy
+
+For portfolio impact:
+
+Prioritize making these look polished:
+
+1. Dashboard
+
+2. Notes editor
+
+3. Study rooms
+
+4. AI tutor
+
+Those 4 alone can already impress recruiters heavily even before backend integration.
