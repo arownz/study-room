@@ -39,7 +39,7 @@ export function Layout({ children }: LayoutProps) {
     localStorage.setItem("theme", next);
   };
 
-  const title = pageTitles[location] || "StudyAI";
+  const title = pageTitles[location] || "StudyRoom";
 
   return (
     <div className="min-h-screen bg-background">

@@ -83,7 +83,7 @@ export default function Settings() {
               <CardContent className="space-y-6">
                 <div className="flex items-center gap-4">
                   <Avatar className="h-16 w-16">
-                    <AvatarFallback className="bg-primary/20 text-primary text-xl font-bold">AC</AvatarFallback>
+                    <AvatarFallback className="bg-primary/20 text-primary text-xl font-bold">HP</AvatarFallback>
                   </Avatar>
                   <div>
                     <Button variant="outline" size="sm" className="gap-1.5" data-testid="button-change-avatar">
@@ -96,19 +96,19 @@ export default function Settings() {
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label className="text-xs">First Name</Label>
-                    <Input defaultValue="Alex" data-testid="input-first-name" />
+                    <Input defaultValue="Harold" data-testid="input-first-name" />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Last Name</Label>
-                    <Input defaultValue="Chen" data-testid="input-last-name" />
+                    <Input defaultValue="Pasion" data-testid="input-last-name" />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Email</Label>
-                    <Input defaultValue="alex@studyai.app" type="email" data-testid="input-email" />
+                    <Input defaultValue="pasionharold@gmail.com" type="email" data-testid="input-email" />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Username</Label>
-                    <Input defaultValue="alexchen" data-testid="input-username" />
+                    <Input defaultValue="pasionharold" data-testid="input-username" />
                   </div>
                   <div className="space-y-1.5 md:col-span-2">
                     <Label className="text-xs">Academic Level</Label>

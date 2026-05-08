@@ -69,7 +69,7 @@ export function TopNav({ sidebarCollapsed, theme, onThemeToggle, title }: TopNav
 
         <Avatar className="h-8 w-8 cursor-pointer" data-testid="avatar-user">
           <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
-            AC
+            HP
           </AvatarFallback>
         </Avatar>
       </div>

@@ -1,7 +1,7 @@
 export const mockUser = {
-  name: "Alex Chen",
-  email: "alex@studyai.app",
-  avatar: "AC",
+  name: "Harold Pasion",
+  email: "pasionharold@gmail.com",
+  avatar: "HP",
   streak: 14,
   totalHours: 248,
   rank: "Scholar",
@@ -166,7 +166,7 @@ export const mockStudyRooms = [
     name: "Calculus Study Group",
     subject: "Mathematics",
     participants: [
-      { name: "Alex Chen", avatar: "AC", status: "active" },
+      { name: "Harold Pasion", avatar: "HP", status: "active" },
       { name: "Maya Patel", avatar: "MP", status: "active" },
       { name: "Jordan Lee", avatar: "JL", status: "idle" },
       { name: "Sam Rivera", avatar: "SR", status: "active" },
@@ -180,7 +180,7 @@ export const mockStudyRooms = [
       { sender: "Maya Patel", avatar: "MP", text: "Can someone explain the u-substitution for problem 7?", time: "2:14 PM" },
       { sender: "Jordan Lee", avatar: "JL", text: "Sure! Let u = sin(x), then du = cos(x)dx...", time: "2:15 PM" },
       { sender: "Sam Rivera", avatar: "SR", text: "The tricky part is choosing u wisely. LIATE rule helps.", time: "2:16 PM" },
-      { sender: "Alex Chen", avatar: "AC", text: "Got it! Thanks everyone. Starting on problem 8 now.", time: "2:17 PM" },
+      { sender: "Harold Pasion", avatar: "HP", text: "Got it! Thanks everyone. Starting on problem 8 now.", time: "2:17 PM" },
     ],
     tasks: [
       { text: "Complete Problem Set 4 (Q1–5)", done: true },

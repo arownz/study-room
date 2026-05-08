@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "StudyAI — Collaborative Study Workspace"
+title = "StudyRoom — Collaborative Study Workspace"
 version = "1.0.0"
 id = "artifacts/study-workspace"
 router = "path"

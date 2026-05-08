@@ -49,7 +49,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <div className="w-6 h-6 rounded bg-primary text-primary-foreground flex items-center justify-center">
               S
             </div>
-            StudyAI
+            StudyRoom
           </div>
         )}
         {collapsed && (

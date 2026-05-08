@@ -116,7 +116,7 @@ export default function AITutor() {
             <Sparkles size={15} className="text-primary" />
           </div>
           <div>
-            <p className="text-sm font-semibold">StudyAI Tutor</p>
+            <p className="text-sm font-semibold">StudyRoom Tutor</p>
             <p className="text-[10px] text-emerald-400">Online — ready to help</p>
           </div>
           <div className="ml-auto flex gap-1.5">
@@ -141,12 +141,12 @@ export default function AITutor() {
                 data-testid={`chat-message-${msg.id}`}
               >
                 {msg.role === "assistant" ? (
-                  <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
                     <Sparkles size={14} className="text-primary" />
                   </div>
                 ) : (
-                  <Avatar className="h-8 w-8 flex-shrink-0 mt-0.5">
-                    <AvatarFallback className="bg-secondary text-secondary-foreground text-xs font-bold">AC</AvatarFallback>
+                  <Avatar className="h-8 w-8 shrink-0 mt-0.5">
+                    <AvatarFallback className="bg-secondary text-secondary-foreground text-xs font-bold">HP</AvatarFallback>
                   </Avatar>
                 )}
 

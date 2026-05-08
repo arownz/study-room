@@ -36,7 +36,7 @@ export default function StudyRooms() {
 
   const sendMessage = () => {
     if (!message.trim()) return;
-    const newMsg = { sender: "Alex Chen", avatar: "AC", text: message, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) };
+    const newMsg = { sender: "Harold Pasion", avatar: "HP", text: message, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) };
     setMessages((prev) => [...prev, newMsg]);
     setMessage("");
   };
@@ -149,7 +149,7 @@ export default function StudyRooms() {
                   </div>
                 )}
                 {messages.map((msg, i) => {
-                  const isMe = msg.sender === "Alex Chen";
+                  const isMe = msg.sender === "Harold Pasion";
                   return (
                     <motion.div
                       key={i}
@@ -158,7 +158,7 @@ export default function StudyRooms() {
                       className={cn("flex items-start gap-2.5", isMe && "flex-row-reverse")}
                       data-testid={`message-${i}`}
                     >
-                      <Avatar className="h-7 w-7 flex-shrink-0">
+                      <Avatar className="h-7 w-7 shrink-0 mt-0.5">
                         <AvatarFallback className="text-[9px] bg-primary/20 text-primary font-bold">{msg.avatar}</AvatarFallback>
                       </Avatar>
                       <div className={cn("max-w-xs", isMe && "items-end flex flex-col")}>

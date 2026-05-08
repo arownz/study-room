@@ -145,7 +145,7 @@ export default function Whiteboard() {
 
         <div className="ml-auto flex items-center gap-2">
           <div className="flex -space-x-2">
-            {["AC", "MP", "JL"].map((av) => (
+            {["HP", "MP", "JL"].map((av) => (
               <div key={av} className="w-6 h-6 rounded-full bg-primary/20 border-2 border-background flex items-center justify-center text-[8px] font-bold text-primary">
                 {av}
               </div>
