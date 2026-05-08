@@ -30,12 +30,6 @@ API server:
 pnpm --filter @workspace/api-server dev
 ```
 
-Optional mockup sandbox:
-
-```bash
-pnpm --filter @workspace/mockup-sandbox dev
-```
-
 ## Useful commands
 
 ```bash
