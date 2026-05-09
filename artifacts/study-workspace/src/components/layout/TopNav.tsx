@@ -31,8 +31,8 @@ export function TopNav({ sidebarCollapsed, theme, onThemeToggle, title }: TopNav
     .split(" ")
     .filter(Boolean)
     .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "U";
+    .map((part: string) => part[0]?.toUpperCase())
+    .join("") || "HP";
 
   return (
     <header

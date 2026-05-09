@@ -4,6 +4,9 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
+const monorepoRoot = path.resolve(import.meta.dirname, "../..");
+
+// Load .env from monorepo root so VITE_* vars are available
 const rawPort = process.env.PORT ?? "21654";
 
 const port = Number(rawPort);
@@ -14,8 +17,11 @@ if (Number.isNaN(port) || port <= 0) {
 
 const basePath = process.env.BASE_PATH ?? "/";
 
+const apiPort = 5000;
+
 export default defineConfig({
   base: basePath,
+  envDir: monorepoRoot,
   plugins: [
     react(),
     tailwindcss(),
@@ -50,6 +56,13 @@ export default defineConfig({
     allowedHosts: true,
     fs: {
       strict: true,
+    },
+    proxy: {
+      "/api": {
+        target: `http://localhost:${apiPort}`,
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
   preview: {

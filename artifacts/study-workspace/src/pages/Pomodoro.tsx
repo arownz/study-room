@@ -94,7 +94,7 @@ export default function Pomodoro() {
             key={m.label}
             onClick={() => switchMode(i)}
             className={cn(
-              "px-4 py-1.5 rounded-full text-sm font-medium transition-all",
+              "px-4 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer",
               modeIdx === i
                 ? "text-white shadow-sm"
                 : "text-muted-foreground hover:text-foreground bg-muted/50"

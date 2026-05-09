@@ -35,21 +35,21 @@ pnpm --filter @workspace/study-workspace dev
 API server:
 
 ```bash
-pnpm --filter @workspace/api-server dev
+pnpm --filter @workspace/api-server dev # run the API server
 ```
 
 Generate/apply DB migration:
 
 ```bash
-pnpm --filter @workspace/db generate
-pnpm --filter @workspace/db migrate
+pnpm --filter @workspace/db generate # generate the migration
+pnpm --filter @workspace/db migrate # apply the migration to the database
 ```
 
 ## Useful commands
 
 ```bash
-pnpm run typecheck
-pnpm run build
+pnpm run typecheck # check for type errors
+pnpm run build # build the project
 ```
 
 ## Early Look of the app
@@ -63,3 +63,6 @@ pnpm run build
 ![1778248184175](image/README/1778248184175.png)
 ![1778248201115](image/README/1778248201115.png)
 ![1778248218157](image/README/1778248218157.png)
+
+## ERD Diagram
+![1778317679270](image/README/1778317679270.png)

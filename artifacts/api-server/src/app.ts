@@ -1,35 +1,16 @@
 import express, { type Express } from "express";
 import cors from "cors";
-import pinoHttp from "pino-http";
 import { toNodeHandler } from "better-auth/node";
 import "./modules/auth/types";
 import router from "./routes";
-import { logger } from "./lib/logger";
 import { auth } from "./modules/auth/auth";
 import { env } from "./config/env";
 import { errorHandler } from "./middleware/error-handler";
+import { requestLogger } from "./middleware/request-logger";
 
 const app: Express = express();
 
-app.use(
-  pinoHttp({
-    logger,
-    serializers: {
-      req(req) {
-        return {
-          id: req.id,
-          method: req.method,
-          url: req.url?.split("?")[0],
-        };
-      },
-      res(res) {
-        return {
-          statusCode: res.statusCode,
-        };
-      },
-    },
-  }),
-);
+app.use(requestLogger);
 app.use(
   cors({
     origin: env.FRONTEND_ORIGIN,

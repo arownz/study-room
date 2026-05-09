@@ -14,3 +14,355 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Returns authenticated user and session metadata.
+ * @summary Current auth session
+ */
+export const GetCurrentAuthSessionResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    user: zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      email: zod.string(),
+      avatar: zod.string().nullish(),
+      role: zod.string(),
+      emailVerified: zod.boolean(),
+    }),
+    session: zod.object({
+      id: zod.string(),
+      userId: zod.string(),
+      expiresAt: zod.coerce.date(),
+    }),
+  }),
+});
+
+/**
+ * Example endpoint protected by auth middleware.
+ * @summary Protected dashboard example
+ */
+export const GetProtectedDashboardResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    message: zod.string(),
+    user: zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      email: zod.string(),
+      avatar: zod.string().nullish(),
+      role: zod.string(),
+      emailVerified: zod.boolean(),
+    }),
+    session: zod.object({
+      id: zod.string(),
+      userId: zod.string(),
+      expiresAt: zod.coerce.date(),
+    }),
+  }),
+});
+
+/**
+ * @summary List notes
+ */
+export const listNotesQueryLimitDefault = 20;
+export const listNotesQueryLimitMax = 100;
+
+export const listNotesQueryOffsetDefault = 0;
+export const listNotesQueryOffsetMin = 0;
+
+export const ListNotesQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listNotesQueryLimitMax)
+    .default(listNotesQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .min(listNotesQueryOffsetMin)
+    .default(listNotesQueryOffsetDefault),
+});
+
+export const ListNotesResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    items: zod.array(
+      zod.object({
+        id: zod.string(),
+        title: zod.string(),
+        content: zod.string(),
+        createdAt: zod.coerce.date(),
+        updatedAt: zod.coerce.date(),
+      }),
+    ),
+  }),
+});
+
+/**
+ * @summary Create note
+ */
+export const CreateNoteBody = zod.object({
+  title: zod.string(),
+  content: zod.string(),
+});
+
+/**
+ * @summary Get note by id
+ */
+export const GetNoteByIdParams = zod.object({
+  noteId: zod.coerce.string(),
+});
+
+export const GetNoteByIdResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    id: zod.string(),
+    title: zod.string(),
+    content: zod.string(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary Update note
+ */
+export const UpdateNoteParams = zod.object({
+  noteId: zod.coerce.string(),
+});
+
+export const UpdateNoteBody = zod.object({
+  title: zod.string().optional(),
+  content: zod.string().optional(),
+});
+
+export const UpdateNoteResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    id: zod.string(),
+    title: zod.string(),
+    content: zod.string(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary Delete note
+ */
+export const DeleteNoteParams = zod.object({
+  noteId: zod.coerce.string(),
+});
+
+export const DeleteNoteResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    id: zod.string(),
+    deleted: zod.boolean(),
+  }),
+});
+
+/**
+ * @summary List study rooms
+ */
+export const listStudyRoomsQueryLimitDefault = 20;
+export const listStudyRoomsQueryLimitMax = 100;
+
+export const listStudyRoomsQueryOffsetDefault = 0;
+export const listStudyRoomsQueryOffsetMin = 0;
+
+export const ListStudyRoomsQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listStudyRoomsQueryLimitMax)
+    .default(listStudyRoomsQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .min(listStudyRoomsQueryOffsetMin)
+    .default(listStudyRoomsQueryOffsetDefault),
+});
+
+export const ListStudyRoomsResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    items: zod.array(
+      zod.object({
+        id: zod.string(),
+        name: zod.string(),
+        description: zod.string().nullable(),
+        isPublic: zod.boolean(),
+        createdAt: zod.coerce.date(),
+        updatedAt: zod.coerce.date(),
+      }),
+    ),
+  }),
+});
+
+/**
+ * @summary Create study room
+ */
+export const CreateStudyRoomBody = zod.object({
+  name: zod.string(),
+  description: zod.string().optional(),
+  isPublic: zod.boolean().optional(),
+});
+
+/**
+ * @summary Get study room by id
+ */
+export const GetStudyRoomByIdParams = zod.object({
+  roomId: zod.coerce.string(),
+});
+
+export const GetStudyRoomByIdResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    id: zod.string(),
+    name: zod.string(),
+    description: zod.string().nullable(),
+    isPublic: zod.boolean(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary Update study room
+ */
+export const UpdateStudyRoomParams = zod.object({
+  roomId: zod.coerce.string(),
+});
+
+export const UpdateStudyRoomBody = zod.object({
+  name: zod.string().optional(),
+  description: zod.string().nullish(),
+  isPublic: zod.boolean().optional(),
+});
+
+export const UpdateStudyRoomResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    id: zod.string(),
+    name: zod.string(),
+    description: zod.string().nullable(),
+    isPublic: zod.boolean(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary Delete study room
+ */
+export const DeleteStudyRoomParams = zod.object({
+  roomId: zod.coerce.string(),
+});
+
+export const DeleteStudyRoomResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    id: zod.string(),
+    deleted: zod.boolean(),
+  }),
+});
+
+/**
+ * @summary List flashcards
+ */
+export const listFlashcardsQueryLimitDefault = 20;
+export const listFlashcardsQueryLimitMax = 100;
+
+export const listFlashcardsQueryOffsetDefault = 0;
+export const listFlashcardsQueryOffsetMin = 0;
+
+export const ListFlashcardsQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listFlashcardsQueryLimitMax)
+    .default(listFlashcardsQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .min(listFlashcardsQueryOffsetMin)
+    .default(listFlashcardsQueryOffsetDefault),
+});
+
+export const ListFlashcardsResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    items: zod.array(
+      zod.object({
+        id: zod.string(),
+        question: zod.string(),
+        answer: zod.string(),
+        createdAt: zod.coerce.date(),
+        updatedAt: zod.coerce.date(),
+      }),
+    ),
+  }),
+});
+
+/**
+ * @summary Create flashcard
+ */
+export const CreateFlashcardBody = zod.object({
+  question: zod.string(),
+  answer: zod.string(),
+});
+
+/**
+ * @summary Get flashcard by id
+ */
+export const GetFlashcardByIdParams = zod.object({
+  flashcardId: zod.coerce.string(),
+});
+
+export const GetFlashcardByIdResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    id: zod.string(),
+    question: zod.string(),
+    answer: zod.string(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary Update flashcard
+ */
+export const UpdateFlashcardParams = zod.object({
+  flashcardId: zod.coerce.string(),
+});
+
+export const UpdateFlashcardBody = zod.object({
+  question: zod.string().optional(),
+  answer: zod.string().optional(),
+});
+
+export const UpdateFlashcardResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    id: zod.string(),
+    question: zod.string(),
+    answer: zod.string(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary Delete flashcard
+ */
+export const DeleteFlashcardParams = zod.object({
+  flashcardId: zod.coerce.string(),
+});
+
+export const DeleteFlashcardResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    id: zod.string(),
+    deleted: zod.boolean(),
+  }),
+});

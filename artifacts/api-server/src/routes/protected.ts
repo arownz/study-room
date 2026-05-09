@@ -1,12 +1,11 @@
 import { Router, type IRouter } from "express";
+import { sendSuccess } from "../core/http/response";
 import { requireAuth } from "../modules/auth/middleware";
 
 const router: IRouter = Router();
 
 router.get("/protected/dashboard", requireAuth, (req, res) => {
-  res.json({
-    success: true,
-    data: {
+  sendSuccess(res, {
       message: "Protected dashboard data",
       user: {
         id: req.authUser?.id,
@@ -26,7 +25,6 @@ router.get("/protected/dashboard", requireAuth, (req, res) => {
         userId: req.authSession?.userId,
         expiresAt: req.authSession?.expiresAt,
       },
-    },
   });
 });
 

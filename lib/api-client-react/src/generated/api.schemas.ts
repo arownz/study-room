@@ -8,3 +8,193 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface ErrorResponse {
+  success: false;
+  error: string;
+}
+
+export interface DeleteData {
+  id: string;
+  deleted: boolean;
+}
+
+export interface DeleteResponse {
+  success: true;
+  data: DeleteData;
+}
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string | null;
+  role: string;
+  emailVerified: boolean;
+}
+
+export interface AuthSession {
+  id: string;
+  userId: string;
+  expiresAt: string;
+}
+
+export type AuthMeResponseData = {
+  user: AuthUser;
+  session: AuthSession;
+};
+
+export interface AuthMeResponse {
+  success: true;
+  data: AuthMeResponseData;
+}
+
+export type ProtectedDashboardResponseData = {
+  message: string;
+  user: AuthUser;
+  session: AuthSession;
+};
+
+export interface ProtectedDashboardResponse {
+  success: true;
+  data: ProtectedDashboardResponseData;
+}
+
+export interface Note {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateNoteRequest {
+  title: string;
+  content: string;
+}
+
+export interface UpdateNoteRequest {
+  title?: string;
+  content?: string;
+}
+
+export interface NoteResponse {
+  success: true;
+  data: Note;
+}
+
+export type ListNotesResponseData = {
+  items: Note[];
+};
+
+export interface ListNotesResponse {
+  success: true;
+  data: ListNotesResponseData;
+}
+
+export interface StudyRoom {
+  id: string;
+  name: string;
+  description: string | null;
+  isPublic: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateStudyRoomRequest {
+  name: string;
+  description?: string;
+  isPublic?: boolean;
+}
+
+export interface UpdateStudyRoomRequest {
+  name?: string;
+  description?: string | null;
+  isPublic?: boolean;
+}
+
+export interface StudyRoomResponse {
+  success: true;
+  data: StudyRoom;
+}
+
+export type ListStudyRoomsResponseData = {
+  items: StudyRoom[];
+};
+
+export interface ListStudyRoomsResponse {
+  success: true;
+  data: ListStudyRoomsResponseData;
+}
+
+export interface Flashcard {
+  id: string;
+  question: string;
+  answer: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateFlashcardRequest {
+  question: string;
+  answer: string;
+}
+
+export interface UpdateFlashcardRequest {
+  question?: string;
+  answer?: string;
+}
+
+export interface FlashcardResponse {
+  success: true;
+  data: Flashcard;
+}
+
+export type ListFlashcardsResponseData = {
+  items: Flashcard[];
+};
+
+export interface ListFlashcardsResponse {
+  success: true;
+  data: ListFlashcardsResponseData;
+}
+
+export type LimitParamParameter = number;
+
+export type OffsetParamParameter = number;
+
+export type ListNotesParams = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParamParameter;
+  /**
+   * @minimum 0
+   */
+  offset?: OffsetParamParameter;
+};
+
+export type ListStudyRoomsParams = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParamParameter;
+  /**
+   * @minimum 0
+   */
+  offset?: OffsetParamParameter;
+};
+
+export type ListFlashcardsParams = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParamParameter;
+  /**
+   * @minimum 0
+   */
+  offset?: OffsetParamParameter;
+};

@@ -5,8 +5,8 @@ info:
   version: 0.1.0
   description: API specification
 servers:
-  - url: /api
-    description: Base API path
+  - url: /api/v1
+    description: Versioned API base path
 tags:
   - name: health
     description: Health operations
@@ -14,6 +14,12 @@ tags:
     description: Authentication operations
   - name: protected
     description: Protected route examples
+  - name: notes
+    description: Notes CRUD operations
+  - name: studyRooms
+    description: Study room CRUD operations
+  - name: flashcards
+    description: Flashcards CRUD operations
 paths:
   /healthz:
     get:
@@ -66,7 +72,455 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /notes:
+    get:
+      operationId: listNotes
+      tags: [notes]
+      summary: List notes
+      parameters:
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/OffsetParam"
+      responses:
+        "200":
+          description: Note list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListNotesResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createNote
+      tags: [notes]
+      summary: Create note
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNoteRequest"
+      responses:
+        "201":
+          description: Created note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoteResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /notes/{noteId}:
+    get:
+      operationId: getNoteById
+      tags: [notes]
+      summary: Get note by id
+      parameters:
+        - $ref: "#/components/parameters/NoteIdParam"
+      responses:
+        "200":
+          description: Note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoteResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Note not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateNote
+      tags: [notes]
+      summary: Update note
+      parameters:
+        - $ref: "#/components/parameters/NoteIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNoteRequest"
+      responses:
+        "200":
+          description: Updated note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoteResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Note not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteNote
+      tags: [notes]
+      summary: Delete note
+      parameters:
+        - $ref: "#/components/parameters/NoteIdParam"
+      responses:
+        "200":
+          description: Delete result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Note not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /study-rooms:
+    get:
+      operationId: listStudyRooms
+      tags: [studyRooms]
+      summary: List study rooms
+      parameters:
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/OffsetParam"
+      responses:
+        "200":
+          description: Study room list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListStudyRoomsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createStudyRoom
+      tags: [studyRooms]
+      summary: Create study room
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStudyRoomRequest"
+      responses:
+        "201":
+          description: Created study room
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyRoomResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /study-rooms/{roomId}:
+    get:
+      operationId: getStudyRoomById
+      tags: [studyRooms]
+      summary: Get study room by id
+      parameters:
+        - $ref: "#/components/parameters/RoomIdParam"
+      responses:
+        "200":
+          description: Study room
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyRoomResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Study room not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateStudyRoom
+      tags: [studyRooms]
+      summary: Update study room
+      parameters:
+        - $ref: "#/components/parameters/RoomIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStudyRoomRequest"
+      responses:
+        "200":
+          description: Updated study room
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyRoomResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Study room not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteStudyRoom
+      tags: [studyRooms]
+      summary: Delete study room
+      parameters:
+        - $ref: "#/components/parameters/RoomIdParam"
+      responses:
+        "200":
+          description: Delete result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Study room not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /flashcards:
+    get:
+      operationId: listFlashcards
+      tags: [flashcards]
+      summary: List flashcards
+      parameters:
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/OffsetParam"
+      responses:
+        "200":
+          description: Flashcard list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListFlashcardsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createFlashcard
+      tags: [flashcards]
+      summary: Create flashcard
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFlashcardRequest"
+      responses:
+        "201":
+          description: Created flashcard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlashcardResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /flashcards/{flashcardId}:
+    get:
+      operationId: getFlashcardById
+      tags: [flashcards]
+      summary: Get flashcard by id
+      parameters:
+        - $ref: "#/components/parameters/FlashcardIdParam"
+      responses:
+        "200":
+          description: Flashcard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlashcardResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Flashcard not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateFlashcard
+      tags: [flashcards]
+      summary: Update flashcard
+      parameters:
+        - $ref: "#/components/parameters/FlashcardIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFlashcardRequest"
+      responses:
+        "200":
+          description: Updated flashcard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlashcardResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Flashcard not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteFlashcard
+      tags: [flashcards]
+      summary: Delete flashcard
+      parameters:
+        - $ref: "#/components/parameters/FlashcardIdParam"
+      responses:
+        "200":
+          description: Delete result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Flashcard not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
+  parameters:
+    LimitParam:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    OffsetParam:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    NoteIdParam:
+      name: noteId
+      in: path
+      required: true
+      schema:
+        type: string
+    RoomIdParam:
+      name: roomId
+      in: path
+      required: true
+      schema:
+        type: string
+    FlashcardIdParam:
+      name: flashcardId
+      in: path
+      required: true
+      schema:
+        type: string
   schemas:
     HealthStatus:
       type: object
@@ -86,6 +540,27 @@ components:
       required:
         - success
         - error
+    DeleteData:
+      type: object
+      properties:
+        id:
+          type: string
+        deleted:
+          type: boolean
+      required:
+        - id
+        - deleted
+    DeleteResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          $ref: "#/components/schemas/DeleteData"
+      required:
+        - success
+        - data
     AuthUser:
       type: object
       properties:
@@ -160,6 +635,218 @@ components:
             - message
             - user
             - session
+      required:
+        - success
+        - data
+    Note:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - content
+        - createdAt
+        - updatedAt
+    CreateNoteRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+      required:
+        - title
+        - content
+    UpdateNoteRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+      minProperties: 1
+    NoteResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          $ref: "#/components/schemas/Note"
+      required:
+        - success
+        - data
+    ListNotesResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/Note"
+          required:
+            - items
+      required:
+        - success
+        - data
+    StudyRoom:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        isPublic:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - description
+        - isPublic
+        - createdAt
+        - updatedAt
+    CreateStudyRoomRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        isPublic:
+          type: boolean
+      required:
+        - name
+    UpdateStudyRoomRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        isPublic:
+          type: boolean
+      minProperties: 1
+    StudyRoomResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          $ref: "#/components/schemas/StudyRoom"
+      required:
+        - success
+        - data
+    ListStudyRoomsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/StudyRoom"
+          required:
+            - items
+      required:
+        - success
+        - data
+    Flashcard:
+      type: object
+      properties:
+        id:
+          type: string
+        question:
+          type: string
+        answer:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - question
+        - answer
+        - createdAt
+        - updatedAt
+    CreateFlashcardRequest:
+      type: object
+      properties:
+        question:
+          type: string
+        answer:
+          type: string
+      required:
+        - question
+        - answer
+    UpdateFlashcardRequest:
+      type: object
+      properties:
+        question:
+          type: string
+        answer:
+          type: string
+      minProperties: 1
+    FlashcardResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          $ref: "#/components/schemas/Flashcard"
+      required:
+        - success
+        - data
+    ListFlashcardsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/Flashcard"
+          required:
+            - items
       required:
         - success
         - data

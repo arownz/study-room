@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import { sendError } from "../../core/http/response";
 import { getRequestSession } from "./session-service";
 
 export async function attachAuthSession(
@@ -26,10 +27,7 @@ export async function requireAuth(
   try {
     const authSession = await getRequestSession(req);
     if (!authSession) {
-      res.status(401).json({
-        success: false,
-        error: "Unauthorized",
-      });
+      sendError(res, "Unauthorized", 401, "UNAUTHORIZED");
       return;
     }
 

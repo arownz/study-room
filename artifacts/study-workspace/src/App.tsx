@@ -26,8 +26,11 @@ function ProtectedRoutes() {
       <Layout>
         <Switch>
           <Route path="/" component={Dashboard} />
+          <Route path="/notes/:noteId" component={Notes} />
           <Route path="/notes" component={Notes} />
+          <Route path="/flashcards/:flashcardId" component={Flashcards} />
           <Route path="/flashcards" component={Flashcards} />
+          <Route path="/rooms/:roomId" component={StudyRooms} />
           <Route path="/rooms" component={StudyRooms} />
           <Route path="/ai-tutor" component={AITutor} />
           <Route path="/whiteboard" component={Whiteboard} />

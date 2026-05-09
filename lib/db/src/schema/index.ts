@@ -78,9 +78,106 @@ export const verificationTokens = pgTable(
   (table) => [unique("verification_identifier_value_unique").on(table.identifier, table.value)],
 );
 
+export const notes = pgTable(
+  "notes",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    folderId: text("folder_id"),
+    title: text("title").notNull(),
+    content: text("content").notNull().default(""),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: text("deleted_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("notes_user_id_idx").on(table.userId),
+    index("notes_folder_id_idx").on(table.folderId),
+    index("notes_deleted_at_idx").on(table.deletedAt),
+  ],
+);
+
+export const noteFolders = pgTable(
+  "note_folders",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    unique("note_folders_user_name_unique").on(table.userId, table.name),
+    index("note_folders_user_id_idx").on(table.userId),
+  ],
+);
+
+export const noteCollaborators = pgTable(
+  "note_collaborators",
+  {
+    id: text("id").primaryKey(),
+    noteId: text("note_id")
+      .notNull()
+      .references(() => notes.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    permission: text("permission").notNull().default("viewer"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique("note_collaborators_note_user_unique").on(table.noteId, table.userId),
+    index("note_collaborators_note_id_idx").on(table.noteId),
+    index("note_collaborators_user_id_idx").on(table.userId),
+  ],
+);
+
+export const studyRooms = pgTable(
+  "study_rooms",
+  {
+    id: text("id").primaryKey(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    isPublic: boolean("is_public").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("study_rooms_owner_id_idx").on(table.ownerId)],
+);
+
+export const flashcards = pgTable(
+  "flashcards",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    question: text("question").notNull(),
+    answer: text("answer").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("flashcards_user_id_idx").on(table.userId)],
+);
+
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
   accounts: many(accounts),
+  notes: many(notes),
+  noteFolders: many(noteFolders),
+  noteCollaborations: many(noteCollaborators),
+  studyRooms: many(studyRooms),
+  flashcards: many(flashcards),
 }));
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
@@ -93,6 +190,50 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
 export const accountsRelations = relations(accounts, ({ one }) => ({
   user: one(users, {
     fields: [accounts.userId],
+    references: [users.id],
+  }),
+}));
+
+export const notesRelations = relations(notes, ({ one }) => ({
+  user: one(users, {
+    fields: [notes.userId],
+    references: [users.id],
+  }),
+  folder: one(noteFolders, {
+    fields: [notes.folderId],
+    references: [noteFolders.id],
+  }),
+}));
+
+export const noteFoldersRelations = relations(noteFolders, ({ one, many }) => ({
+  user: one(users, {
+    fields: [noteFolders.userId],
+    references: [users.id],
+  }),
+  notes: many(notes),
+}));
+
+export const noteCollaboratorsRelations = relations(noteCollaborators, ({ one }) => ({
+  note: one(notes, {
+    fields: [noteCollaborators.noteId],
+    references: [notes.id],
+  }),
+  user: one(users, {
+    fields: [noteCollaborators.userId],
+    references: [users.id],
+  }),
+}));
+
+export const studyRoomsRelations = relations(studyRooms, ({ one }) => ({
+  owner: one(users, {
+    fields: [studyRooms.ownerId],
+    references: [users.id],
+  }),
+}));
+
+export const flashcardsRelations = relations(flashcards, ({ one }) => ({
+  user: one(users, {
+    fields: [flashcards.userId],
     references: [users.id],
   }),
 }));
