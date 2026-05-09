@@ -31,8 +31,8 @@ export function StudyRoomChat({ room }: StudyRoomChatProps) {
     .split(" ")
     .filter(Boolean)
     .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "U";
+    .map((part: string) => part[0]?.toUpperCase() ?? "")
+    .join("") || "HP";
 
   const sendMessage = () => {
     const trimmed = draft.trim();

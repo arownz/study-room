@@ -53,7 +53,7 @@ pnpm run build # build the project
 ```
 
 ## Early Look of the app
-
+![1778326517958](image/README/1778326517958.png)
 ![1778247850889](image/README/1778247850889.png)
 ![1778247976880](image/README/1778247976880.png)
 ![1778247999654](image/README/1778247999654.png)
