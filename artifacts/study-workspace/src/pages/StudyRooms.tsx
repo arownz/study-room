@@ -48,7 +48,7 @@ export default function StudyRooms() {
   return (
     <div className="flex h-[calc(100vh-3.5rem-3rem)] -m-6 overflow-hidden border border-border/40 rounded-xl">
       {/* Room list */}
-      <div className="w-56 border-r border-border/60 bg-sidebar flex flex-col flex-shrink-0">
+      <div className="w-56 border-r border-border/60 bg-sidebar flex flex-col shrink-0">
         <div className="p-3 border-b border-border/60 flex items-center justify-between">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Study Rooms</p>
           <Button size="icon" className="h-6 w-6" data-testid="button-create-room">
@@ -69,7 +69,7 @@ export default function StudyRooms() {
               >
                 <div className="flex items-center justify-between gap-1">
                   <p className="text-xs font-medium truncate">{room.name}</p>
-                  {room.timerRunning && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0 animate-pulse" />}
+                  {room.timerRunning && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 animate-pulse" />}
                 </div>
                 <div className="flex items-center gap-1 mt-1">
                   <Users size={10} className="text-muted-foreground" />
@@ -93,7 +93,7 @@ export default function StudyRooms() {
             </div>
             <p className="text-xs text-muted-foreground truncate mt-0.5">{activeRoom.topic}</p>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-md">
               <Timer size={12} className="text-primary" />
               <span className="font-mono font-semibold">{activeRoom.timer}</span>
@@ -193,7 +193,7 @@ export default function StudyRooms() {
           </div>
 
           {/* Tasks sidebar */}
-          <div className="w-56 border-l border-border/60 flex flex-col flex-shrink-0">
+          <div className="w-56 border-l border-border/60 flex flex-col shrink-0">
             <div className="p-3 border-b border-border/60">
               <p className="text-xs font-semibold">Session Goals</p>
             </div>
@@ -207,9 +207,9 @@ export default function StudyRooms() {
                     data-testid={`task-item-${i}`}
                   >
                     {task.done ? (
-                      <CheckSquare size={14} className="text-primary flex-shrink-0 mt-0.5" />
+                      <CheckSquare size={14} className="text-primary shrink-0 mt-0.5" />
                     ) : (
-                      <Square size={14} className="text-muted-foreground group-hover:text-foreground flex-shrink-0 mt-0.5 transition-colors" />
+                      <Square size={14} className="text-muted-foreground group-hover:text-foreground shrink-0 mt-0.5 transition-colors" />
                     )}
                     <span className={cn("text-xs leading-snug", task.done && "line-through text-muted-foreground")}>{task.text}</span>
                   </button>

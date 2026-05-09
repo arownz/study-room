@@ -82,7 +82,7 @@ export default function AITutor() {
   return (
     <div className="flex h-[calc(100vh-3.5rem-3rem)] -m-6 overflow-hidden border border-border/40 rounded-xl">
       {/* History sidebar */}
-      <div className="w-52 border-r border-border/60 bg-sidebar flex flex-col flex-shrink-0">
+      <div className="w-52 border-r border-border/60 bg-sidebar flex flex-col shrink-0">
         <div className="p-3 border-b border-border/60 flex items-center justify-between">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">History</p>
           <Button size="icon" className="h-6 w-6" data-testid="button-new-conversation">
@@ -203,7 +203,7 @@ export default function AITutor() {
             <button
               key={prompt}
               onClick={() => setInput(prompt)}
-              className="flex-shrink-0 text-[10px] text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted px-2.5 py-1 rounded-full transition-colors flex items-center gap-1"
+              className="shrink-0 text-[10px] text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted px-2.5 py-1 rounded-full transition-colors flex items-center gap-1"
               data-testid={`suggested-prompt-${prompt.toLowerCase().replace(/\s+/g, "-")}`}
             >
               <Lightbulb size={9} />
@@ -220,7 +220,7 @@ export default function AITutor() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-              className="resize-none text-sm min-h-[2.5rem] max-h-32 pr-10"
+              className="resize-none text-sm min-h-10 max-h-32 pr-10"
               rows={1}
               data-testid="textarea-ai-input"
             />
@@ -228,7 +228,7 @@ export default function AITutor() {
               size="icon"
               onClick={sendMessage}
               disabled={!input.trim() || loading}
-              className="flex-shrink-0 h-9 w-9"
+              className="shrink-0 h-9 w-9"
               data-testid="button-send-ai-message"
             >
               <Send size={14} />

@@ -4,7 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/auth-context";
 
 interface TopNavProps {
   sidebarCollapsed: boolean;
@@ -15,6 +24,15 @@ interface TopNavProps {
 
 export function TopNav({ sidebarCollapsed, theme, onThemeToggle, title }: TopNavProps) {
   const [searchFocused, setSearchFocused] = useState(false);
+  const { session, signOut } = useAuth();
+  const userName = session?.user?.name ?? "User";
+  const userEmail = session?.user?.email ?? "";
+  const avatarText = userName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "U";
 
   return (
     <header
@@ -67,11 +85,29 @@ export function TopNav({ sidebarCollapsed, theme, onThemeToggle, title }: TopNav
           {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
         </Button>
 
-        <Avatar className="h-8 w-8 cursor-pointer" data-testid="avatar-user">
-          <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
-            HP
-          </AvatarFallback>
-        </Avatar>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="rounded-full" data-testid="avatar-user-menu">
+              <Avatar className="h-8 w-8 cursor-pointer">
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
+                  {avatarText}
+                </AvatarFallback>
+              </Avatar>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel className="space-y-0.5">
+              <p className="text-sm font-medium">{userName}</p>
+              {userEmail ? (
+                <p className="text-xs text-muted-foreground">{userEmail}</p>
+              ) : null}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => void signOut()} data-testid="button-logout">
+              Logout
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

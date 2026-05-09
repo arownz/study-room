@@ -125,7 +125,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-1">
               {subjectData.map((s, i) => (
                 <div key={s.name} className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: pieColors[i % pieColors.length] }} />
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: pieColors[i % pieColors.length] }} />
                   <span className="text-muted-foreground">{s.name}</span>
                   <span className="font-semibold ml-auto">{s.value}h</span>
                 </div>
@@ -151,7 +151,7 @@ export default function Dashboard() {
           <CardContent className="space-y-2">
             {mockNotes.slice(0, 3).map((note) => (
               <div key={note.id} className="flex items-start gap-2.5 py-1.5 hover:bg-muted/50 rounded-md px-2 -mx-2 cursor-pointer transition-colors" data-testid={`note-item-${note.id}`}>
-                <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0" />
+                <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">{note.title}</p>
                   <p className="text-xs text-muted-foreground">{note.updatedAt}</p>
@@ -172,14 +172,14 @@ export default function Dashboard() {
           <CardContent className="space-y-3">
             {mockUpcomingSessions.map((session, i) => (
               <div key={i} className="flex items-center gap-3" data-testid={`session-item-${i}`}>
-                <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                   <Users size={14} className="text-primary" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">{session.title}</p>
                   <p className="text-xs text-muted-foreground">{session.time}</p>
                 </div>
-                <Badge variant="outline" className="text-[10px] flex-shrink-0">{session.participants} joined</Badge>
+                <Badge variant="outline" className="text-[10px] shrink-0">{session.participants} joined</Badge>
               </div>
             ))}
           </CardContent>
@@ -198,7 +198,7 @@ export default function Dashboard() {
               const Icon = activityIcon[item.type] || Activity;
               return (
                 <div key={i} className="flex items-start gap-2.5" data-testid={`activity-item-${i}`}>
-                  <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
                     <Icon size={11} className="text-muted-foreground" />
                   </div>
                   <div className="min-w-0">
@@ -231,7 +231,7 @@ export default function Dashboard() {
                 <div key={deck.id} className="space-y-2" data-testid={`deck-progress-${deck.id}`}>
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium truncate">{deck.title}</span>
-                    <span className="text-muted-foreground text-xs ml-2 flex-shrink-0">{pct}%</span>
+                    <span className="text-muted-foreground text-xs ml-2 shrink-0">{pct}%</span>
                   </div>
                   <Progress value={pct} className="h-1.5" />
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -247,9 +247,9 @@ export default function Dashboard() {
 
       {/* AI Recommendation */}
       <motion.div variants={fadeUp}>
-        <Card className="border-primary/20 bg-primary/5 border-border/60">
+        <Card className="bg-primary/5 border-border/60">
           <CardContent className="pt-4 pb-4 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
               <Sparkles size={18} className="text-primary" />
             </div>
             <div className="flex-1 min-w-0">
@@ -257,7 +257,7 @@ export default function Dashboard() {
               <p className="text-xs text-muted-foreground mt-0.5">You haven't reviewed your Organic Chemistry flashcards in 3 days. 8 cards are due — a 10-minute session now will lock in long-term retention.</p>
             </div>
             <Link href="/flashcards">
-              <Button size="sm" className="flex-shrink-0" data-testid="button-ai-recommendation">
+              <Button size="sm" className="shrink-0" data-testid="button-ai-recommendation">
                 Start Review
               </Button>
             </Link>

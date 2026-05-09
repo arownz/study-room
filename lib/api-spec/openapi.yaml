@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: protected
+    description: Protected route examples
 paths:
   /healthz:
     get:
@@ -24,6 +28,44 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/me:
+    get:
+      operationId: getCurrentAuthSession
+      tags: [auth]
+      summary: Current auth session
+      description: Returns authenticated user and session metadata.
+      responses:
+        "200":
+          description: Auth session payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMeResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /protected/dashboard:
+    get:
+      operationId: getProtectedDashboard
+      tags: [protected]
+      summary: Protected dashboard example
+      description: Example endpoint protected by auth middleware.
+      responses:
+        "200":
+          description: Protected payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProtectedDashboardResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +75,92 @@ components:
           type: string
       required:
         - status
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: false
+        error:
+          type: string
+      required:
+        - success
+        - error
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        avatar:
+          type: string
+          nullable: true
+        role:
+          type: string
+        emailVerified:
+          type: boolean
+      required:
+        - id
+        - name
+        - email
+        - role
+        - emailVerified
+    AuthSession:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - expiresAt
+    AuthMeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          type: object
+          properties:
+            user:
+              $ref: "#/components/schemas/AuthUser"
+            session:
+              $ref: "#/components/schemas/AuthSession"
+          required:
+            - user
+            - session
+      required:
+        - success
+        - data
+    ProtectedDashboardResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          type: object
+          properties:
+            message:
+              type: string
+            user:
+              $ref: "#/components/schemas/AuthUser"
+            session:
+              $ref: "#/components/schemas/AuthSession"
+          required:
+            - message
+            - user
+            - session
+      required:
+        - success
+        - data
 

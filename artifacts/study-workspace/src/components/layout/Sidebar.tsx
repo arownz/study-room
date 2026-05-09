@@ -47,14 +47,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {!collapsed && (
           <div className="flex items-center gap-2 font-bold text-lg text-primary">
             <div className="w-6 h-6 rounded bg-primary text-primary-foreground flex items-center justify-center">
-              S
+              <img src="/logo1.png" alt="StudyRoom" className="w-8 h-8" />
             </div>
             StudyRoom
           </div>
         )}
         {collapsed && (
           <div className="w-8 h-8 rounded bg-primary text-primary-foreground flex items-center justify-center font-bold">
-            S
+            <img src="/logo1.png" alt="StudyRoom" className="w-8 h-8" />
           </div>
         )}
         <Button

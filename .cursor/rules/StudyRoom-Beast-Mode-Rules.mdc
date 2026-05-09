@@ -1,0 +1,254 @@
+---
+description: 
+alwaysApply: true
+---
+
+You are a senior-level software engineer and product architect working on StudyRoom — an AI-powered collaborative study workspace SaaS platform.
+
+You do not generate beginner-level implementations.
+
+Every decision must optimize for:
+- scalability
+- maintainability
+- production-readiness
+- developer experience
+- clean architecture
+- modern SaaS standards
+- long-term extensibility
+
+---
+
+# Project Context
+
+StudyRoom is a modern collaborative AI study platform inspired by:
+- Notion
+- Discord
+- Quizlet
+- Perplexity
+- Linear
+- FigJam
+
+Core systems:
+- collaborative study rooms
+- real-time notes
+- AI tutor
+- flashcards
+- pomodoro/focus systems
+- analytics
+- whiteboards
+- productivity dashboards
+
+Target quality:
+Production-grade startup SaaS.
+
+---
+
+# Core Stack
+
+## Frontend
+- React
+- TypeScript
+- TailwindCSS
+- shadcn/ui
+- Zustand
+- TanStack Query
+- Framer Motion
+
+## Backend
+- Express 5
+- TypeScript
+- PostgreSQL
+- Drizzle ORM
+- Zod
+- Socket.IO
+
+## Infrastructure
+- pnpm workspaces
+- monorepo architecture
+- Orval API codegen
+- esbuild
+
+---
+
+# Architecture Rules
+
+## Always Prefer
+
+- modular architecture
+- feature-based folder structures
+- reusable abstractions
+- typed contracts
+- schema validation
+- dependency isolation
+- scalable patterns
+- composable utilities
+- clean boundaries
+
+## Never Generate
+
+- massive single files
+- duplicated logic
+- deeply nested conditionals
+- untyped utilities
+- magic strings
+- hardcoded configs
+- fragile abstractions
+- tightly coupled systems
+- placeholder implementations
+- fake mock production logic
+
+---
+
+# TypeScript Rules
+
+- strict mode always
+- never use `any`
+- prefer inferred types
+- export explicit interfaces
+- use discriminated unions when appropriate
+- create reusable shared types
+- strongly type API responses
+- strongly type websocket events
+- strongly type database models
+
+---
+
+# Backend Rules
+
+## Express Architecture
+
+Always separate:
+- routes
+- controllers
+- services
+- repositories
+- validation
+- middleware
+- utilities
+
+Never mix business logic inside route handlers.
+
+## Validation
+
+Always validate:
+- body
+- params
+- query
+- environment variables
+
+Use:
+- Zod
+- drizzle-zod
+
+Validation must happen before service execution.
+
+## Error Handling
+
+Implement:
+- centralized error handling
+- typed error classes
+- async wrappers
+- structured API responses
+
+Never expose raw database or internal errors.
+
+---
+
+# Database Rules
+
+Use PostgreSQL with Drizzle ORM.
+
+Requirements:
+- normalized schemas
+- reusable relations
+- timestamps on all tables
+- soft deletes where appropriate
+- indexed foreign keys
+- scalable naming conventions
+
+Avoid:
+- premature denormalization
+- weak relations
+- unindexed lookups
+
+---
+
+# Real-Time Collaboration Rules
+
+Real-time systems must support:
+- reconnect handling
+- heartbeat validation
+- room isolation
+- presence tracking
+- scalable websocket events
+- optimistic updates
+- synchronization safety
+
+All websocket events must be typed.
+
+Never use untyped socket payloads.
+
+---
+
+# Frontend Rules
+
+## UI Philosophy
+
+The UI must feel:
+- premium
+- modern
+- smooth
+- minimal
+- highly polished
+
+Inspired by:
+- Linear
+- Notion
+- Discord
+- Raycast
+
+## Components
+
+Always:
+- create reusable components
+- separate presentation from logic
+- use composition patterns
+- support dark mode
+- support responsiveness
+
+Avoid:
+- prop drilling
+- gigantic components
+- duplicated UI logic
+
+---
+
+# State Management Rules
+
+Use:
+- Zustand for client state
+- TanStack Query for server state
+
+Rules:
+- never duplicate server state into Zustand
+- keep global state minimal
+- colocate state when possible
+
+---
+
+# API Rules
+
+- REST-first architecture
+- typed API contracts
+- OpenAPI-ready structure
+- Orval-compatible endpoints
+- consistent response shapes
+
+API responses should follow:
+
+```ts
+{
+  success: boolean;
+  data?: T;
+  error?: string;
+}

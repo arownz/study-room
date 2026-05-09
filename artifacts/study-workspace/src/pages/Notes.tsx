@@ -55,7 +55,7 @@ export default function Notes() {
   return (
     <div className="flex h-[calc(100vh-3.5rem-3rem)] -m-6 overflow-hidden border border-border/40 rounded-xl">
       {/* Folders sidebar */}
-      <div className="w-44 border-r border-border/60 bg-sidebar flex flex-col flex-shrink-0">
+      <div className="w-44 border-r border-border/60 bg-sidebar flex flex-col shrink-0">
         <div className="p-3 border-b border-border/60">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Folders</p>
         </div>
@@ -106,7 +106,7 @@ export default function Notes() {
       </div>
 
       {/* Note list */}
-      <div className="w-64 border-r border-border/60 flex flex-col flex-shrink-0">
+      <div className="w-64 border-r border-border/60 flex flex-col shrink-0">
         <div className="p-3 border-b border-border/60 space-y-2">
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
@@ -119,7 +119,7 @@ export default function Notes() {
                 data-testid="input-search-notes"
               />
             </div>
-            <Button size="icon" className="h-7 w-7 flex-shrink-0" onClick={createNote} data-testid="button-create-note">
+            <Button size="icon" className="h-7 w-7 shrink-0" onClick={createNote} data-testid="button-create-note">
               <Plus size={13} />
             </Button>
           </div>
@@ -139,7 +139,7 @@ export default function Notes() {
               >
                 <div className="flex items-start justify-between gap-1">
                   <p className="text-xs font-medium truncate leading-snug">{note.title}</p>
-                  {note.favorite && <Star size={10} className="text-amber-400 flex-shrink-0 mt-0.5" />}
+                  {note.favorite && <Star size={10} className="text-amber-400 shrink-0 mt-0.5" />}
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2 leading-snug">{note.preview}</p>
                 <div className="flex items-center gap-1 mt-1.5">

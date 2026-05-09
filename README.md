@@ -11,9 +11,17 @@ pnpm install
 Create `.env` in repo root if you do not have one yet:
 
 ```env
-PORT=21654
+PORT=5000
 BASE_PATH=/
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/study_room
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/study-room
+BETTER_AUTH_URL=http://localhost:5000
+BETTER_AUTH_SECRET=replace-with-32-char-secret-minimum
+FRONTEND_ORIGIN=http://localhost:21654
+VITE_API_BASE_URL=http://localhost:5000
+GOOGLE_CLIENT_ID=replace-with-google-client-id
+GOOGLE_CLIENT_SECRET=replace-with-google-client-secret
+DISCORD_CLIENT_ID=replace-with-discord-client-id
+DISCORD_CLIENT_SECRET=replace-with-discord-client-secret
 ```
 
 ## Run
@@ -28,6 +36,13 @@ API server:
 
 ```bash
 pnpm --filter @workspace/api-server dev
+```
+
+Generate/apply DB migration:
+
+```bash
+pnpm --filter @workspace/db generate
+pnpm --filter @workspace/db migrate
 ```
 
 ## Useful commands
