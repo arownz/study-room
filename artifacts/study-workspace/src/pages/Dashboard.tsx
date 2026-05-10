@@ -7,8 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { mockStudyStats, mockUser, mockNotes, mockFlashcardDecks, mockUpcomingSessions, mockRecentActivity, mockStudyRooms } from "@/lib/mock-data";
+import { mockStudyStats, mockNotes, mockFlashcardDecks, mockUpcomingSessions, mockRecentActivity, mockStudyRooms } from "@/lib/mock-data";
 import { Link } from "wouter";
+import { useAuth } from "@/contexts/auth-context";
+import { splitFullName } from "@/features/profile";
 
 const stagger = {
   animate: { transition: { staggerChildren: 0.06 } },
@@ -27,8 +29,20 @@ const activityIcon: Record<string, typeof Flame> = {
 
 const pieColors = ["hsl(248,87%,66%)", "hsl(270,80%,60%)", "hsl(190,90%,50%)", "hsl(160,80%,45%)", "hsl(340,85%,65%)"];
 
+// TODO(study-stats): replace these gamification stubs with the real
+// study-streak / focus-rank service once implemented. Keeping them
+// derived here keeps the Dashboard self-contained while user identity
+// data already flows from the live session.
+const STREAK_DAYS = 0;
+const STREAK_RANK = "Newcomer";
+
 export default function Dashboard() {
   const [loading] = useState(false);
+  const { session, isLoading: isSessionLoading } = useAuth();
+  const sessionUser = session?.user;
+  const firstName = sessionUser?.name
+    ? splitFullName(sessionUser.name).firstName || sessionUser.name
+    : "there";
   const weeklyPct = Math.round((mockStudyStats.weeklyCompleted / mockStudyStats.weeklyGoal) * 100);
 
   const subjectData = [
@@ -43,19 +57,25 @@ export default function Dashboard() {
     <motion.div variants={stagger} initial="initial" animate="animate" className="space-y-6 max-w-7xl mx-auto">
       <motion.div variants={fadeUp} className="flex items-start justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Welcome back, {mockUser.name.split(" ")[0]}</h2>
-          <p className="text-muted-foreground text-sm mt-1">You're on a {mockUser.streak}-day streak. Keep it going.</p>
+          <h2 className="text-2xl font-bold tracking-tight">
+            {isSessionLoading ? "Welcome back" : `Welcome back, ${firstName}`}
+          </h2>
+          <p className="text-muted-foreground text-sm mt-1">
+            {STREAK_DAYS > 0
+              ? `You're on a ${STREAK_DAYS}-day streak. Keep it going.`
+              : "Start your first study session to begin a streak."}
+          </p>
         </div>
         <Badge variant="secondary" className="gap-1.5 px-3 py-1.5 text-sm font-semibold">
           <Sparkles size={13} className="text-primary" />
-          {mockUser.rank}
+          {STREAK_RANK}
         </Badge>
       </motion.div>
 
       {/* Stat cards */}
       <motion.div variants={fadeUp} className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Study Streak", value: `${mockUser.streak} days`, icon: Flame, color: "text-orange-400", sub: "Personal best: 21 days" },
+          { label: "Study Streak", value: `${STREAK_DAYS} days`, icon: Flame, color: "text-orange-400", sub: "Start studying to grow your streak" },
           { label: "Today's Focus", value: `${mockStudyStats.todayFocusHours}h`, icon: Clock, color: "text-primary", sub: "Goal: 6h" },
           { label: "Weekly Progress", value: `${weeklyPct}%`, icon: TrendingUp, color: "text-emerald-400", sub: `${mockStudyStats.weeklyCompleted}/${mockStudyStats.weeklyGoal}h done` },
           { label: "Active Rooms", value: `${mockStudyRooms.filter(r => r.timerRunning).length}`, icon: Users, color: "text-violet-400", sub: "2 rooms live now" },

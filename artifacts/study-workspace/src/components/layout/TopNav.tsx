@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Bell, Search, Sun, Moon, Command } from "lucide-react";
+import { Link } from "wouter";
+import { Bell, Search, Sun, Moon, Command, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
+import { UserAvatar } from "@/components/auth/UserAvatar";
+import { useProfile } from "@/features/profile";
 
 interface TopNavProps {
   sidebarCollapsed: boolean;
@@ -25,14 +27,17 @@ interface TopNavProps {
 export function TopNav({ sidebarCollapsed, theme, onThemeToggle, title }: TopNavProps) {
   const [searchFocused, setSearchFocused] = useState(false);
   const { session, signOut } = useAuth();
-  const userName = session?.user?.name ?? "User";
-  const userEmail = session?.user?.email ?? "";
-  const avatarText = userName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part: string) => part[0]?.toUpperCase())
-    .join("") || "HP";
+  const profileQuery = useProfile();
+  const profile = profileQuery.data;
+
+  const sessionUser = session?.user as
+    | { name?: string; email?: string; image?: string | null; avatar?: string | null }
+    | undefined;
+
+  const userName = profile?.name ?? sessionUser?.name ?? "User";
+  const userEmail = profile?.email ?? sessionUser?.email ?? "";
+  const avatarUrl =
+    profile?.avatar ?? sessionUser?.avatar ?? sessionUser?.image ?? null;
 
   return (
     <header
@@ -88,11 +93,11 @@ export function TopNav({ sidebarCollapsed, theme, onThemeToggle, title }: TopNav
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="rounded-full" data-testid="avatar-user-menu">
-              <Avatar className="h-8 w-8 cursor-pointer">
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
-                  {avatarText}
-                </AvatarFallback>
-              </Avatar>
+              <UserAvatar
+                src={avatarUrl}
+                name={userName}
+                className="h-8 w-8 cursor-pointer"
+              />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
@@ -103,6 +108,12 @@ export function TopNav({ sidebarCollapsed, theme, onThemeToggle, title }: TopNav
               ) : null}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem asChild data-testid="link-profile-settings">
+              <Link href="/settings" className="flex items-center gap-2">
+                <Settings size={14} />
+                Profile settings
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => void signOut()} data-testid="button-logout">
               Logout
             </DropdownMenuItem>

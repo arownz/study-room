@@ -6,10 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { PasswordInput } from "@/components/auth/PasswordInput";
 import { authClient } from "@/lib/auth/auth-client";
 import { signUpSchema, type SignUpInput } from "@/lib/auth/validation";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
+import { FcGoogle } from "react-icons/fc";
+import { FaDiscord } from "react-icons/fa";
 
 const defaultValues: SignUpInput = {
   name: "",
@@ -47,7 +50,7 @@ export default function Signup() {
       name: parsed.data.name,
       email: parsed.data.email,
       password: parsed.data.password,
-      callbackURL: "/",
+      callbackURL: `${window.location.origin}/`,
     });
     setSubmitting(false);
 
@@ -63,9 +66,12 @@ export default function Signup() {
   };
 
   const socialSignIn = async (provider: "google" | "discord") => {
+    // Better Auth resolves `callbackURL` against its own `baseURL` (the API
+    // origin). Pass an absolute frontend URL so OAuth lands the user back
+    // in the SPA instead of "Cannot GET /" on the API host.
     await authClient.signIn.social({
       provider,
-      callbackURL: "/",
+      callbackURL: `${window.location.origin}/`,
     });
   };
 
@@ -104,9 +110,8 @@ export default function Signup() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="password">Password</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 value={form.password}
                 onChange={(event) =>
                   setForm((prev) => ({ ...prev, password: event.target.value }))
@@ -117,9 +122,8 @@ export default function Signup() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input
+              <PasswordInput
                 id="confirmPassword"
-                type="password"
                 value={form.confirmPassword}
                 onChange={(event) =>
                   setForm((prev) => ({
@@ -145,9 +149,11 @@ export default function Signup() {
 
           <div className="grid grid-cols-1 gap-2">
             <Button variant="outline" onClick={() => socialSignIn("google")}>
+              <FcGoogle className="w-4 h-4" />
               Continue with Google
             </Button>
             <Button variant="outline" onClick={() => socialSignIn("discord")}>
+              <FaDiscord className="w-4 h-4" />
               Continue with Discord
             </Button>
           </div>

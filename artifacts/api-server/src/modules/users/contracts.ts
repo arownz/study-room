@@ -22,5 +22,27 @@ export const listUsersResponseSchema = z.object({
   }),
 });
 
+export const connectedAccountSchema = z.object({
+  providerId: z.string(),
+  accountId: z.string(),
+  scope: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const meDtoSchema = userDtoSchema.extend({
+  accounts: z.array(connectedAccountSchema),
+});
+
+export const updateMeRequestSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120).optional(),
+    avatar: z.string().url().max(2048).nullable().optional(),
+  })
+  .strict();
+
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 export type ListUsersResponse = z.infer<typeof listUsersResponseSchema>;
+export type ConnectedAccount = z.infer<typeof connectedAccountSchema>;
+export type MeDto = z.infer<typeof meDtoSchema>;
+export type UpdateMeRequest = z.infer<typeof updateMeRequestSchema>;

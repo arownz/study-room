@@ -1,7 +1,7 @@
 export const mockUser = {
   name: "Harold Pasion",
   email: "pasionharold@gmail.com",
-  avatar: "HP",
+  avatar: "H",
   streak: 14,
   totalHours: 248,
   rank: "Scholar",
@@ -166,10 +166,10 @@ export const mockStudyRooms = [
     name: "Calculus Study Group",
     subject: "Mathematics",
     participants: [
-      { name: "Harold Pasion", avatar: "HP", status: "active" },
-      { name: "Maya Patel", avatar: "MP", status: "active" },
-      { name: "Jordan Lee", avatar: "JL", status: "idle" },
-      { name: "Sam Rivera", avatar: "SR", status: "active" },
+      { name: "Harold Pasion", avatar: "H", status: "active" },
+      { name: "Maya Patel", avatar: "M", status: "active" },
+      { name: "Jordan Lee", avatar: "J", status: "idle" },
+      { name: "Sam Rivera", avatar: "S", status: "active" },
     ],
     timer: "1:24:35",
     timerRunning: true,
@@ -177,10 +177,10 @@ export const mockStudyRooms = [
     isPublic: true,
     topic: "Integration by parts — problem set 4",
     messages: [
-      { sender: "Maya Patel", avatar: "MP", text: "Can someone explain the u-substitution for problem 7?", time: "2:14 PM" },
-      { sender: "Jordan Lee", avatar: "JL", text: "Sure! Let u = sin(x), then du = cos(x)dx...", time: "2:15 PM" },
-      { sender: "Sam Rivera", avatar: "SR", text: "The tricky part is choosing u wisely. LIATE rule helps.", time: "2:16 PM" },
-      { sender: "Harold Pasion", avatar: "HP", text: "Got it! Thanks everyone. Starting on problem 8 now.", time: "2:17 PM" },
+      { sender: "Maya Patel", avatar: "M", text: "Can someone explain the u-substitution for problem 7?", time: "2:14 PM" },
+      { sender: "Jordan Lee", avatar: "J", text: "Sure! Let u = sin(x), then du = cos(x)dx...", time: "2:15 PM" },
+      { sender: "Sam Rivera", avatar: "S", text: "The tricky part is choosing u wisely. LIATE rule helps.", time: "2:16 PM" },
+      { sender: "Harold Pasion", avatar: "H", text: "Got it! Thanks everyone. Starting on problem 8 now.", time: "2:17 PM" },
     ],
     tasks: [
       { text: "Complete Problem Set 4 (Q1–5)", done: true },
@@ -194,8 +194,8 @@ export const mockStudyRooms = [
     name: "Organic Chem Deep Dive",
     subject: "Chemistry",
     participants: [
-      { name: "Riley Kim", avatar: "RK", status: "active" },
-      { name: "Charlie Wang", avatar: "CW", status: "active" },
+      { name: "Riley Kim", avatar: "R", status: "active" },
+      { name: "Charlie Wang", avatar: "C", status: "active" },
     ],
     timer: "0:45:12",
     timerRunning: true,
@@ -210,7 +210,7 @@ export const mockStudyRooms = [
     name: "History Essay Prep",
     subject: "History",
     participants: [
-      { name: "Dana Cruz", avatar: "DC", status: "active" },
+      { name: "Dana Cruz", avatar: "D", status: "active" },
     ],
     timer: "0:00:00",
     timerRunning: false,

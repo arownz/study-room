@@ -146,7 +146,7 @@ export default function AITutor() {
                   </div>
                 ) : (
                   <Avatar className="h-8 w-8 shrink-0 mt-0.5">
-                    <AvatarFallback className="bg-secondary text-secondary-foreground text-xs font-bold">HP</AvatarFallback>
+                    <AvatarFallback className="bg-secondary text-secondary-foreground text-xs font-bold">H</AvatarFallback>
                   </Avatar>
                 )}
 

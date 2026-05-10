@@ -8,13 +8,14 @@ export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
   trustedOrigins: [env.FRONTEND_ORIGIN, env.BETTER_AUTH_URL],
+  // Map Better Auth's internal model names to our Drizzle tables.
+  // Keys here MUST match the model names Better Auth uses internally
+  // (default: user, session, account, verification). Do not override
+  // entity `modelName` below — it changes the lookup key and breaks
+  // social sign-in which needs the verification model.
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {
-      users,
-      sessions,
-      accounts,
-      verificationTokens,
       user: users,
       session: sessions,
       account: accounts,
@@ -22,7 +23,6 @@ export const auth = betterAuth({
     },
   }),
   user: {
-    modelName: "users",
     fields: {
       image: "avatar",
     },
@@ -40,12 +40,6 @@ export const auth = betterAuth({
     minPasswordLength: 8,
     maxPasswordLength: 128,
   },
-  account: {
-    modelName: "accounts",
-  },
-  verification: {
-    modelName: "verification_tokens",
-  },
   socialProviders: {
     google: {
       clientId: env.GOOGLE_CLIENT_ID,
@@ -57,7 +51,6 @@ export const auth = betterAuth({
     },
   },
   session: {
-    modelName: "sessions",
     expiresIn: 60 * 60 * 24 * 7,
     updateAge: 60 * 60 * 24,
     deferSessionRefresh: true,

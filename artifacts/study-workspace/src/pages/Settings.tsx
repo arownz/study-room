@@ -1,16 +1,25 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { User, Bell, Palette, KeyboardIcon, Shield, Link, Save, Camera } from "lucide-react";
+import { User, Bell, Palette, KeyboardIcon, Shield, Link, Save } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import {
+  IntegrationsCard,
+  ProfileSettingsCard,
+  useProfile,
+} from "@/features/profile";
 
 const sections = [
   { id: "profile", label: "Profile", icon: User },
@@ -19,7 +28,7 @@ const sections = [
   { id: "shortcuts", label: "Shortcuts", icon: KeyboardIcon },
   { id: "integrations", label: "Integrations", icon: Link },
   { id: "privacy", label: "Privacy", icon: Shield },
-];
+] as const;
 
 const shortcuts = [
   { keys: ["⌘", "K"], action: "Open command palette" },
@@ -33,8 +42,10 @@ const shortcuts = [
   { keys: ["E"], action: "Edit selected note" },
 ];
 
+type SectionId = (typeof sections)[number]["id"];
+
 export default function Settings() {
-  const [activeSection, setActiveSection] = useState("profile");
+  const [activeSection, setActiveSection] = useState<SectionId>("profile");
   const [notifications, setNotifications] = useState({
     studyReminders: true,
     roomInvites: true,
@@ -43,12 +54,16 @@ export default function Settings() {
     weeklyDigest: true,
   });
   const { toast } = useToast();
+  const profileQuery = useProfile();
 
-  const save = () => toast({ title: "Settings saved", description: "Your preferences have been updated." });
+  const save = () =>
+    toast({
+      title: "Settings saved",
+      description: "Your preferences have been updated.",
+    });
 
   return (
     <div className="max-w-4xl mx-auto flex gap-6 h-full">
-      {/* Nav */}
       <aside className="w-44 flex-shrink-0 space-y-0.5">
         {sections.map(({ id, label, icon: Icon }) => (
           <button
@@ -67,7 +82,6 @@ export default function Settings() {
         ))}
       </aside>
 
-      {/* Content */}
       <div className="flex-1 space-y-5">
         <motion.div
           key={activeSection}
@@ -75,63 +89,7 @@ export default function Settings() {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.2 }}
         >
-          {activeSection === "profile" && (
-            <Card className="border-border/60">
-              <CardHeader>
-                <CardTitle className="text-base">Profile</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-16 w-16">
-                    <AvatarFallback className="bg-primary/20 text-primary text-xl font-bold">HP</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <Button variant="outline" size="sm" className="gap-1.5" data-testid="button-change-avatar">
-                      <Camera size={13} /> Change Photo
-                    </Button>
-                    <p className="text-xs text-muted-foreground mt-1.5">JPG, PNG or GIF, max 2MB</p>
-                  </div>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">First Name</Label>
-                    <Input defaultValue="Harold" data-testid="input-first-name" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Last Name</Label>
-                    <Input defaultValue="Pasion" data-testid="input-last-name" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Email</Label>
-                    <Input defaultValue="pasionharold@gmail.com" type="email" data-testid="input-email" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Username</Label>
-                    <Input defaultValue="pasionharold" data-testid="input-username" />
-                  </div>
-                  <div className="space-y-1.5 md:col-span-2">
-                    <Label className="text-xs">Academic Level</Label>
-                    <Select defaultValue="undergraduate">
-                      <SelectTrigger data-testid="select-academic-level">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="high-school">High School</SelectItem>
-                        <SelectItem value="undergraduate">Undergraduate</SelectItem>
-                        <SelectItem value="graduate">Graduate</SelectItem>
-                        <SelectItem value="postgraduate">Postgraduate</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <Button onClick={save} className="gap-1.5" data-testid="button-save-profile">
-                  <Save size={14} /> Save Changes
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+          {activeSection === "profile" && <ProfileSettingsCard />}
 
           {activeSection === "notifications" && (
             <Card className="border-border/60">
@@ -157,7 +115,9 @@ export default function Settings() {
                         </div>
                         <Switch
                           checked={value}
-                          onCheckedChange={(v) => setNotifications((prev) => ({ ...prev, [key]: v }))}
+                          onCheckedChange={(v) =>
+                            setNotifications((prev) => ({ ...prev, [key]: v }))
+                          }
                           data-testid={`switch-${key}`}
                         />
                       </div>
@@ -184,7 +144,11 @@ export default function Settings() {
                     {["Dark", "Light", "System"].map((t) => (
                       <button
                         key={t}
-                        className={`border rounded-lg p-3 text-sm font-medium transition-all ${t === "Dark" ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-border/80 text-muted-foreground"}`}
+                        className={`border rounded-lg p-3 text-sm font-medium transition-all ${
+                          t === "Dark"
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border hover:border-border/80 text-muted-foreground"
+                        }`}
                         data-testid={`theme-option-${t.toLowerCase()}`}
                       >
                         {t}
@@ -198,7 +162,9 @@ export default function Settings() {
                     {["hsl(248,87%,66%)", "hsl(160,80%,45%)", "hsl(340,85%,65%)", "hsl(30,90%,55%)", "hsl(190,90%,50%)"].map((c, i) => (
                       <button
                         key={i}
-                        className={`w-7 h-7 rounded-full border-2 transition-all ${i === 0 ? "border-foreground scale-110" : "border-transparent hover:scale-105"}`}
+                        className={`w-7 h-7 rounded-full border-2 transition-all ${
+                          i === 0 ? "border-foreground scale-110" : "border-transparent hover:scale-105"
+                        }`}
                         style={{ background: c }}
                         data-testid={`color-option-${i}`}
                       />
@@ -230,11 +196,17 @@ export default function Settings() {
               <CardContent>
                 <div className="space-y-0.5">
                   {shortcuts.map((s, i) => (
-                    <div key={i} className="flex items-center justify-between py-2.5 border-b border-border/40 last:border-0">
+                    <div
+                      key={i}
+                      className="flex items-center justify-between py-2.5 border-b border-border/40 last:border-0"
+                    >
                       <span className="text-sm">{s.action}</span>
                       <div className="flex gap-1">
                         {s.keys.map((k) => (
-                          <kbd key={k} className="px-1.5 py-0.5 rounded border border-border bg-muted text-xs font-mono font-semibold">
+                          <kbd
+                            key={k}
+                            className="px-1.5 py-0.5 rounded border border-border bg-muted text-xs font-mono font-semibold"
+                          >
                             {k}
                           </kbd>
                         ))}
@@ -246,18 +218,25 @@ export default function Settings() {
             </Card>
           )}
 
-          {(activeSection === "integrations" || activeSection === "privacy") && (
+          {activeSection === "integrations" && (
+            <IntegrationsCard
+              user={profileQuery.data}
+              isLoading={profileQuery.isLoading}
+            />
+          )}
+
+          {activeSection === "privacy" && (
             <Card className="border-border/60">
               <CardHeader>
-                <CardTitle className="text-base capitalize">{activeSection}</CardTitle>
+                <CardTitle className="text-base">Privacy</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
-                  {activeSection === "integrations"
-                    ? "Connect external tools like Notion, Google Calendar, and Anki to sync your study data."
-                    : "Manage your data, visibility, and privacy preferences."}
+                  Manage your data, visibility, and privacy preferences.
                 </p>
-                <Badge variant="secondary" className="mt-4">Coming soon</Badge>
+                <Badge variant="secondary" className="mt-4">
+                  Coming soon
+                </Badge>
               </CardContent>
             </Card>
           )}

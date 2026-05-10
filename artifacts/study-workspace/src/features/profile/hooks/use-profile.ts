@@ -1,0 +1,60 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { customFetch } from "@workspace/api-client-react";
+import { useAuth } from "@/contexts/auth-context";
+import type { ProfileUpdateInput, ProfileUser } from "../types";
+
+const PROFILE_PATH = "/api/v1/users/me";
+const PROFILE_QUERY_KEY = ["profile", "me"] as const;
+
+interface ApiEnvelope<T> {
+  success: boolean;
+  data: T;
+  error?: string;
+  code?: string;
+}
+
+async function fetchProfile(): Promise<ProfileUser> {
+  const envelope = await customFetch<ApiEnvelope<ProfileUser>>(PROFILE_PATH, {
+    method: "GET",
+  });
+  return envelope.data;
+}
+
+async function patchProfile(input: ProfileUpdateInput): Promise<ProfileUser> {
+  const envelope = await customFetch<ApiEnvelope<ProfileUser>>(PROFILE_PATH, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+    headers: { "content-type": "application/json" },
+  });
+  return envelope.data;
+}
+
+export function useProfile() {
+  const { session, isLoading: isSessionLoading } = useAuth();
+  const isAuthenticated = Boolean(session?.user?.id);
+
+  return useQuery({
+    queryKey: PROFILE_QUERY_KEY,
+    queryFn: fetchProfile,
+    enabled: !isSessionLoading && isAuthenticated,
+    staleTime: 30_000,
+    retry: 1,
+  });
+}
+
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+  const { refetchSession } = useAuth();
+
+  return useMutation({
+    mutationFn: patchProfile,
+    onSuccess: async (data) => {
+      queryClient.setQueryData(PROFILE_QUERY_KEY, data);
+      // Better Auth's session payload caches name/avatar — refresh so
+      // top-nav and other session-driven UI update immediately.
+      await refetchSession();
+    },
+  });
+}
+
+export const profileQueryKey = PROFILE_QUERY_KEY;

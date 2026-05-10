@@ -32,7 +32,7 @@ export function StudyRoomChat({ room }: StudyRoomChatProps) {
     .filter(Boolean)
     .slice(0, 2)
     .map((part: string) => part[0]?.toUpperCase() ?? "")
-    .join("") || "HP";
+    .join("") || "H";
 
   const sendMessage = () => {
     const trimmed = draft.trim();

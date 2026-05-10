@@ -4,7 +4,7 @@ import { TrendingUp, Flame, Clock, Layers, Award, Calendar } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { mockAnalytics, mockUser } from "@/lib/mock-data";
+import { mockAnalytics } from "@/lib/mock-data";
 
 const stagger = { animate: { transition: { staggerChildren: 0.07 } } };
 const fadeUp = { initial: { opacity: 0, y: 14 }, animate: { opacity: 1, y: 0, transition: { duration: 0.3 } } };
@@ -36,10 +36,11 @@ export default function Analytics() {
       {/* Top stats */}
       <motion.div variants={fadeUp} className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Hours", value: `${mockUser.totalHours}h`, icon: Clock, color: "text-primary", change: "+12h this week" },
-          { label: "Current Streak", value: `${mockUser.streak} days`, icon: Flame, color: "text-orange-400", change: "Best: 21 days" },
-          { label: "Cards Mastered", value: "157", icon: Layers, color: "text-violet-400", change: "+24 this week" },
-          { label: "Rank", value: mockUser.rank, icon: Award, color: "text-amber-400", change: "Top 12% this month" },
+          // TODO(study-stats): wire to real analytics service when ready.
+          { label: "Total Hours", value: "0h", icon: Clock, color: "text-primary", change: "Begin tracking sessions" },
+          { label: "Current Streak", value: "0 days", icon: Flame, color: "text-orange-400", change: "No streak yet" },
+          { label: "Cards Mastered", value: "0", icon: Layers, color: "text-violet-400", change: "Master your first card" },
+          { label: "Rank", value: "Newcomer", icon: Award, color: "text-amber-400", change: "Earn focus hours to climb" },
         ].map((s) => {
           const Icon = s.icon;
           return (
