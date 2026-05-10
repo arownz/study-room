@@ -9,6 +9,7 @@ const userColumns = {
   email: users.email,
   avatar: users.avatar,
   role: users.role,
+  roleSelected: users.roleSelected,
   emailVerified: users.emailVerified,
   createdAt: users.createdAt,
   updatedAt: users.updatedAt,
@@ -54,6 +55,8 @@ export class UsersRepository {
     const updates: Record<string, unknown> = {};
     if (patch.name !== undefined) updates.name = patch.name;
     if (patch.avatar !== undefined) updates.avatar = patch.avatar;
+    if (patch.role !== undefined) updates.role = patch.role;
+    if (patch.roleSelected !== undefined) updates.roleSelected = patch.roleSelected;
 
     if (Object.keys(updates).length === 0) {
       return this.getUserById(id);
@@ -64,6 +67,15 @@ export class UsersRepository {
     const [row] = await db
       .update(users)
       .set(updates)
+      .where(eq(users.id, id))
+      .returning(userColumns);
+    return row ?? null;
+  }
+
+  async setAvatar(id: string, avatar: string | null) {
+    const [row] = await db
+      .update(users)
+      .set({ avatar, updatedAt: new Date() })
       .where(eq(users.id, id))
       .returning(userColumns);
     return row ?? null;

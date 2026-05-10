@@ -1,3 +1,6 @@
+import { useMemo } from "react";
+import { htmlToPlainText } from "@/components/rich-editor/RichTextEditor";
+
 interface NoteEditorFooterProps {
   content: string;
   relativeUpdatedAt: string;
@@ -11,8 +14,13 @@ export function NoteEditorFooter({
   isSaving,
   isDirty,
 }: NoteEditorFooterProps) {
-  const wordCount = content.split(/\s+/).filter(Boolean).length;
-  const charCount = content.length;
+  const { wordCount, charCount } = useMemo(() => {
+    const plain = htmlToPlainText(content);
+    return {
+      wordCount: plain.split(/\s+/).filter(Boolean).length,
+      charCount: plain.length,
+    };
+  }, [content]);
 
   return (
     <div className="flex items-center gap-4 border-t border-border/60 px-6 py-2 text-[10px] text-muted-foreground">

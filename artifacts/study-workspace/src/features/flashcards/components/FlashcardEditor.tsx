@@ -19,10 +19,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
+import { RichTextEditor, richTextHasPlainContent } from "@/components/rich-editor/RichTextEditor";
 import type { FlashcardViewModel } from "../hooks/use-flashcards";
 
 interface FlashcardEditorProps {
@@ -57,44 +56,53 @@ export function FlashcardEditor({
 
   if (!card) return null;
 
+  const questionOk = richTextHasPlainContent(question);
+  const answerOk = richTextHasPlainContent(answer);
   const isDirty = question !== card.question || answer !== card.answer;
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[90vh] max-w-[46rem] flex-col gap-0 overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle>Edit flashcard</DialogTitle>
             <DialogDescription>Last edited {card.relativeUpdatedAt}</DialogDescription>
           </DialogHeader>
           <form
-            className="space-y-4"
+            className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-4 pt-1"
             onSubmit={async (event) => {
               event.preventDefault();
-              if (!isDirty || isSaving) return;
-              await onSave({ question: question.trim(), answer: answer.trim() });
+              if (!isDirty || isSaving || !questionOk || !answerOk) return;
+              await onSave({ question, answer });
             }}
           >
             <div className="space-y-2">
-              <Label htmlFor="edit-flashcard-question">Question</Label>
-              <Input
-                id="edit-flashcard-question"
+              <Label>Question</Label>
+              <RichTextEditor
                 value={question}
-                onChange={(event) => setQuestion(event.target.value)}
-                data-testid="input-edit-flashcard-question"
+                onChange={setQuestion}
+                placeholder="Type or paste formatted text…"
+                testId="input-edit-flashcard-question"
+                enableRichMedia
+                showMediaHint={false}
+                minHeightClass="min-h-[9rem]"
+                className="rounded-md border border-border/70"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-flashcard-answer">Answer</Label>
-              <Textarea
-                id="edit-flashcard-answer"
+              <Label>Answer</Label>
+              <RichTextEditor
                 value={answer}
-                onChange={(event) => setAnswer(event.target.value)}
-                rows={5}
-                data-testid="input-edit-flashcard-answer"
+                onChange={setAnswer}
+                placeholder="Answer with lists, emphasis, links, images…"
+                testId="input-edit-flashcard-answer"
+                enableRichMedia
+                showMediaHint={false}
+                minHeightClass="min-h-[9rem]"
+                className="rounded-md border border-border/70"
               />
             </div>
-            <DialogFooter className="sm:justify-between">
+            <DialogFooter className="shrink-0 border-t border-border/50 pt-4 sm:justify-between">
               <Button
                 type="button"
                 variant="ghost"
@@ -109,7 +117,11 @@ export function FlashcardEditor({
                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                   Close
                 </Button>
-                <Button type="submit" disabled={!isDirty || isSaving}>
+                <Button
+                  type="submit"
+                  disabled={!isDirty || isSaving || !questionOk || !answerOk}
+                  data-testid="button-submit-edit-flashcard"
+                >
                   {isSaving ? <Spinner className="size-3" /> : <Save size={14} />}
                   Save
                 </Button>

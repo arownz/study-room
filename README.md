@@ -29,13 +29,13 @@ DISCORD_CLIENT_SECRET=replace-with-discord-client-secret
 Frontend (main app):
 
 ```bash
-pnpm --filter @workspace/study-workspace dev
+pnpm --filter @workspace/study-workspace dev # run the frontend
 ```
 
 API server:
 
 ```bash
-pnpm --filter @workspace/api-server dev # run the API server
+pnpm --filter @workspace/api-server dev # run the backend/server
 ```
 
 Generate/apply DB migration:

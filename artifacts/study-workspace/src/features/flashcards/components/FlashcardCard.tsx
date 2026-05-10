@@ -2,7 +2,8 @@ import { motion } from "framer-motion";
 import { Pencil, Play } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { FlashcardRichHtml } from "./FlashcardRichHtml";
 import type { FlashcardViewModel } from "../hooks/use-flashcards";
 
 interface FlashcardCardProps {
@@ -26,14 +27,21 @@ export function FlashcardCard({ card, onStudy, onEdit }: FlashcardCardProps) {
         <div className="h-1 bg-gradient-to-r from-primary/60 to-primary" />
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
-            <CardTitle className="line-clamp-2 text-sm font-semibold">{card.question}</CardTitle>
+            <div className="min-h-[2.5rem] flex-1 text-sm font-semibold leading-snug tracking-tight">
+              <FlashcardRichHtml html={card.question} lineClamp={2} studyLinkClicks />
+            </div>
             <Badge variant="secondary" className="text-[10px]">
               Card
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="line-clamp-3 text-xs text-muted-foreground">{card.answer}</p>
+          <FlashcardRichHtml
+            html={card.answer}
+            lineClamp={3}
+            studyLinkClicks
+            className="text-xs text-muted-foreground"
+          />
           <div className="flex items-center justify-between text-[10px] text-muted-foreground">
             <span>Updated {card.relativeUpdatedAt}</span>
           </div>

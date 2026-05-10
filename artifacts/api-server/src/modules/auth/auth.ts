@@ -33,6 +33,15 @@ export const auth = betterAuth({
         defaultValue: "student",
         input: false,
       },
+      // Forces onboarding role selection on the SPA. Better Auth does not
+      // touch this column itself; the /users/me PATCH endpoint flips it
+      // to true once the user picks a role.
+      roleSelected: {
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        input: false,
+      },
     },
   },
   emailAndPassword: {
@@ -44,10 +53,48 @@ export const auth = betterAuth({
     google: {
       clientId: env.GOOGLE_CLIENT_ID,
       clientSecret: env.GOOGLE_CLIENT_SECRET,
+      // Google profile.picture is already a fully-qualified CDN URL,
+      // but we normalize the mapping to keep behaviour explicit and
+      // mirror the Discord branch below.
+      mapProfileToUser: (profile) => ({
+        image:
+          (profile as { picture?: string | null; image?: string | null })
+            .picture ??
+          (profile as { picture?: string | null; image?: string | null })
+            .image ??
+          null,
+      }),
     },
     discord: {
       clientId: env.DISCORD_CLIENT_ID,
       clientSecret: env.DISCORD_CLIENT_SECRET,
+      // Discord returns only the avatar hash on the OAuth profile. We
+      // expand it into a full CDN URL here so the user.avatar column
+      // ends up with a usable image source instead of a bare hash.
+      mapProfileToUser: (profile) => {
+        const discord = profile as {
+          id?: string;
+          avatar?: string | null;
+          discriminator?: string | null;
+        };
+
+        if (discord.id && discord.avatar) {
+          const ext = discord.avatar.startsWith("a_") ? "gif" : "png";
+          return {
+            image: `https://cdn.discordapp.com/avatars/${discord.id}/${discord.avatar}.${ext}?size=256`,
+          };
+        }
+
+        if (discord.id && discord.discriminator) {
+          // Legacy default avatar fallback.
+          const idx = Number.parseInt(discord.discriminator, 10) % 5;
+          return {
+            image: `https://cdn.discordapp.com/embed/avatars/${idx}.png`,
+          };
+        }
+
+        return { image: null };
+      },
     },
   },
   session: {

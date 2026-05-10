@@ -5,30 +5,44 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UserAvatar } from "@/components/auth/UserAvatar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
+  AvatarUploader,
   joinName,
   splitFullName,
+  USER_ROLE_OPTIONS,
   useProfile,
   useUpdateProfile,
   type ProfileUser,
+  type UserRole,
 } from "@/features/profile";
 
 interface ProfileFormState {
   firstName: string;
   lastName: string;
-  avatar: string;
+  role: UserRole;
+}
+
+const FALLBACK_ROLE: UserRole = "student";
+
+function isUserRole(value: unknown): value is UserRole {
+  return USER_ROLE_OPTIONS.some((option) => option.id === value);
 }
 
 function buildInitialState(user: ProfileUser | undefined): ProfileFormState {
-  if (!user) return { firstName: "", lastName: "", avatar: "" };
+  if (!user) {
+    return { firstName: "", lastName: "", role: FALLBACK_ROLE };
+  }
   const { firstName, lastName } = splitFullName(user.name);
-  return {
-    firstName,
-    lastName,
-    avatar: user.avatar ?? "",
-  };
+  const role = isUserRole(user.role) ? user.role : FALLBACK_ROLE;
+  return { firstName, lastName, role };
 }
 
 export function ProfileSettingsCard() {
@@ -49,7 +63,7 @@ export function ProfileSettingsCard() {
     return (
       initial.firstName !== form.firstName ||
       initial.lastName !== form.lastName ||
-      initial.avatar !== form.avatar
+      initial.role !== form.role
     );
   }, [form, user]);
 
@@ -69,13 +83,11 @@ export function ProfileSettingsCard() {
       return;
     }
 
-    const trimmedAvatar = form.avatar.trim();
-    const nextAvatar = trimmedAvatar.length === 0 ? null : trimmedAvatar;
-
     try {
       await updateProfile.mutateAsync({
         name: trimmedName,
-        avatar: nextAvatar,
+        role: form.role,
+        roleSelected: true,
       });
       toast({
         title: "Profile updated",
@@ -104,29 +116,7 @@ export function ProfileSettingsCard() {
           </p>
         ) : (
           <form className="space-y-6" onSubmit={onSubmit}>
-            <div className="flex items-center gap-4">
-              <UserAvatar
-                src={user.avatar}
-                name={user.name}
-                className="h-16 w-16"
-                fallbackClassName="bg-primary/20 text-primary text-xl"
-              />
-              <div className="space-y-1.5">
-                <Label className="text-xs">Avatar URL</Label>
-                <Input
-                  value={form.avatar}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, avatar: event.target.value }))
-                  }
-                  placeholder="https://..."
-                  data-testid="input-avatar-url"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Paste a public image URL. Leave blank to use the default
-                  avatar.
-                </p>
-              </div>
-            </div>
+            <AvatarUploader name={user.name} avatar={user.avatar} />
 
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -171,7 +161,28 @@ export function ProfileSettingsCard() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Role</Label>
-                <Input value={user.role} readOnly disabled />
+                <Select
+                  value={form.role}
+                  onValueChange={(next) =>
+                    isUserRole(next)
+                      ? setForm((prev) => ({ ...prev, role: next }))
+                      : undefined
+                  }
+                >
+                  <SelectTrigger data-testid="select-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {USER_ROLE_OPTIONS.map((option) => (
+                      <SelectItem key={option.id} value={option.id}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Used to personalise the dashboard and AI suggestions.
+                </p>
               </div>
             </div>
 

@@ -30,6 +30,8 @@ export default function Signup() {
 
   useEffect(() => {
     if (!isLoading && session) {
+      // Authenticated visitors landing on the signup screen always go
+      // through the role guard so onboarding is honoured.
       navigate("/");
     }
   }, [isLoading, session, navigate]);
@@ -50,7 +52,7 @@ export default function Signup() {
       name: parsed.data.name,
       email: parsed.data.email,
       password: parsed.data.password,
-      callbackURL: `${window.location.origin}/`,
+      callbackURL: `${window.location.origin}/onboarding`,
     });
     setSubmitting(false);
 
@@ -62,7 +64,10 @@ export default function Signup() {
       return;
     }
 
-    navigate("/");
+    // Brand new account → role-selection screen.
+    // The RoleGuard will keep returning users that already chose a role
+    // out of /onboarding automatically.
+    navigate("/onboarding");
   };
 
   const socialSignIn = async (provider: "google" | "discord") => {

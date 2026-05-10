@@ -1,6 +1,17 @@
 import { z } from "zod";
 import { paginationQuerySchema } from "../../core/http/contracts";
 
+export const USER_ROLES = [
+  "student",
+  "teacher",
+  "researcher",
+  "professional",
+  "self_learner",
+] as const;
+
+export const userRoleSchema = z.enum(USER_ROLES);
+export type UserRole = z.infer<typeof userRoleSchema>;
+
 export const listUsersQuerySchema = paginationQuerySchema;
 
 export const userDtoSchema = z.object({
@@ -9,6 +20,7 @@ export const userDtoSchema = z.object({
   email: z.string().email(),
   avatar: z.string().nullable(),
   role: z.string(),
+  roleSelected: z.boolean(),
   emailVerified: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -38,8 +50,13 @@ export const updateMeRequestSchema = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
     avatar: z.string().url().max(2048).nullable().optional(),
+    role: userRoleSchema.optional(),
+    roleSelected: z.boolean().optional(),
   })
-  .strict();
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "At least one field is required",
+  });
 
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 export type ListUsersResponse = z.infer<typeof listUsersResponseSchema>;

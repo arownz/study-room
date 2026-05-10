@@ -20,6 +20,7 @@ import {
   ProfileSettingsCard,
   useProfile,
 } from "@/features/profile";
+import { resolveShortcutRow, SETTINGS_SHORTCUT_HINTS } from "@/lib/platform";
 
 const sections = [
   { id: "profile", label: "Profile", icon: User },
@@ -29,18 +30,6 @@ const sections = [
   { id: "integrations", label: "Integrations", icon: Link },
   { id: "privacy", label: "Privacy", icon: Shield },
 ] as const;
-
-const shortcuts = [
-  { keys: ["⌘", "K"], action: "Open command palette" },
-  { keys: ["⌘", "N"], action: "New note" },
-  { keys: ["⌘", "F"], action: "Search" },
-  { keys: ["⌘", "/"], action: "Toggle sidebar" },
-  { keys: ["⌘", "P"], action: "Start Pomodoro" },
-  { keys: ["⌘", "Shift", "A"], action: "Open AI Tutor" },
-  { keys: ["J / K"], action: "Navigate notes list" },
-  { keys: ["Space"], action: "Flip flashcard" },
-  { keys: ["E"], action: "Edit selected note" },
-];
 
 type SectionId = (typeof sections)[number]["id"];
 
@@ -195,14 +184,14 @@ export default function Settings() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-0.5">
-                  {shortcuts.map((s, i) => (
+                  {SETTINGS_SHORTCUT_HINTS.map((s, i) => (
                     <div
                       key={i}
                       className="flex items-center justify-between py-2.5 border-b border-border/40 last:border-0"
                     >
                       <span className="text-sm">{s.action}</span>
                       <div className="flex gap-1">
-                        {s.keys.map((k) => (
+                        {resolveShortcutRow(s.keys).map((k) => (
                           <kbd
                             key={k}
                             className="px-1.5 py-0.5 rounded border border-border bg-muted text-xs font-mono font-semibold"

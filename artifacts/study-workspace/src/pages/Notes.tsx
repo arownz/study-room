@@ -8,6 +8,7 @@ import { NoteList } from "@/features/notes/components/NoteList";
 import { NotesFolderSidebar } from "@/features/notes/components/NotesFolderSidebar";
 import { useNotes } from "@/features/notes/hooks/use-notes";
 import type { NotesFilter } from "@/features/notes/types";
+import { htmlToPlainText } from "@/components/rich-editor/RichTextEditor";
 
 export default function Notes() {
   const { toast } = useToast();
@@ -31,6 +32,7 @@ export default function Notes() {
   const [filter, setFilter] = useState<NotesFilter>("all");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string>(routeNoteId ?? "");
+  const [duplicateBusy, setDuplicateBusy] = useState(false);
 
   useEffect(() => {
     if (routeNoteId) setSelectedId(routeNoteId);
@@ -41,9 +43,11 @@ export default function Notes() {
     return notes.filter((note) => {
       if (filter === "favorites" && !note.isFavorite) return false;
       if (lowered.length === 0) return true;
+      const plain = htmlToPlainText(note.content).toLowerCase();
       return (
         note.title.toLowerCase().includes(lowered) ||
-        note.content.toLowerCase().includes(lowered)
+        note.content.toLowerCase().includes(lowered) ||
+        plain.includes(lowered)
       );
     });
   }, [notes, filter, search]);
@@ -90,6 +94,23 @@ export default function Notes() {
     }
   };
 
+  const handleDuplicate = async () => {
+    if (!selected) return;
+    setDuplicateBusy(true);
+    try {
+      const base = selected.title.trim();
+      const title = base ? `${base} (copy)` : "Untitled Note (copy)";
+      const created = await createNote({ title, content: selected.content });
+      setSelectedId(created.id);
+      setLocation(`/notes/${created.id}`);
+      toast({ title: "Note duplicated" });
+    } catch {
+      toast({ title: "Failed to duplicate note", variant: "destructive" });
+    } finally {
+      setDuplicateBusy(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!selected) return;
     try {
@@ -119,9 +140,11 @@ export default function Notes() {
           note={selected}
           onSave={handleSave}
           onDelete={handleDelete}
+          onDuplicate={handleDuplicate}
           onToggleFavorite={() => toggleFavorite(selected.id)}
           isSaving={isSaving}
           isDeleting={isDeleting}
+          isDuplicating={duplicateBusy}
         />
       ) : (
         <div className="flex flex-1 items-center justify-center bg-background p-6">

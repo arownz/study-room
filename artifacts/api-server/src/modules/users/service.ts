@@ -16,6 +16,7 @@ function serializeUser(user: DbUser) {
     email: user.email,
     avatar: user.avatar ?? null,
     role: user.role,
+    roleSelected: user.roleSelected,
     emailVerified: user.emailVerified,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
@@ -61,6 +62,14 @@ export class UsersService {
 
   async updateMe(userId: string, patch: UpdateMeRequest): Promise<MeDto> {
     const updated = await this.repository.updateUser(userId, patch);
+    if (!updated) {
+      throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    }
+    return this.getMe(userId);
+  }
+
+  async setAvatar(userId: string, avatar: string | null): Promise<MeDto> {
+    const updated = await this.repository.setAvatar(userId, avatar);
     if (!updated) {
       throw new AppError("User not found", 404, "USER_NOT_FOUND");
     }

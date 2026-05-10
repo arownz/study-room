@@ -1,4 +1,5 @@
 import type { Note as ApiNote } from "@workspace/api-client-react";
+import { htmlToPlainText } from "@/components/rich-editor/RichTextEditor";
 
 export type NotesFilter = "all" | "favorites";
 
@@ -9,8 +10,8 @@ export interface NoteViewModel extends ApiNote {
 }
 
 export function buildNoteViewModel(note: ApiNote, isFavorite: boolean): NoteViewModel {
-  const stripped = note.content.replace(/[#*_`>~\-]/g, "").trim();
-  const preview = stripped.length > 0 ? stripped.slice(0, 140) : "No content yet";
+  const plain = htmlToPlainText(note.content ?? "");
+  const preview = plain.length > 0 ? plain.slice(0, 140) : "No content yet";
   const relativeUpdatedAt = formatRelativeTime(note.updatedAt);
   return { ...note, isFavorite, preview, relativeUpdatedAt };
 }

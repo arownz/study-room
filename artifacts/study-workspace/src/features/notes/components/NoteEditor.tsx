@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
-import { MoreHorizontal, Save, Star, StarOff, Trash2 } from "lucide-react";
+import { MoreHorizontal, Save, Star, StarOff, Trash2, Copy, FileStack, Printer, FileCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,7 +19,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { RichTextEditor } from "@/components/rich-editor/RichTextEditor";
+import { RichTextEditor, htmlToPlainText } from "@/components/rich-editor/RichTextEditor";
+import { useToast } from "@/hooks/use-toast";
 import { NoteEditorBreadcrumb } from "./NoteEditorBreadcrumb";
 import { NoteEditorFooter } from "./NoteEditorFooter";
 import type { NoteViewModel } from "../types";
@@ -21,19 +29,24 @@ interface NoteEditorProps {
   note: NoteViewModel;
   onSave: (payload: { title: string; content: string }) => Promise<void>;
   onDelete: () => Promise<void>;
+  onDuplicate: () => Promise<void>;
   onToggleFavorite: () => void;
   isSaving: boolean;
   isDeleting: boolean;
+  isDuplicating?: boolean;
 }
 
 export function NoteEditor({
   note,
   onSave,
   onDelete,
+  onDuplicate,
   onToggleFavorite,
   isSaving,
   isDeleting,
+  isDuplicating = false,
 }: NoteEditorProps) {
+  const { toast } = useToast();
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -48,6 +61,40 @@ export function NoteEditor({
   const handleSave = async () => {
     if (!isDirty) return;
     await onSave({ title, content });
+  };
+
+  const openPrintPreview = (): boolean => {
+    const preview = window.open("", "_blank");
+    if (!preview?.document) {
+      return false;
+    }
+    preview.document.open();
+    preview.document.write(
+      `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><title></title></head><body></body></html>`,
+    );
+    preview.document.close();
+    preview.document.title = htmlToPlainText(title) || "Note";
+
+    const h1 = preview.document.createElement("h1");
+    h1.textContent = title.trim() || "Untitled";
+    preview.document.body.appendChild(h1);
+
+    const article = preview.document.createElement("article");
+    article.innerHTML = content;
+    preview.document.body.appendChild(article);
+
+    preview.focus();
+    preview.print();
+    return true;
+  };
+
+  const copyText = async (payload: string, successDescription: string) => {
+    try {
+      await navigator.clipboard.writeText(payload);
+      toast({ title: "Copied", description: successDescription });
+    } catch {
+      toast({ title: "Copy failed", variant: "destructive" });
+    }
   };
 
   return (
@@ -68,7 +115,9 @@ export function NoteEditor({
         <RichTextEditor
           value={content}
           onChange={setContent}
-          placeholder="Start writing… (markdown supported)"
+          placeholder="Start writing your note…"
+          enableRichMedia
+          showMediaHint
           toolbarRight={
             <>
               <Button
@@ -106,9 +155,66 @@ export function NoteEditor({
               >
                 <Trash2 size={13} />
               </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7" data-testid="button-more-options">
-                <MoreHorizontal size={13} />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    data-testid="button-more-options"
+                    type="button"
+                  >
+                    <MoreHorizontal size={13} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem
+                    disabled={isDuplicating}
+                    onClick={() => void onDuplicate()}
+                    data-testid="menu-item-duplicate-note"
+                  >
+                    {isDuplicating ? (
+                      <Spinner className="mr-2 size-4" />
+                    ) : (
+                      <FileStack className="mr-2 size-4" />
+                    )}
+                    Duplicate note
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() =>
+                      void copyText(title.trim() || "Untitled", "Note title copied to clipboard.")
+                    }
+                  >
+                    <Copy className="mr-2 size-4" />
+                    Copy title
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void copyText(htmlToPlainText(content), "Plain text copied.")}>
+                    <Copy className="mr-2 size-4" />
+                    Copy as plain text
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void copyText(content, "HTML copied to clipboard.")}>
+                    <FileCode className="mr-2 size-4" />
+                    Copy HTML
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (!openPrintPreview()) {
+                        toast({
+                          title: "Print blocked",
+                          description:
+                            "Your browser prevented the print preview window — allow pop-ups for this site.",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                  >
+                    <Printer className="mr-2 size-4" />
+                    Print
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           }
         />

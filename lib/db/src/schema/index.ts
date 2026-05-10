@@ -15,6 +15,10 @@ export const users = pgTable("users", {
   emailVerified: boolean("email_verified").notNull().default(false),
   avatar: text("avatar"),
   role: text("role").notNull().default("student"),
+  // Tracks whether the user has explicitly chosen their role during
+  // onboarding. Until this flips to true the SPA forces the
+  // role-selection screen so we never silently default users to "student".
+  roleSelected: boolean("role_selected").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Bell, Search, Sun, Moon, Command, Settings } from "lucide-react";
+import { Bell, Search, Sun, Moon, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { shortcutModLabel } from "@/lib/platform";
 import { useAuth } from "@/contexts/auth-context";
 import { UserAvatar } from "@/components/auth/UserAvatar";
 import { useProfile } from "@/features/profile";
@@ -61,8 +62,12 @@ export function TopNav({ sidebarCollapsed, theme, onThemeToggle, title }: TopNav
             data-testid="input-search"
           />
           <div className="absolute right-2 flex items-center gap-0.5">
-            <Command size={10} className="text-muted-foreground" />
-            <span className="text-[10px] text-muted-foreground">K</span>
+            <kbd className="pointer-events-none rounded border border-border/80 bg-muted/60 px-1 font-mono text-[9px] font-semibold text-muted-foreground">
+              {shortcutModLabel()}
+            </kbd>
+            <kbd className="pointer-events-none rounded border border-border/80 bg-muted/60 px-1 font-mono text-[9px] font-semibold text-muted-foreground">
+              K
+            </kbd>
           </div>
         </div>
       </div>

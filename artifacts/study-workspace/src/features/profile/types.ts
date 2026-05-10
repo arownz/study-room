@@ -6,12 +6,57 @@ export interface ConnectedAccount {
   updatedAt: string;
 }
 
+export const USER_ROLES = [
+  "student",
+  "teacher",
+  "researcher",
+  "professional",
+  "self_learner",
+] as const;
+
+export type UserRole = (typeof USER_ROLES)[number];
+
+export interface UserRoleOption {
+  id: UserRole;
+  label: string;
+  description: string;
+}
+
+export const USER_ROLE_OPTIONS: UserRoleOption[] = [
+  {
+    id: "student",
+    label: "Student",
+    description: "School, university or bootcamp learner.",
+  },
+  {
+    id: "teacher",
+    label: "Teacher / Tutor",
+    description: "Teach classes, run study groups or coach learners.",
+  },
+  {
+    id: "researcher",
+    label: "Researcher",
+    description: "Academic, scientific or applied research work.",
+  },
+  {
+    id: "professional",
+    label: "Working Professional",
+    description: "Studying for work, certifications or skills growth.",
+  },
+  {
+    id: "self_learner",
+    label: "Self-Learner",
+    description: "Pursuing personal interests and lifelong learning.",
+  },
+];
+
 export interface ProfileUser {
   id: string;
   name: string;
   email: string;
   avatar: string | null;
-  role: string;
+  role: UserRole | string;
+  roleSelected: boolean;
   emailVerified: boolean;
   createdAt: string;
   updatedAt: string;
@@ -21,6 +66,8 @@ export interface ProfileUser {
 export interface ProfileUpdateInput {
   name?: string;
   avatar?: string | null;
+  role?: UserRole;
+  roleSelected?: boolean;
 }
 
 export interface ParsedName {
