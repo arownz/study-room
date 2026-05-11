@@ -58,8 +58,24 @@ export const updateMeRequestSchema = z
     message: "At least one field is required",
   });
 
+export const dashboardNoteSnippetSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  updatedAt: z.string(),
+});
+
+export const dashboardSummarySchema = z.object({
+  notesCount: z.number().int().nonnegative(),
+  flashcardsCount: z.number().int().nonnegative(),
+  flashcardDecksCount: z.number().int().nonnegative(),
+  studyRoomsCount: z.number().int().nonnegative(),
+  pomodoroSessionsCompletedTotal: z.number().int().nonnegative(),
+  recentNotes: z.array(dashboardNoteSnippetSchema),
+});
+
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 export type ListUsersResponse = z.infer<typeof listUsersResponseSchema>;
 export type ConnectedAccount = z.infer<typeof connectedAccountSchema>;
 export type MeDto = z.infer<typeof meDtoSchema>;
 export type UpdateMeRequest = z.infer<typeof updateMeRequestSchema>;
+export type DashboardSummary = z.infer<typeof dashboardSummarySchema>;

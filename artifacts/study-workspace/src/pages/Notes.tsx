@@ -84,13 +84,21 @@ export default function Notes() {
     }
   };
 
-  const handleSave = async (payload: { title: string; content: string }) => {
+  const handleSave = async (
+    payload: { title: string; content: string },
+    options?: { silent?: boolean },
+  ) => {
     if (!selected) return;
     try {
       await updateNote(selected.id, payload);
-      toast({ title: "Note saved" });
+      if (!options?.silent) {
+        toast({ title: "Note saved" });
+      }
     } catch {
-      toast({ title: "Failed to save note", variant: "destructive" });
+      toast({
+        title: options?.silent ? "Auto-save failed" : "Failed to save note",
+        variant: "destructive",
+      });
     }
   };
 

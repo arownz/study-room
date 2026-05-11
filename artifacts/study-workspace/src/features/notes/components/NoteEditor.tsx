@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MoreHorizontal, Save, Star, StarOff, Trash2, Copy, FileStack, Printer, FileCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -27,7 +27,10 @@ import type { NoteViewModel } from "../types";
 
 interface NoteEditorProps {
   note: NoteViewModel;
-  onSave: (payload: { title: string; content: string }) => Promise<void>;
+  onSave: (
+    payload: { title: string; content: string },
+    options?: { silent?: boolean },
+  ) => Promise<void>;
   onDelete: () => Promise<void>;
   onDuplicate: () => Promise<void>;
   onToggleFavorite: () => void;
@@ -58,10 +61,29 @@ export function NoteEditor({
 
   const isDirty = title !== note.title || content !== note.content;
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!isDirty) return;
-    await onSave({ title, content });
-  };
+    await onSave({ title, content }, { silent: false });
+  }, [content, isDirty, onSave, title]);
+
+  useEffect(() => {
+    if (!isDirty || isSaving) return;
+    const timeoutId = window.setTimeout(() => {
+      void onSave({ title, content }, { silent: true });
+    }, 900);
+    return () => window.clearTimeout(timeoutId);
+  }, [content, isDirty, isSaving, onSave, title]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        void handleSave();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [handleSave]);
 
   const openPrintPreview = (): boolean => {
     const preview = window.open("", "_blank");

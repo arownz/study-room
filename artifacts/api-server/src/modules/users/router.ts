@@ -20,6 +20,11 @@ const controller = new UsersController(service);
 // `/users/me*` routes are registered before the generic list route so
 // the static segment "me" is never captured as an :id parameter.
 router.get("/users/me", requireAuth, asyncHandler(controller.getMe));
+router.get(
+  "/users/me/dashboard-summary",
+  requireAuth,
+  asyncHandler(controller.getDashboardSummary),
+);
 router.patch(
   "/users/me",
   requireAuth,

@@ -58,6 +58,12 @@ export default defineConfig({
       strict: true,
     },
     proxy: {
+      "/socket.io": {
+        target: `http://localhost:${apiPort}`,
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+      },
       "/api": {
         target: `http://localhost:${apiPort}`,
         changeOrigin: true,

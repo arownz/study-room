@@ -31,7 +31,8 @@ function ProtectedRoutes() {
             <Route path="/" component={Dashboard} />
             <Route path="/notes/:noteId" component={Notes} />
             <Route path="/notes" component={Notes} />
-            <Route path="/flashcards/:flashcardId" component={Flashcards} />
+            <Route path="/flashcards/deck/:deckId" component={Flashcards} />
+            <Route path="/flashcards/card/:flashcardId" component={Flashcards} />
             <Route path="/flashcards" component={Flashcards} />
             <Route path="/rooms/:roomId" component={StudyRooms} />
             <Route path="/rooms" component={StudyRooms} />

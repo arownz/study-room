@@ -1,31 +1,31 @@
 import { useState } from "react";
 import { CheckSquare, Plus, Square } from "lucide-react";
+import {
+  useCreateStudyRoomGoal,
+  useListStudyRoomGoals,
+  useUpdateStudyRoomGoal,
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
-interface Goal {
-  id: string;
-  text: string;
-  done: boolean;
-}
-
-export function StudyRoomGoals() {
-  const [goals, setGoals] = useState<Goal[]>([]);
+export function StudyRoomGoals(props: { roomId: string }) {
   const [draft, setDraft] = useState("");
+  const { data: goalsEnvelope } = useListStudyRoomGoals(props.roomId);
+  const goals = goalsEnvelope?.data?.items ?? [];
+  const createGoal = useCreateStudyRoomGoal();
+  const updateGoal = useUpdateStudyRoomGoal();
 
   const addGoal = () => {
     const trimmed = draft.trim();
     if (!trimmed) return;
-    setGoals((prev) => [...prev, { id: `${Date.now()}`, text: trimmed, done: false }]);
+    createGoal.mutate({ roomId: props.roomId, data: { text: trimmed } });
     setDraft("");
   };
 
-  const toggleGoal = (id: string) => {
-    setGoals((prev) =>
-      prev.map((goal) => (goal.id === id ? { ...goal, done: !goal.done } : goal)),
-    );
+  const toggleGoal = (id: string, done: boolean) => {
+    updateGoal.mutate({ roomId: props.roomId, goalId: id, data: { done: !done } });
   };
 
   return (
@@ -43,16 +43,17 @@ export function StudyRoomGoals() {
             goals.map((goal) => (
               <button
                 key={goal.id}
-                onClick={() => toggleGoal(goal.id)}
+                type="button"
+                onClick={() => toggleGoal(goal.id, goal.done)}
                 className="group flex w-full items-start gap-2 text-left"
                 data-testid={`goal-item-${goal.id}`}
               >
                 {goal.done ? (
-                  <CheckSquare size={14} className="mt-0.5 flex-shrink-0 text-primary" />
+                  <CheckSquare size={14} className="mt-0.5 shrink-0 text-primary" />
                 ) : (
                   <Square
                     size={14}
-                    className="mt-0.5 flex-shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+                    className="mt-0.5 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
                   />
                 )}
                 <span
@@ -77,7 +78,14 @@ export function StudyRoomGoals() {
           className="h-7 text-xs"
           data-testid="input-add-goal"
         />
-        <Button size="icon" className="h-7 w-7" onClick={addGoal} data-testid="button-add-goal">
+        <Button
+          size="icon"
+          className="h-7 w-7"
+          type="button"
+          onClick={addGoal}
+          disabled={createGoal.isPending}
+          data-testid="button-add-goal"
+        >
           <Plus size={12} />
         </Button>
       </div>

@@ -9,4 +9,24 @@ export class AiController {
     const data = await this.service.listAiJobs(req.query as never);
     return sendSuccess(res, data);
   };
+
+  createThread = async (req: Request, res: Response) => {
+    const data = await this.service.createThread(req.authUser!.id, req.body);
+    return sendSuccess(res, data, 201);
+  };
+
+  listThreads = async (req: Request, res: Response) => {
+    const data = await this.service.listThreads(req.authUser!.id, req.query as never);
+    return sendSuccess(res, data);
+  };
+
+  listMessages = async (req: Request, res: Response) => {
+    const data = await this.service.listMessages(req.authUser!.id, req.params.threadId);
+    return sendSuccess(res, data);
+  };
+
+  appendMessage = async (req: Request, res: Response) => {
+    const data = await this.service.appendMessage(req.authUser!.id, req.params.threadId, req.body);
+    return sendSuccess(res, data);
+  };
 }

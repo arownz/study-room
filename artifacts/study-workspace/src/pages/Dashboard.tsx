@@ -1,17 +1,31 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { Flame, Clock, TrendingUp, Users, BookOpen, Layers, Sparkles, ArrowRight, Calendar, Activity } from "lucide-react";
+import {
+  Clock,
+  TrendingUp,
+  Users,
+  BookOpen,
+  Layers,
+  Sparkles,
+  ArrowRight,
+  Activity,
+  Timer,
+  PenLine,
+} from "lucide-react";
+import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { mockStudyStats, mockNotes, mockFlashcardDecks, mockUpcomingSessions, mockRecentActivity, mockStudyRooms } from "@/lib/mock-data";
-import { Link } from "wouter";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/auth-context";
 import { splitFullName } from "@/features/profile";
-
+import { useToast } from "@/hooks/use-toast";
+import {
+  useCreateNote,
+  useDashboardSummary,
+  useListFlashcardDecks,
+} from "@workspace/api-client-react";
 const stagger = {
   animate: { transition: { staggerChildren: 0.06 } },
 };
@@ -20,50 +34,70 @@ const fadeUp = {
   animate: { opacity: 1, y: 0, transition: { duration: 0.35 } },
 };
 
-const activityIcon: Record<string, typeof Flame> = {
-  note: BookOpen,
-  flashcard: Layers,
-  room: Users,
-  ai: Sparkles,
-};
+function formatNoteTime(iso: string): string {
+  const ts = new Date(iso).getTime();
+  if (Number.isNaN(ts)) return "—";
+  const diffSec = Math.round((Date.now() - ts) / 1000);
+  if (diffSec < 60) return "just now";
+  const diffMin = Math.round(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHour = Math.round(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}h ago`;
+  return new Date(iso).toLocaleDateString();
+}
 
-const pieColors = ["hsl(248,87%,66%)", "hsl(270,80%,60%)", "hsl(190,90%,50%)", "hsl(160,80%,45%)", "hsl(340,85%,65%)"];
-
-// TODO(study-stats): replace these gamification stubs with the real
-// study-streak / focus-rank service once implemented. Keeping them
-// derived here keeps the Dashboard self-contained while user identity
-// data already flows from the live session.
 const STREAK_DAYS = 0;
 const STREAK_RANK = "Newcomer";
 
 export default function Dashboard() {
-  const [loading] = useState(false);
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const { session, isLoading: isSessionLoading } = useAuth();
+  const summaryQuery = useDashboardSummary();
+  const decksPreview = useListFlashcardDecks({ limit: 4, offset: 0 });
+  const createNote = useCreateNote();
+  const [quickTitle, setQuickTitle] = useState("");
+
   const sessionUser = session?.user;
   const firstName = sessionUser?.name
     ? splitFullName(sessionUser.name).firstName || sessionUser.name
     : "there";
-  const weeklyPct = Math.round((mockStudyStats.weeklyCompleted / mockStudyStats.weeklyGoal) * 100);
 
-  const subjectData = [
-    { name: "Chem", value: 28 },
-    { name: "Math", value: 22 },
-    { name: "Bio", value: 18 },
-    { name: "Hist", value: 12 },
-    { name: "Econ", value: 8 },
-  ];
+  const s = summaryQuery.data?.data;
+  const loading = summaryQuery.isLoading;
+
+  const handleQuickNote = async () => {
+    const title = quickTitle.trim() || "Quick note";
+    try {
+      const res = await createNote.mutateAsync({
+        data: { title, content: "" },
+      });
+      setQuickTitle("");
+      setLocation(`/notes/${res.data.id}`);
+      toast({ title: "Note created" });
+    } catch {
+      toast({ title: "Could not create note", variant: "destructive" });
+    }
+  };
+
+  const firstDeckId = decksPreview.data?.data?.items?.[0]?.id;
 
   return (
-    <motion.div variants={stagger} initial="initial" animate="animate" className="space-y-6 max-w-7xl mx-auto">
-      <motion.div variants={fadeUp} className="flex items-start justify-between">
+    <motion.div
+      variants={stagger}
+      initial="initial"
+      animate="animate"
+      className="mx-auto max-w-7xl space-y-6"
+    >
+      <motion.div variants={fadeUp} className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">
             {isSessionLoading ? "Welcome back" : `Welcome back, ${firstName}`}
           </h2>
-          <p className="text-muted-foreground text-sm mt-1">
+          <p className="mt-1 text-sm text-muted-foreground">
             {STREAK_DAYS > 0
               ? `You're on a ${STREAK_DAYS}-day streak. Keep it going.`
-              : "Start your first study session to begin a streak."}
+              : "Your overview updates as you add notes, decks, and sessions."}
           </p>
         </div>
         <Badge variant="secondary" className="gap-1.5 px-3 py-1.5 text-sm font-semibold">
@@ -72,28 +106,107 @@ export default function Dashboard() {
         </Badge>
       </motion.div>
 
-      {/* Stat cards */}
-      <motion.div variants={fadeUp} className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <motion.div variants={fadeUp} className="flex flex-wrap gap-2">
+        <Button size="sm" asChild data-testid="dash-new-session">
+          <Link href={firstDeckId ? `/flashcards/deck/${firstDeckId}` : "/flashcards"}>
+            <Timer size={14} /> New study session
+          </Link>
+        </Button>
+        <Button size="sm" variant="outline" asChild>
+          <Link href="/rooms">
+            <Users size={14} /> Study rooms
+          </Link>
+        </Button>
+        <Button size="sm" variant="outline" asChild>
+          <Link href="/pomodoro">
+            <Clock size={14} /> Pomodoro
+          </Link>
+        </Button>
+        <Button size="sm" variant="outline" asChild>
+          <Link href="/ai-tutor">
+            <Sparkles size={14} /> AI tutor
+          </Link>
+        </Button>
+      </motion.div>
+
+      <motion.div variants={fadeUp}>
+        <Card className="border-border/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <PenLine size={15} className="text-primary" />
+              Quick note
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <Input
+              placeholder="Title…"
+              value={quickTitle}
+              onChange={(e) => setQuickTitle(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && void handleQuickNote()}
+              className="max-w-md"
+              data-testid="dash-quick-note-title"
+            />
+            <Button
+              size="sm"
+              onClick={() => void handleQuickNote()}
+              disabled={createNote.isPending}
+              data-testid="dash-quick-note-create"
+            >
+              Create & open
+            </Button>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      <motion.div variants={fadeUp} className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {[
-          { label: "Study Streak", value: `${STREAK_DAYS} days`, icon: Flame, color: "text-orange-400", sub: "Start studying to grow your streak" },
-          { label: "Today's Focus", value: `${mockStudyStats.todayFocusHours}h`, icon: Clock, color: "text-primary", sub: "Goal: 6h" },
-          { label: "Weekly Progress", value: `${weeklyPct}%`, icon: TrendingUp, color: "text-emerald-400", sub: `${mockStudyStats.weeklyCompleted}/${mockStudyStats.weeklyGoal}h done` },
-          { label: "Active Rooms", value: `${mockStudyRooms.filter(r => r.timerRunning).length}`, icon: Users, color: "text-violet-400", sub: "2 rooms live now" },
+          {
+            label: "Notes",
+            value: s?.notesCount ?? "—",
+            icon: BookOpen,
+            color: "text-sky-400",
+            sub: "Active notes",
+          },
+          {
+            label: "Flashcards",
+            value: s?.flashcardsCount ?? "—",
+            icon: Layers,
+            color: "text-violet-400",
+            sub: "Across all decks",
+          },
+          {
+            label: "Decks",
+            value: s?.flashcardDecksCount ?? "—",
+            icon: TrendingUp,
+            color: "text-emerald-400",
+            sub: "Flashcard decks",
+          },
+          {
+            label: "Study rooms",
+            value: s?.studyRoomsCount ?? "—",
+            icon: Users,
+            color: "text-amber-400",
+            sub: "Rooms you host",
+          },
         ].map((stat) => {
           const Icon = stat.icon;
           return (
-            <Card key={stat.label} className="border-border/60 hover:border-primary/30 transition-colors" data-testid={`card-stat-${stat.label.toLowerCase().replace(/\s+/g, "-")}`}>
-              <CardContent className="pt-5 pb-4">
+            <Card
+              key={stat.label}
+              className="border-border/60 transition-colors hover:border-primary/30"
+              data-testid={`card-stat-${stat.label.toLowerCase().replace(/\s+/g, "-")}`}
+            >
+              <CardContent className="pb-4 pt-5">
                 {loading ? (
                   <Skeleton className="h-16 w-full" />
                 ) : (
                   <>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-muted-foreground font-medium">{stat.label}</span>
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">{stat.label}</span>
                       <Icon size={16} className={stat.color} />
                     </div>
                     <p className="text-2xl font-bold">{stat.value}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{stat.sub}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{stat.sub}</p>
                   </>
                 )}
               </CardContent>
@@ -102,185 +215,128 @@ export default function Dashboard() {
         })}
       </motion.div>
 
-      {/* Charts row */}
-      <motion.div variants={fadeUp} className="grid md:grid-cols-3 gap-4">
-        <Card className="md:col-span-2 border-border/60">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Activity size={15} className="text-primary" />
-              Weekly Study Hours
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={mockStudyStats.weeklyHours} margin={{ top: 4, right: 0, left: -24, bottom: 0 }}>
-                <XAxis dataKey="day" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                  cursor={{ fill: "hsl(var(--muted)/0.3)" }}
-                />
-                <Bar dataKey="hours" fill="hsl(248,87%,66%)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
+      <motion.div variants={fadeUp} className="grid gap-4 md:grid-cols-2">
         <Card className="border-border/60">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <BookOpen size={15} className="text-primary" />
-              Subject Split
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center">
-            <ResponsiveContainer width="100%" height={130}>
-              <PieChart>
-                <Pie data={subjectData} cx="50%" cy="50%" innerRadius={36} outerRadius={58} dataKey="value" stroke="none">
-                  {subjectData.map((_, i) => <Cell key={i} fill={pieColors[i % pieColors.length]} />)}
-                </Pie>
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-1">
-              {subjectData.map((s, i) => (
-                <div key={s.name} className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: pieColors[i % pieColors.length] }} />
-                  <span className="text-muted-foreground">{s.name}</span>
-                  <span className="font-semibold ml-auto">{s.value}h</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Bottom row */}
-      <motion.div variants={fadeUp} className="grid md:grid-cols-3 gap-4">
-        {/* Recent notes */}
-        <Card className="border-border/60">
-          <CardHeader className="pb-3 flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
               <BookOpen size={14} className="text-primary" />
-              Recent Notes
+              Recent notes
             </CardTitle>
-            <Link href="/notes" className="text-xs text-primary hover:underline flex items-center gap-1" data-testid="link-all-notes">
+            <Link
+              href="/notes"
+              className="flex items-center gap-1 text-xs text-primary hover:underline"
+              data-testid="link-all-notes"
+            >
               All <ArrowRight size={12} />
             </Link>
           </CardHeader>
           <CardContent className="space-y-2">
-            {mockNotes.slice(0, 3).map((note) => (
-              <div key={note.id} className="flex items-start gap-2.5 py-1.5 hover:bg-muted/50 rounded-md px-2 -mx-2 cursor-pointer transition-colors" data-testid={`note-item-${note.id}`}>
-                <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{note.title}</p>
-                  <p className="text-xs text-muted-foreground">{note.updatedAt}</p>
-                </div>
-              </div>
-            ))}
+            {loading ? (
+              <Skeleton className="h-20 w-full" />
+            ) : (s?.recentNotes.length ?? 0) === 0 ? (
+              <p className="text-sm text-muted-foreground">No notes yet. Create one above.</p>
+            ) : (
+              s!.recentNotes.map((note) => (
+                <Link key={note.id} href={`/notes/${note.id}`}>
+                  <div
+                    className="-mx-2 flex cursor-pointer items-start gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/50"
+                    data-testid={`note-item-${note.id}`}
+                  >
+                    <div className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{note.title}</p>
+                      <p className="text-xs text-muted-foreground">{formatNoteTime(note.updatedAt)}</p>
+                    </div>
+                  </div>
+                </Link>
+              ))
+            )}
           </CardContent>
         </Card>
 
-        {/* Upcoming sessions */}
         <Card className="border-border/60">
-          <CardHeader className="pb-3 flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Calendar size={14} className="text-primary" />
-              Upcoming Sessions
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <Layers size={14} className="text-primary" />
+              Deck preview
             </CardTitle>
+            <Link
+              href="/flashcards"
+              className="flex items-center gap-1 text-xs text-primary hover:underline"
+              data-testid="link-all-flashcards"
+            >
+              All decks <ArrowRight size={12} />
+            </Link>
           </CardHeader>
           <CardContent className="space-y-3">
-            {mockUpcomingSessions.map((session, i) => (
-              <div key={i} className="flex items-center gap-3" data-testid={`session-item-${i}`}>
-                <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                  <Users size={14} className="text-primary" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate">{session.title}</p>
-                  <p className="text-xs text-muted-foreground">{session.time}</p>
-                </div>
-                <Badge variant="outline" className="text-[10px] shrink-0">{session.participants} joined</Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Recent activity */}
-        <Card className="border-border/60">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Activity size={14} className="text-primary" />
-              Recent Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2.5">
-            {mockRecentActivity.slice(0, 5).map((item, i) => {
-              const Icon = activityIcon[item.type] || Activity;
-              return (
-                <div key={i} className="flex items-start gap-2.5" data-testid={`activity-item-${i}`}>
-                  <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
-                    <Icon size={11} className="text-muted-foreground" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs leading-snug">{item.text}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{item.time}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Flashcard progress */}
-      <motion.div variants={fadeUp}>
-        <Card className="border-border/60">
-          <CardHeader className="pb-3 flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Layers size={14} className="text-primary" />
-              Flashcard Progress
-            </CardTitle>
-            <Link href="/flashcards" className="text-xs text-primary hover:underline flex items-center gap-1" data-testid="link-all-flashcards">
-              All Decks <ArrowRight size={12} />
-            </Link>
-          </CardHeader>
-          <CardContent className="grid md:grid-cols-2 gap-4">
-            {mockFlashcardDecks.slice(0, 4).map((deck) => {
-              const pct = Math.round((deck.mastered / deck.cardCount) * 100);
-              return (
-                <div key={deck.id} className="space-y-2" data-testid={`deck-progress-${deck.id}`}>
+            {decksPreview.isLoading ? (
+              <Skeleton className="h-24 w-full" />
+            ) : (decksPreview.data?.data.items.length ?? 0) === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No decks yet. Create a deck to organize flashcards.
+              </p>
+            ) : (
+              decksPreview.data!.data.items.map((deck) => (
+                <div key={deck.id} className="space-y-2" data-testid={`deck-preview-${deck.id}`}>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium truncate">{deck.title}</span>
-                    <span className="text-muted-foreground text-xs ml-2 shrink-0">{pct}%</span>
+                    <Link
+                      href={`/flashcards/deck/${deck.id}`}
+                      className="truncate font-medium hover:underline"
+                    >
+                      {deck.title}
+                    </Link>
                   </div>
-                  <Progress value={pct} className="h-1.5" />
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{deck.mastered}/{deck.cardCount} mastered</span>
-                    <Badge variant="outline" className="text-[10px] py-0">{deck.due} due</Badge>
-                  </div>
+                  <div className="h-1.5 rounded-full bg-muted" />
+                  <p className="text-xs text-muted-foreground">
+                    {deck.description?.trim()
+                      ? deck.description.trim().slice(0, 100)
+                      : "Open to add cards and study"}
+                  </p>
                 </div>
-              );
-            })}
+              ))
+            )}
           </CardContent>
         </Card>
       </motion.div>
 
-      {/* AI Recommendation */}
       <motion.div variants={fadeUp}>
-        <Card className="bg-primary/5 border-border/60">
-          <CardContent className="pt-4 pb-4 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+        <Card className="border-border/60 bg-primary/5">
+          <CardContent className="flex flex-col gap-4 pt-4 pb-4 sm:flex-row sm:items-center">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/20">
               <Sparkles size={18} className="text-primary" />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">AI Recommendation</p>
-              <p className="text-xs text-muted-foreground mt-0.5">You haven't reviewed your Organic Chemistry flashcards in 3 days. 8 cards are due — a 10-minute session now will lock in long-term retention.</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">AI & focus</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Open the AI tutor for explanations and quizzes. Pomodoro sessions completed (all time):{" "}
+                <span className="font-medium text-foreground">
+                  {s?.pomodoroSessionsCompletedTotal ?? 0}
+                </span>
+                .
+              </p>
             </div>
-            <Link href="/flashcards">
-              <Button size="sm" className="shrink-0" data-testid="button-ai-recommendation">
-                Start Review
+            <div className="flex shrink-0 gap-2">
+              <Button size="sm" variant="outline" asChild>
+                <Link href="/ai-tutor">AI tutor</Link>
               </Button>
-            </Link>
+              <Button size="sm" asChild data-testid="button-ai-recommendation">
+                <Link href="/flashcards">Flashcards</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      <motion.div variants={fadeUp}>
+        <Card className="border-dashed border-border/60">
+          <CardContent className="flex items-start gap-3 py-4">
+            <Activity size={18} className="mt-0.5 shrink-0 text-muted-foreground" />
+            <div>
+              <p className="text-sm font-medium">Charts & deep analytics</p>
+              <p className="text-xs text-muted-foreground">
+                Weekly hours and subject breakdown will connect here when the analytics module ships.
+              </p>
+            </div>
           </CardContent>
         </Card>
       </motion.div>

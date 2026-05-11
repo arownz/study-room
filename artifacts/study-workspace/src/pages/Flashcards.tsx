@@ -1,37 +1,104 @@
-import { useState } from "react";
-import { Plus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useLocation, useRoute } from "wouter";
+import { ChevronLeft, Plus } from "lucide-react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { FlashcardCardGrid } from "@/features/flashcards/components/FlashcardCardGrid";
 import { FlashcardCreateDialog } from "@/features/flashcards/components/FlashcardCreateDialog";
-import { FlashcardDeckGrid } from "@/features/flashcards/components/FlashcardDeckGrid";
+import { FlashcardDeckBrowse } from "@/features/flashcards/components/FlashcardDeckBrowse";
+import { FlashcardDeckCreateDialog } from "@/features/flashcards/components/FlashcardDeckCreateDialog";
 import { FlashcardEditor } from "@/features/flashcards/components/FlashcardEditor";
 import { FlashcardStudySession } from "@/features/flashcards/components/FlashcardStudySession";
+import { useFlashcardDecks } from "@/features/flashcards/hooks/use-flashcard-decks";
 import {
   useFlashcards,
   type FlashcardViewModel,
 } from "@/features/flashcards/hooks/use-flashcards";
+import { useGetFlashcardById, useGetFlashcardDeckById } from "@workspace/api-client-react";
+
+function formatRelative(iso: string): string {
+  const ts = new Date(iso).getTime();
+  if (Number.isNaN(ts)) return "—";
+  const diffSec = Math.round((Date.now() - ts) / 1000);
+  if (diffSec < 60) return "just now";
+  const diffMin = Math.round(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHour = Math.round(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}h ago`;
+  const diffDay = Math.round(diffHour / 24);
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
 
 export default function Flashcards() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const [deckRoute, deckParams] = useRoute<{ deckId: string }>("/flashcards/deck/:deckId");
+  const [cardRoute, cardParams] = useRoute<{ flashcardId: string }>(
+    "/flashcards/card/:flashcardId",
+  );
+
+  const routeDeckId = deckRoute && deckParams ? deckParams.deckId : undefined;
+  const routeCardId = cardRoute && cardParams ? cardParams.flashcardId : undefined;
+
+  const {
+    decks,
+    isLoading: decksLoading,
+    isError: decksError,
+    isCreating: deckCreating,
+    createDeck,
+  } = useFlashcardDecks();
+
   const {
     cards,
-    isLoading,
-    isError,
+    isLoading: cardsLoading,
+    isError: cardsError,
     isCreating,
     isUpdating,
     isDeleting,
     createCard,
     updateCard,
     deleteCard,
-  } = useFlashcards();
+  } = useFlashcards(routeDeckId);
 
+  const cardDetailQuery = useGetFlashcardById(routeCardId ?? "", {
+    query: { enabled: Boolean(routeCardId) },
+  });
+
+  const deckMetaQuery = useGetFlashcardDeckById(routeDeckId ?? "", {
+    query: { enabled: Boolean(routeDeckId) },
+  });
+
+  const [deckCreateOpen, setDeckCreateOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<FlashcardViewModel | null>(null);
   const [studyState, setStudyState] = useState<{ startId: string } | null>(null);
 
-  const handleCreate = async (values: { question: string; answer: string }) => {
+  useEffect(() => {
+    if (!routeCardId || !cardDetailQuery.data?.data) return;
+    const c = cardDetailQuery.data.data;
+    setEditing({
+      ...c,
+      relativeUpdatedAt: formatRelative(c.updatedAt),
+    });
+  }, [routeCardId, cardDetailQuery.data]);
+
+  const handleCreateDeck = async (values: { title: string; description: string | null }) => {
     try {
-      await createCard(values);
+      const created = await createDeck(values);
+      setDeckCreateOpen(false);
+      setLocation(`/flashcards/deck/${created.id}`);
+      toast({ title: "Deck created" });
+    } catch {
+      toast({ title: "Failed to create deck", variant: "destructive" });
+    }
+  };
+
+  const handleCreateCard = async (values: { question: string; answer: string }) => {
+    if (!routeDeckId) return;
+    try {
+      await createCard({ deckId: routeDeckId, ...values });
       setCreateOpen(false);
       toast({ title: "Flashcard created" });
     } catch {
@@ -44,6 +111,11 @@ export default function Flashcards() {
     try {
       await updateCard(editing.id, values);
       setEditing(null);
+      if (routeCardId) {
+        setLocation(
+          editing.deckId ? `/flashcards/deck/${editing.deckId}` : "/flashcards",
+        );
+      }
       toast({ title: "Flashcard saved" });
     } catch {
       toast({ title: "Failed to save flashcard", variant: "destructive" });
@@ -53,15 +125,35 @@ export default function Flashcards() {
   const handleDelete = async () => {
     if (!editing) return;
     try {
+      const d = editing.deckId;
       await deleteCard(editing.id);
       setEditing(null);
+      if (routeCardId) {
+        setLocation(d ? `/flashcards/deck/${d}` : "/flashcards");
+      }
       toast({ title: "Flashcard deleted" });
     } catch {
       toast({ title: "Failed to delete flashcard", variant: "destructive" });
     }
   };
 
-  if (studyState) {
+  const closeEditor = (open: boolean) => {
+    if (!open) {
+      const fallbackDeck = editing?.deckId;
+      setEditing(null);
+      if (routeCardId) {
+        setLocation(
+          fallbackDeck
+            ? `/flashcards/deck/${fallbackDeck}`
+            : routeDeckId
+              ? `/flashcards/deck/${routeDeckId}`
+              : "/flashcards",
+        );
+      }
+    }
+  };
+
+  if (studyState && routeDeckId) {
     const startIndex = Math.max(
       0,
       cards.findIndex((card) => card.id === studyState.startId),
@@ -82,39 +174,101 @@ export default function Flashcards() {
     );
   }
 
+  if (routeDeckId) {
+    return (
+      <div className="mx-auto max-w-5xl space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" asChild className="h-8 px-2">
+              <Link href="/flashcards">
+                <ChevronLeft size={16} />
+                Decks
+              </Link>
+            </Button>
+            <div>
+              <h2 className="text-xl font-bold">
+                {deckMetaQuery.data?.data.title ?? "Deck"}
+              </h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {cards.length} card{cards.length === 1 ? "" : "s"}
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setCreateOpen(true)}
+            disabled={!routeDeckId}
+            data-testid="button-new-flashcard"
+          >
+            <Plus size={14} /> New card
+          </Button>
+        </div>
+
+        <FlashcardCardGrid
+          cards={cards}
+          isLoading={cardsLoading}
+          isError={cardsError}
+          onStudy={(card) => setStudyState({ startId: card.id })}
+          onEdit={(card) => setEditing(card)}
+        />
+
+        <FlashcardCreateDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          onSubmit={handleCreateCard}
+          isSubmitting={isCreating}
+        />
+
+        <FlashcardEditor
+          card={editing}
+          open={editing !== null}
+          onOpenChange={closeEditor}
+          onSave={handleSave}
+          onDelete={handleDelete}
+          isSaving={isUpdating}
+          isDeleting={isDeleting}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold">Flashcards</h2>
+          <h2 className="text-xl font-bold">Flashcard decks</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {cards.length} card{cards.length === 1 ? "" : "s"} in your collection
+            {decks.length} deck{decks.length === 1 ? "" : "s"}
           </p>
         </div>
-        <Button size="sm" onClick={() => setCreateOpen(true)} data-testid="button-new-flashcard">
-          <Plus size={14} /> New card
+        <Button
+          size="sm"
+          onClick={() => setDeckCreateOpen(true)}
+          data-testid="button-new-deck"
+          disabled={decksLoading}
+        >
+          <Plus size={14} /> New deck
         </Button>
       </div>
 
-      <FlashcardDeckGrid
-        cards={cards}
-        isLoading={isLoading}
-        isError={isError}
-        onStudy={(card) => setStudyState({ startId: card.id })}
-        onEdit={(card) => setEditing(card)}
+      <FlashcardDeckBrowse
+        decks={decks}
+        isLoading={decksLoading}
+        isError={decksError}
+        onCreateDeck={() => setDeckCreateOpen(true)}
       />
 
-      <FlashcardCreateDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onSubmit={handleCreate}
-        isSubmitting={isCreating}
+      <FlashcardDeckCreateDialog
+        open={deckCreateOpen}
+        onOpenChange={setDeckCreateOpen}
+        onSubmit={handleCreateDeck}
+        isSubmitting={deckCreating}
       />
 
       <FlashcardEditor
         card={editing}
-        open={editing !== null}
-        onOpenChange={(open) => !open && setEditing(null)}
+        open={editing !== null && !routeDeckId}
+        onOpenChange={closeEditor}
         onSave={handleSave}
         onDelete={handleDelete}
         isSaving={isUpdating}

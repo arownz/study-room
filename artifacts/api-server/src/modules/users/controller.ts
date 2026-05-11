@@ -5,6 +5,7 @@ import { rename, unlink } from "node:fs/promises";
 import { sendError, sendSuccess } from "../../core/http/response";
 import { AppError } from "../../lib/app-error";
 import {
+  dashboardSummarySchema,
   listUsersResponseSchema,
   meDtoSchema,
   type UpdateMeRequest,
@@ -39,6 +40,15 @@ export class UsersController {
     }
     const data = await this.service.getMe(req.authUser.id);
     return sendSuccess(res, meDtoSchema.parse(data));
+  };
+
+  getDashboardSummary = async (req: Request, res: Response) => {
+    if (!req.authUser) {
+      sendError(res, "Unauthorized", 401, "UNAUTHORIZED");
+      return;
+    }
+    const data = await this.service.getDashboardSummary(req.authUser.id);
+    return sendSuccess(res, dashboardSummarySchema.parse(data));
   };
 
   updateMe = async (req: Request, res: Response) => {

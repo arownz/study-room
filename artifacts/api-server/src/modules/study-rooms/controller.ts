@@ -1,6 +1,12 @@
 import type { Request, Response } from "express";
 import { sendSuccess } from "../../core/http/response";
-import { listStudyRoomsResponseSchema, studyRoomDtoSchema } from "./contracts";
+import {
+  listStudyRoomGoalsResponseSchema,
+  listStudyRoomsResponseSchema,
+  studyRoomDtoSchema,
+  studyRoomGoalDtoSchema,
+  studyRoomTimerDtoSchema,
+} from "./contracts";
 import { StudyRoomsService } from "./service";
 
 export class StudyRoomsController {
@@ -29,5 +35,44 @@ export class StudyRoomsController {
   deleteStudyRoom = async (req: Request, res: Response) => {
     const data = await this.service.deleteStudyRoom(req.authUser!.id, req.params.roomId);
     return sendSuccess(res, data);
+  };
+
+  listGoals = async (req: Request, res: Response) => {
+    const data = await this.service.listStudyRoomGoals(req.authUser!.id, req.params.roomId);
+    return sendSuccess(res, listStudyRoomGoalsResponseSchema.parse(data));
+  };
+
+  createGoal = async (req: Request, res: Response) => {
+    const data = await this.service.createStudyRoomGoal(req.authUser!.id, req.params.roomId, req.body);
+    return sendSuccess(res, studyRoomGoalDtoSchema.parse(data), 201);
+  };
+
+  updateGoal = async (req: Request, res: Response) => {
+    const data = await this.service.updateStudyRoomGoal(
+      req.authUser!.id,
+      req.params.roomId,
+      req.params.goalId,
+      req.body,
+    );
+    return sendSuccess(res, studyRoomGoalDtoSchema.parse(data));
+  };
+
+  deleteGoal = async (req: Request, res: Response) => {
+    const data = await this.service.deleteStudyRoomGoal(
+      req.authUser!.id,
+      req.params.roomId,
+      req.params.goalId,
+    );
+    return sendSuccess(res, data);
+  };
+
+  getTimer = async (req: Request, res: Response) => {
+    const data = await this.service.getStudyRoomTimer(req.authUser!.id, req.params.roomId);
+    return sendSuccess(res, studyRoomTimerDtoSchema.parse(data));
+  };
+
+  patchTimer = async (req: Request, res: Response) => {
+    const data = await this.service.patchStudyRoomTimer(req.authUser!.id, req.params.roomId, req.body);
+    return sendSuccess(res, studyRoomTimerDtoSchema.parse(data));
   };
 }

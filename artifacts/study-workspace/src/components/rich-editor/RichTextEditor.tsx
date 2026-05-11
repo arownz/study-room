@@ -13,6 +13,8 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
 import {
   Bold,
   Heading1,
@@ -30,6 +32,7 @@ import {
   UnlinkIcon,
   UnderlineIcon,
   Code as CodeIcon,
+  CheckSquare,
 } from "lucide-react";
 import { ApiError, customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -176,6 +179,13 @@ function buildToolbarGroups(): ToolbarButton[][] {
         command: (editor) => editor.chain().focus().toggleOrderedList().run(),
       },
       {
+        id: "task",
+        icon: CheckSquare,
+        label: "Checkbox",
+        isActive: (editor) => editor.isActive("taskList"),
+        command: (editor) => editor.chain().focus().toggleList("taskList", "taskItem").run(),
+      },
+      {
         id: "quote",
         icon: Quote,
         label: "Blockquote",
@@ -288,6 +298,12 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             heading: { levels: [1, 2, 3] },
           }),
           Underline,
+          TaskList.configure({
+            // Optional configuration can go here
+          }),
+          TaskItem.configure({
+            nested: true,
+          }),
           Placeholder.configure({
             placeholder: placeholder ?? "Start writing…",
           }),
@@ -334,6 +350,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             "[&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6",
             "[&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground",
             "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em]",
+            "[&_li[data-checked]]:list-none", // Remove bullets for task list items
           ),
           "data-testid": testId ?? "rte-editor",
         },

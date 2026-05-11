@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  getListFlashcardDecksQueryKey,
   getListFlashcardsQueryKey,
   useCreateFlashcard,
   useDeleteFlashcard,
@@ -27,17 +28,26 @@ function formatRelative(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
-export function useFlashcards() {
+const listParams = { limit: 100, offset: 0 } as const;
+
+export function useFlashcards(deckId: string | undefined) {
   const queryClient = useQueryClient();
-  const cardsQuery = useListFlashcards({ limit: 100, offset: 0 });
+  const cardsQuery = useListFlashcards(
+    deckId ? { ...listParams, deckId } : { ...listParams },
+    { query: { enabled: Boolean(deckId) } },
+  );
   const createMutation = useCreateFlashcard();
   const updateMutation = useUpdateFlashcard();
   const deleteMutation = useDeleteFlashcard();
 
-  const refresh = useCallback(
-    () => queryClient.invalidateQueries({ queryKey: getListFlashcardsQueryKey() }),
-    [queryClient],
-  );
+  const refresh = useCallback(async () => {
+    await queryClient.invalidateQueries({
+      predicate: (q) =>
+        q.queryKey[0] === "/api/v1/flashcards" ||
+        q.queryKey[0] === "/api/v1/flashcard-decks",
+    });
+    await queryClient.invalidateQueries({ queryKey: getListFlashcardDecksQueryKey() });
+  }, [queryClient]);
 
   const cards: FlashcardViewModel[] = useMemo(() => {
     const items = cardsQuery.data?.data?.items ?? [];
@@ -48,7 +58,7 @@ export function useFlashcards() {
   }, [cardsQuery.data]);
 
   const createCard = useCallback(
-    async (input: { question: string; answer: string }) => {
+    async (input: { deckId: string; question: string; answer: string }) => {
       const result = await createMutation.mutateAsync({ data: input });
       await refresh();
       return result.data;
@@ -57,8 +67,12 @@ export function useFlashcards() {
   );
 
   const updateCard = useCallback(
-    async (flashcardId: string, input: { question?: string; answer?: string }) => {
+    async (
+      flashcardId: string,
+      input: { deckId?: string; question?: string; answer?: string },
+    ) => {
       const data = {
+        ...(input.deckId !== undefined ? { deckId: input.deckId } : {}),
         ...(input.question !== undefined ? { question: input.question } : {}),
         ...(input.answer !== undefined ? { answer: input.answer } : {}),
       };
@@ -79,7 +93,7 @@ export function useFlashcards() {
 
   return {
     cards,
-    isLoading: cardsQuery.isLoading,
+    isLoading: Boolean(deckId) && cardsQuery.isLoading,
     isError: cardsQuery.isError,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
@@ -87,5 +101,6 @@ export function useFlashcards() {
     createCard,
     updateCard,
     deleteCard,
+    queryKey: deckId ? getListFlashcardsQueryKey({ ...listParams, deckId }) : null,
   };
 }

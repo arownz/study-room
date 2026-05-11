@@ -1,5 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { flashcards } from "@workspace/db/schema";
+import type { SQL } from "drizzle-orm";
 import { db } from "../../lib/database";
 import { z } from "zod";
 import {
@@ -14,10 +15,14 @@ type UpdateFlashcardBody = z.infer<typeof updateFlashcardBodySchema>;
 
 export class FlashcardsRepository {
   async listFlashcards(userId: string, query: ListFlashcardsQuery) {
+    const conditions: SQL[] = [eq(flashcards.userId, userId)];
+    if (query.deckId) {
+      conditions.push(eq(flashcards.deckId, query.deckId));
+    }
     return db
       .select()
       .from(flashcards)
-      .where(eq(flashcards.userId, userId))
+      .where(and(...conditions))
       .orderBy(desc(flashcards.updatedAt))
       .limit(query.limit)
       .offset(query.offset);
@@ -36,6 +41,7 @@ export class FlashcardsRepository {
     await db.insert(flashcards).values({
       id: flashcardId,
       userId,
+      deckId: payload.deckId,
       question: payload.question,
       answer: payload.answer,
     });
@@ -43,10 +49,13 @@ export class FlashcardsRepository {
   }
 
   async updateFlashcard(userId: string, flashcardId: string, payload: UpdateFlashcardBody) {
+    const { deckId, question, answer } = payload;
     await db
       .update(flashcards)
       .set({
-        ...payload,
+        ...(deckId !== undefined ? { deckId } : {}),
+        ...(question !== undefined ? { question } : {}),
+        ...(answer !== undefined ? { answer } : {}),
         updatedAt: new Date(),
       })
       .where(and(eq(flashcards.userId, userId), eq(flashcards.id, flashcardId)));

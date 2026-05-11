@@ -127,8 +127,51 @@ export interface ListStudyRoomsResponse {
   data: ListStudyRoomsResponseData;
 }
 
+export interface FlashcardDeck {
+  id: string;
+  title: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateFlashcardDeckRequest {
+  title: string;
+  description?: string | null;
+}
+
+export interface UpdateFlashcardDeckRequest {
+  title?: string;
+  description?: string | null;
+}
+
+export interface FlashcardDeckResponse {
+  success: true;
+  data: FlashcardDeck;
+}
+
+export type ListFlashcardDecksResponseData = {
+  items: FlashcardDeck[];
+};
+
+export interface ListFlashcardDecksResponse {
+  success: true;
+  data: ListFlashcardDecksResponseData;
+}
+
+export interface FlashcardDeckStats {
+  cardCount: number;
+  lastCardUpdatedAt: string | null;
+}
+
+export interface FlashcardDeckStatsResponse {
+  success: true;
+  data: FlashcardDeckStats;
+}
+
 export interface Flashcard {
   id: string;
+  deckId: string;
   question: string;
   answer: string;
   createdAt: string;
@@ -136,11 +179,13 @@ export interface Flashcard {
 }
 
 export interface CreateFlashcardRequest {
+  deckId: string;
   question: string;
   answer: string;
 }
 
 export interface UpdateFlashcardRequest {
+  deckId?: string;
   question?: string;
   answer?: string;
 }
@@ -196,5 +241,11 @@ export type ListFlashcardsParams = {
   /**
    * @minimum 0
    */
+  offset?: OffsetParamParameter;
+  deckId?: string;
+};
+
+export type ListFlashcardDecksParams = {
+  limit?: LimitParamParameter;
   offset?: OffsetParamParameter;
 };

@@ -5,9 +5,13 @@ import { requireAuth } from "../auth/middleware";
 import { StudyRoomsController } from "./controller";
 import {
   createStudyRoomBodySchema,
+  createStudyRoomGoalBodySchema,
   listStudyRoomsQuerySchema,
+  patchStudyRoomTimerBodySchema,
+  studyRoomGoalIdParamsSchema,
   studyRoomIdParamsSchema,
   updateStudyRoomBodySchema,
+  updateStudyRoomGoalBodySchema,
 } from "./contracts";
 import { StudyRoomsRepository } from "./repository";
 import { StudyRoomsService } from "./service";
@@ -22,6 +26,45 @@ router.get(
   requireAuth,
   validateRequest({ query: listStudyRoomsQuerySchema }),
   asyncHandler(controller.listStudyRooms),
+);
+router.get(
+  "/study-rooms/:roomId/goals",
+  requireAuth,
+  validateRequest({ params: studyRoomIdParamsSchema }),
+  asyncHandler(controller.listGoals),
+);
+router.post(
+  "/study-rooms/:roomId/goals",
+  requireAuth,
+  validateRequest({ params: studyRoomIdParamsSchema, body: createStudyRoomGoalBodySchema }),
+  asyncHandler(controller.createGoal),
+);
+router.patch(
+  "/study-rooms/:roomId/goals/:goalId",
+  requireAuth,
+  validateRequest({
+    params: studyRoomGoalIdParamsSchema,
+    body: updateStudyRoomGoalBodySchema,
+  }),
+  asyncHandler(controller.updateGoal),
+);
+router.delete(
+  "/study-rooms/:roomId/goals/:goalId",
+  requireAuth,
+  validateRequest({ params: studyRoomGoalIdParamsSchema }),
+  asyncHandler(controller.deleteGoal),
+);
+router.get(
+  "/study-rooms/:roomId/timer",
+  requireAuth,
+  validateRequest({ params: studyRoomIdParamsSchema }),
+  asyncHandler(controller.getTimer),
+);
+router.patch(
+  "/study-rooms/:roomId/timer",
+  requireAuth,
+  validateRequest({ params: studyRoomIdParamsSchema, body: patchStudyRoomTimerBodySchema }),
+  asyncHandler(controller.patchTimer),
 );
 router.get(
   "/study-rooms/:roomId",

@@ -11,7 +11,9 @@ import {
 import { StudyRoomGoals } from "@/features/study-rooms/components/StudyRoomGoals";
 import { StudyRoomHeader } from "@/features/study-rooms/components/StudyRoomHeader";
 import { StudyRoomList } from "@/features/study-rooms/components/StudyRoomList";
+import { StudyRoomTimerBar } from "@/features/study-rooms/components/StudyRoomTimerBar";
 import { useStudyRooms } from "@/features/study-rooms/hooks/use-study-rooms";
+import { useStudyRoomRealtime } from "@/features/study-rooms/hooks/use-study-room-realtime";
 
 export default function StudyRooms() {
   const { toast } = useToast();
@@ -54,6 +56,8 @@ export default function StudyRooms() {
   }, [rooms, selectedId, routeRoomId, setLocation]);
 
   const selected = rooms.find((room) => room.id === selectedId) ?? null;
+
+  useStudyRoomRealtime(selected?.id ?? null);
 
   const handleCreate = async (values: StudyRoomCreateValues) => {
     try {
@@ -115,9 +119,10 @@ export default function StudyRooms() {
               isSaving={isUpdating}
               isDeleting={isDeleting}
             />
+            <StudyRoomTimerBar roomId={selected.id} />
             <div className="flex min-h-0 flex-1">
               <StudyRoomChat room={selected} />
-              <StudyRoomGoals />
+              <StudyRoomGoals roomId={selected.id} />
             </div>
           </>
         ) : (

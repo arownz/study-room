@@ -1,9 +1,11 @@
 import { AppError } from "../../lib/app-error";
-import type {
-  ListUsersQuery,
-  ListUsersResponse,
-  MeDto,
-  UpdateMeRequest,
+import {
+  dashboardSummarySchema,
+  type DashboardSummary,
+  type ListUsersQuery,
+  type ListUsersResponse,
+  type MeDto,
+  type UpdateMeRequest,
 } from "./contracts";
 import { UsersRepository } from "./repository";
 
@@ -74,5 +76,10 @@ export class UsersService {
       throw new AppError("User not found", 404, "USER_NOT_FOUND");
     }
     return this.getMe(userId);
+  }
+
+  async getDashboardSummary(userId: string): Promise<DashboardSummary> {
+    const raw = await this.repository.getDashboardSummary(userId);
+    return dashboardSummarySchema.parse(raw);
   }
 }

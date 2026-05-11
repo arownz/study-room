@@ -1,5 +1,13 @@
-import { and, desc, eq } from "drizzle-orm";
-import { accounts, users } from "@workspace/db/schema";
+import { and, count, desc, eq, isNull } from "drizzle-orm";
+import {
+  accounts,
+  flashcardDecks,
+  flashcards,
+  notes,
+  pomodoroSessions,
+  studyRooms,
+  users,
+} from "@workspace/db/schema";
 import { db } from "../../lib/database";
 import type { ListUsersQuery, UpdateMeRequest } from "./contracts";
 
@@ -87,5 +95,60 @@ export class UsersRepository {
       .where(
         and(eq(accounts.userId, userId), eq(accounts.providerId, providerId)),
       );
+  }
+
+  async getDashboardSummary(userId: string) {
+    const [
+      notesCountRow,
+      flashcardsCountRow,
+      decksCountRow,
+      roomsCountRow,
+      pomodoroCountRow,
+      recentNoteRows,
+    ] = await Promise.all([
+      db
+        .select({ c: count() })
+        .from(notes)
+        .where(and(eq(notes.userId, userId), isNull(notes.deletedAt))),
+      db
+        .select({ c: count() })
+        .from(flashcards)
+        .where(eq(flashcards.userId, userId)),
+      db
+        .select({ c: count() })
+        .from(flashcardDecks)
+        .where(eq(flashcardDecks.userId, userId)),
+      db
+        .select({ c: count() })
+        .from(studyRooms)
+        .where(eq(studyRooms.ownerId, userId)),
+      db
+        .select({ c: count() })
+        .from(pomodoroSessions)
+        .where(eq(pomodoroSessions.userId, userId)),
+      db
+        .select({
+          id: notes.id,
+          title: notes.title,
+          updatedAt: notes.updatedAt,
+        })
+        .from(notes)
+        .where(and(eq(notes.userId, userId), isNull(notes.deletedAt)))
+        .orderBy(desc(notes.updatedAt))
+        .limit(5),
+    ]);
+
+    return {
+      notesCount: Number(notesCountRow[0]?.c ?? 0),
+      flashcardsCount: Number(flashcardsCountRow[0]?.c ?? 0),
+      flashcardDecksCount: Number(decksCountRow[0]?.c ?? 0),
+      studyRoomsCount: Number(roomsCountRow[0]?.c ?? 0),
+      pomodoroSessionsCompletedTotal: Number(pomodoroCountRow[0]?.c ?? 0),
+      recentNotes: recentNoteRows.map((r) => ({
+        id: r.id,
+        title: r.title,
+        updatedAt: r.updatedAt.toISOString(),
+      })),
+    };
   }
 }

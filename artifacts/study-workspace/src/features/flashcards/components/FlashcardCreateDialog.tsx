@@ -46,7 +46,7 @@ export function FlashcardCreateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] max-w-[46rem] flex-col gap-0 overflow-hidden">
+      <DialogContent className="flex max-h-[90vh] max-w-184 flex-col gap-0 overflow-hidden">
         <DialogHeader className="shrink-0">
           <DialogTitle>New flashcard</DialogTitle>
           <DialogDescription>

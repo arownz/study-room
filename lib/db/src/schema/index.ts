@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm";
 import {
   boolean,
   index,
+  integer,
   pgTable,
   text,
   timestamp,
@@ -153,10 +154,103 @@ export const studyRooms = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     isPublic: boolean("is_public").notNull().default(false),
+    timerPhase: text("timer_phase"),
+    timerDurationSec: integer("timer_duration_sec"),
+    timerRemainingSec: integer("timer_remaining_sec"),
+    timerRunning: boolean("timer_running").notNull().default(false),
+    timerAnchorEndsAt: timestamp("timer_anchor_ends_at", { withTimezone: true }),
+    timerLeaderUserId: text("timer_leader_user_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("study_rooms_owner_id_idx").on(table.ownerId)],
+);
+
+export const studyRoomGoals = pgTable(
+  "study_room_goals",
+  {
+    id: text("id").primaryKey(),
+    roomId: text("room_id")
+      .notNull()
+      .references(() => studyRooms.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    text: text("text").notNull(),
+    done: boolean("done").notNull().default(false),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("study_room_goals_room_id_idx").on(table.roomId)],
+);
+
+export const pomodoroSessions = pgTable(
+  "pomodoro_sessions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    mode: text("mode").notNull(),
+    durationPlannedSec: integer("duration_planned_sec").notNull(),
+    durationActualSec: integer("duration_actual_sec").notNull(),
+    label: text("label"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("pomodoro_sessions_user_id_idx").on(table.userId),
+    index("pomodoro_sessions_completed_at_idx").on(table.completedAt),
+  ],
+);
+
+export const flashcardDecks = pgTable(
+  "flashcard_decks",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("flashcard_decks_user_id_idx").on(table.userId)],
+);
+
+export const aiThreads = pgTable(
+  "ai_threads",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("ai_threads_user_id_idx").on(table.userId),
+    index("ai_threads_updated_at_idx").on(table.updatedAt),
+  ],
+);
+
+export const aiMessages = pgTable(
+  "ai_messages",
+  {
+    id: text("id").primaryKey(),
+    threadId: text("thread_id")
+      .notNull()
+      .references(() => aiThreads.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    content: text("content").notNull(),
+    templateKey: text("template_key"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("ai_messages_thread_id_idx").on(table.threadId)],
 );
 
 export const flashcards = pgTable(
@@ -166,12 +260,18 @@ export const flashcards = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    deckId: text("deck_id")
+      .notNull()
+      .references(() => flashcardDecks.id, { onDelete: "cascade" }),
     question: text("question").notNull(),
     answer: text("answer").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("flashcards_user_id_idx").on(table.userId)],
+  (table) => [
+    index("flashcards_user_id_idx").on(table.userId),
+    index("flashcards_deck_id_idx").on(table.deckId),
+  ],
 );
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -181,6 +281,10 @@ export const usersRelations = relations(users, ({ many }) => ({
   noteFolders: many(noteFolders),
   noteCollaborations: many(noteCollaborators),
   studyRooms: many(studyRooms),
+  studyRoomGoals: many(studyRoomGoals),
+  pomodoroSessions: many(pomodoroSessions),
+  aiThreads: many(aiThreads),
+  flashcardDecks: many(flashcardDecks),
   flashcards: many(flashcards),
 }));
 
@@ -228,16 +332,62 @@ export const noteCollaboratorsRelations = relations(noteCollaborators, ({ one })
   }),
 }));
 
-export const studyRoomsRelations = relations(studyRooms, ({ one }) => ({
+export const studyRoomsRelations = relations(studyRooms, ({ one, many }) => ({
   owner: one(users, {
     fields: [studyRooms.ownerId],
     references: [users.id],
   }),
+  goals: many(studyRoomGoals),
+}));
+
+export const studyRoomGoalsRelations = relations(studyRoomGoals, ({ one }) => ({
+  room: one(studyRooms, {
+    fields: [studyRoomGoals.roomId],
+    references: [studyRooms.id],
+  }),
+  user: one(users, {
+    fields: [studyRoomGoals.userId],
+    references: [users.id],
+  }),
+}));
+
+export const pomodoroSessionsRelations = relations(pomodoroSessions, ({ one }) => ({
+  user: one(users, {
+    fields: [pomodoroSessions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const aiThreadsRelations = relations(aiThreads, ({ one, many }) => ({
+  user: one(users, {
+    fields: [aiThreads.userId],
+    references: [users.id],
+  }),
+  messages: many(aiMessages),
+}));
+
+export const aiMessagesRelations = relations(aiMessages, ({ one }) => ({
+  thread: one(aiThreads, {
+    fields: [aiMessages.threadId],
+    references: [aiThreads.id],
+  }),
+}));
+
+export const flashcardDecksRelations = relations(flashcardDecks, ({ one, many }) => ({
+  user: one(users, {
+    fields: [flashcardDecks.userId],
+    references: [users.id],
+  }),
+  flashcards: many(flashcards),
 }));
 
 export const flashcardsRelations = relations(flashcards, ({ one }) => ({
   user: one(users, {
     fields: [flashcards.userId],
     references: [users.id],
+  }),
+  deck: one(flashcardDecks, {
+    fields: [flashcards.deckId],
+    references: [flashcardDecks.id],
   }),
 }));

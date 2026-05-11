@@ -9,12 +9,14 @@ import {
   listFlashcardsQuerySchema,
   updateFlashcardBodySchema,
 } from "./contracts";
+import { FlashcardDecksRepository } from "../flashcard-decks/repository";
 import { FlashcardsRepository } from "./repository";
 import { FlashcardsService } from "./service";
 
 const router: IRouter = Router();
+const decksRepository = new FlashcardDecksRepository();
 const repository = new FlashcardsRepository();
-const service = new FlashcardsService(repository);
+const service = new FlashcardsService(repository, decksRepository);
 const controller = new FlashcardsController(service);
 
 router.get(

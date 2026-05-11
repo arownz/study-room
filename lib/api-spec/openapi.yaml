@@ -20,6 +20,16 @@ tags:
     description: Study room CRUD operations
   - name: flashcards
     description: Flashcards CRUD operations
+  - name: flashcardDecks
+    description: Flashcard deck CRUD and stats
+  - name: users
+    description: User profile and uploads
+  - name: pomodoro
+    description: Pomodoro session logging
+  - name: ai
+    description: AI tutor threads and jobs
+  - name: collaboration
+    description: Collaboration sessions
 paths:
   /healthz:
     get:
@@ -260,6 +270,143 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /study-rooms/{roomId}/goals:
+    get:
+      operationId: listStudyRoomGoals
+      tags: [studyRooms]
+      summary: List session goals for a study room
+      parameters:
+        - $ref: "#/components/parameters/RoomIdParam"
+      responses:
+        "200":
+          description: Goals list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListStudyRoomGoalsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createStudyRoomGoal
+      tags: [studyRooms]
+      summary: Create a session goal
+      parameters:
+        - $ref: "#/components/parameters/RoomIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStudyRoomGoalRequest"
+      responses:
+        "201":
+          description: Created goal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyRoomGoalResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /study-rooms/{roomId}/goals/{goalId}:
+    patch:
+      operationId: updateStudyRoomGoal
+      tags: [studyRooms]
+      summary: Update a session goal
+      parameters:
+        - $ref: "#/components/parameters/RoomIdParam"
+        - $ref: "#/components/parameters/GoalIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStudyRoomGoalRequest"
+      responses:
+        "200":
+          description: Updated goal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyRoomGoalResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteStudyRoomGoal
+      tags: [studyRooms]
+      summary: Delete a session goal
+      parameters:
+        - $ref: "#/components/parameters/RoomIdParam"
+        - $ref: "#/components/parameters/GoalIdParam"
+      responses:
+        "200":
+          description: Delete result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /study-rooms/{roomId}/timer:
+    get:
+      operationId: getStudyRoomTimer
+      tags: [studyRooms]
+      summary: Get shared timer state for a study room
+      parameters:
+        - $ref: "#/components/parameters/RoomIdParam"
+      responses:
+        "200":
+          description: Timer state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyRoomTimerResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: patchStudyRoomTimer
+      tags: [studyRooms]
+      summary: Update shared timer state
+      parameters:
+        - $ref: "#/components/parameters/RoomIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchStudyRoomTimerRequest"
+      responses:
+        "200":
+          description: Updated timer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyRoomTimerResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /study-rooms/{roomId}:
     get:
       operationId: getStudyRoomById
@@ -348,6 +495,170 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /flashcard-decks:
+    get:
+      operationId: listFlashcardDecks
+      tags: [flashcardDecks]
+      summary: List flashcard decks
+      parameters:
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/OffsetParam"
+      responses:
+        "200":
+          description: Deck list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListFlashcardDecksResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createFlashcardDeck
+      tags: [flashcardDecks]
+      summary: Create flashcard deck
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFlashcardDeckRequest"
+      responses:
+        "201":
+          description: Created deck
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlashcardDeckResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /flashcard-decks/{deckId}/stats:
+    get:
+      operationId: getFlashcardDeckStats
+      tags: [flashcardDecks]
+      summary: Deck statistics (card count, last update)
+      parameters:
+        - $ref: "#/components/parameters/DeckIdParam"
+      responses:
+        "200":
+          description: Deck stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlashcardDeckStatsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Deck not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /flashcard-decks/{deckId}:
+    get:
+      operationId: getFlashcardDeckById
+      tags: [flashcardDecks]
+      summary: Get flashcard deck by id
+      parameters:
+        - $ref: "#/components/parameters/DeckIdParam"
+      responses:
+        "200":
+          description: Deck
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlashcardDeckResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Deck not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateFlashcardDeck
+      tags: [flashcardDecks]
+      summary: Update flashcard deck
+      parameters:
+        - $ref: "#/components/parameters/DeckIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFlashcardDeckRequest"
+      responses:
+        "200":
+          description: Updated deck
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlashcardDeckResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Deck not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteFlashcardDeck
+      tags: [flashcardDecks]
+      summary: Delete flashcard deck
+      parameters:
+        - $ref: "#/components/parameters/DeckIdParam"
+      responses:
+        "200":
+          description: Delete result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Deck not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /flashcards:
     get:
       operationId: listFlashcards
@@ -356,6 +667,12 @@ paths:
       parameters:
         - $ref: "#/components/parameters/LimitParam"
         - $ref: "#/components/parameters/OffsetParam"
+        - name: deckId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: When set, only cards in this deck (must be owned by the user)
       responses:
         "200":
           description: Flashcard list
@@ -486,6 +803,226 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /users/me/dashboard-summary:
+    get:
+      operationId: getUserDashboardSummary
+      tags: [users]
+      summary: Dashboard aggregates for current user
+      responses:
+        "200":
+          description: Summary counts and recent notes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummaryResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /note-images:
+    post:
+      operationId: uploadNoteImage
+      tags: [users]
+      summary: Upload a note image (multipart file)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoteImageUploadResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /pomodoro/sessions:
+    get:
+      operationId: listPomodoroSessions
+      tags: [pomodoro]
+      summary: List pomodoro sessions
+      parameters:
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/OffsetParam"
+      responses:
+        "200":
+          description: Session list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListPomodoroSessionsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createPomodoroSession
+      tags: [pomodoro]
+      summary: Log a completed pomodoro session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePomodoroSessionRequest"
+      responses:
+        "201":
+          description: Created session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PomodoroSessionResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /ai/jobs:
+    get:
+      operationId: listAiJobs
+      tags: [ai]
+      summary: List AI jobs (placeholder)
+      parameters:
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/OffsetParam"
+      responses:
+        "200":
+          description: Jobs list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListAiJobsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /ai/threads:
+    get:
+      operationId: listAiThreads
+      tags: [ai]
+      summary: List AI tutor threads
+      parameters:
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/OffsetParam"
+      responses:
+        "200":
+          description: Thread list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListAiThreadsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createAiThread
+      tags: [ai]
+      summary: Create AI tutor thread
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAiThreadRequest"
+      responses:
+        "201":
+          description: Created thread
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiThreadResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /ai/threads/{threadId}/messages:
+    get:
+      operationId: listAiThreadMessages
+      tags: [ai]
+      summary: List messages in a thread
+      parameters:
+        - $ref: "#/components/parameters/ThreadIdParam"
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListAiMessagesResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: appendAiThreadMessage
+      tags: [ai]
+      summary: Append user message and receive assistant reply
+      parameters:
+        - $ref: "#/components/parameters/ThreadIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppendAiMessageRequest"
+      responses:
+        "200":
+          description: Saved messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppendAiMessageResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /collaboration/sessions:
+    get:
+      operationId: listCollaborationSessions
+      tags: [collaboration]
+      summary: List collaboration sessions
+      parameters:
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/OffsetParam"
+      responses:
+        "200":
+          description: Sessions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListCollaborationSessionsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   parameters:
     LimitParam:
@@ -517,6 +1054,24 @@ components:
         type: string
     FlashcardIdParam:
       name: flashcardId
+      in: path
+      required: true
+      schema:
+        type: string
+    DeckIdParam:
+      name: deckId
+      in: path
+      required: true
+      schema:
+        type: string
+    GoalIdParam:
+      name: goalId
+      in: path
+      required: true
+      schema:
+        type: string
+    ThreadIdParam:
+      name: threadId
       in: path
       required: true
       schema:
@@ -782,10 +1337,112 @@ components:
       required:
         - success
         - data
+    FlashcardDeck:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - description
+        - createdAt
+        - updatedAt
+    CreateFlashcardDeckRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+      required:
+        - title
+    UpdateFlashcardDeckRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+      minProperties: 1
+    FlashcardDeckResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          $ref: "#/components/schemas/FlashcardDeck"
+      required:
+        - success
+        - data
+    ListFlashcardDecksResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/FlashcardDeck"
+          required:
+            - items
+      required:
+        - success
+        - data
+    FlashcardDeckStats:
+      type: object
+      properties:
+        cardCount:
+          type: integer
+          minimum: 0
+        lastCardUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - cardCount
+        - lastCardUpdatedAt
+    FlashcardDeckStatsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          $ref: "#/components/schemas/FlashcardDeckStats"
+      required:
+        - success
+        - data
     Flashcard:
       type: object
       properties:
         id:
+          type: string
+        deckId:
           type: string
         question:
           type: string
@@ -799,6 +1456,7 @@ components:
           format: date-time
       required:
         - id
+        - deckId
         - question
         - answer
         - createdAt
@@ -806,16 +1464,21 @@ components:
     CreateFlashcardRequest:
       type: object
       properties:
+        deckId:
+          type: string
         question:
           type: string
         answer:
           type: string
       required:
+        - deckId
         - question
         - answer
     UpdateFlashcardRequest:
       type: object
       properties:
+        deckId:
+          type: string
         question:
           type: string
         answer:
@@ -845,6 +1508,468 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/Flashcard"
+          required:
+            - items
+      required:
+        - success
+        - data
+    DashboardNoteSnippet:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - title
+        - updatedAt
+    DashboardSummary:
+      type: object
+      properties:
+        notesCount:
+          type: integer
+        flashcardsCount:
+          type: integer
+        flashcardDecksCount:
+          type: integer
+        studyRoomsCount:
+          type: integer
+        pomodoroSessionsCompletedTotal:
+          type: integer
+        recentNotes:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardNoteSnippet"
+      required:
+        - notesCount
+        - flashcardsCount
+        - flashcardDecksCount
+        - studyRoomsCount
+        - pomodoroSessionsCompletedTotal
+        - recentNotes
+    DashboardSummaryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          $ref: "#/components/schemas/DashboardSummary"
+      required:
+        - success
+        - data
+    NoteImageUploadResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          type: object
+          additionalProperties: true
+      required:
+        - success
+        - data
+    PomodoroSession:
+      type: object
+      properties:
+        id:
+          type: string
+        mode:
+          type: string
+          enum: [focus, short_break, long_break]
+        durationPlannedSec:
+          type: integer
+        durationActualSec:
+          type: integer
+        label:
+          type: string
+          nullable: true
+        startedAt:
+          type: string
+        completedAt:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - mode
+        - durationPlannedSec
+        - durationActualSec
+        - startedAt
+        - completedAt
+        - createdAt
+    CreatePomodoroSessionRequest:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [focus, short_break, long_break]
+        durationPlannedSec:
+          type: integer
+        durationActualSec:
+          type: integer
+        label:
+          type: string
+        startedAt:
+          type: string
+        completedAt:
+          type: string
+      required:
+        - mode
+        - durationPlannedSec
+        - durationActualSec
+        - startedAt
+        - completedAt
+    PomodoroSessionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          $ref: "#/components/schemas/PomodoroSession"
+      required:
+        - success
+        - data
+    ListPomodoroSessionsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/PomodoroSession"
+            limit:
+              type: integer
+            offset:
+              type: integer
+          required:
+            - items
+            - limit
+            - offset
+      required:
+        - success
+        - data
+    StudyRoomGoal:
+      type: object
+      properties:
+        id:
+          type: string
+        roomId:
+          type: string
+        text:
+          type: string
+        done:
+          type: boolean
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - roomId
+        - text
+        - done
+        - sortOrder
+        - createdAt
+        - updatedAt
+    CreateStudyRoomGoalRequest:
+      type: object
+      properties:
+        text:
+          type: string
+      required:
+        - text
+    UpdateStudyRoomGoalRequest:
+      type: object
+      properties:
+        text:
+          type: string
+        done:
+          type: boolean
+      minProperties: 1
+    StudyRoomGoalResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          $ref: "#/components/schemas/StudyRoomGoal"
+      required:
+        - success
+        - data
+    ListStudyRoomGoalsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/StudyRoomGoal"
+          required:
+            - items
+      required:
+        - success
+        - data
+    StudyRoomTimer:
+      type: object
+      properties:
+        phase:
+          type: string
+          enum: [idle, focus, break]
+        durationSec:
+          type: integer
+          nullable: true
+        remainingSec:
+          type: integer
+        running:
+          type: boolean
+        leaderUserId:
+          type: string
+          nullable: true
+        anchorEndsAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+      required:
+        - phase
+        - durationSec
+        - remainingSec
+        - running
+        - leaderUserId
+        - anchorEndsAt
+        - updatedAt
+    PatchStudyRoomTimerRequest:
+      type: object
+      properties:
+        phase:
+          type: string
+          enum: [idle, focus, break]
+        durationSec:
+          type: integer
+        remainingSec:
+          type: integer
+        running:
+          type: boolean
+      minProperties: 1
+    StudyRoomTimerResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          $ref: "#/components/schemas/StudyRoomTimer"
+      required:
+        - success
+        - data
+    AiThread:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - title
+        - createdAt
+        - updatedAt
+    CreateAiThreadRequest:
+      type: object
+      properties:
+        title:
+          type: string
+    AiThreadResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          $ref: "#/components/schemas/AiThread"
+      required:
+        - success
+        - data
+    ListAiThreadsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/AiThread"
+            limit:
+              type: integer
+            offset:
+              type: integer
+          required:
+            - items
+            - limit
+            - offset
+      required:
+        - success
+        - data
+    AiMessage:
+      type: object
+      properties:
+        id:
+          type: string
+        threadId:
+          type: string
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+        templateKey:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+      required:
+        - id
+        - threadId
+        - role
+        - content
+        - templateKey
+        - createdAt
+    AppendAiMessageRequest:
+      type: object
+      properties:
+        content:
+          type: string
+        templateKey:
+          type: string
+          enum:
+            - explain_concept
+            - step_by_step
+            - quiz_me
+            - essay_outline
+            - mnemonic
+      required:
+        - content
+    ListAiMessagesResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/AiMessage"
+          required:
+            - items
+      required:
+        - success
+        - data
+    AppendAiMessageResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          type: object
+          properties:
+            userMessage:
+              $ref: "#/components/schemas/AiMessage"
+            assistantMessage:
+              $ref: "#/components/schemas/AiMessage"
+          required:
+            - userMessage
+            - assistantMessage
+      required:
+        - success
+        - data
+    AiJob:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+      required:
+        - id
+        - type
+        - status
+    ListAiJobsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/AiJob"
+          required:
+            - items
+      required:
+        - success
+        - data
+    CollaborationSession:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+      required:
+        - id
+        - type
+        - status
+    ListCollaborationSessionsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/CollaborationSession"
           required:
             - items
       required:
