@@ -6,6 +6,7 @@ import { PomodoroController } from "./controller";
 import {
   createPomodoroSessionBodySchema,
   listPomodoroSessionsQuerySchema,
+  pomodoroPreferencesPutBodySchema,
 } from "./contracts";
 import { PomodoroRepository } from "./repository";
 import { PomodoroService } from "./service";
@@ -27,6 +28,15 @@ router.post(
   requireAuth,
   validateRequest({ body: createPomodoroSessionBodySchema }),
   asyncHandler(controller.createSession),
+);
+
+router.get("/pomodoro/preferences", requireAuth, asyncHandler(controller.getPreferences));
+
+router.put(
+  "/pomodoro/preferences",
+  requireAuth,
+  validateRequest({ body: pomodoroPreferencesPutBodySchema }),
+  asyncHandler(controller.putPreferences),
 );
 
 export default router;

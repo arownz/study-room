@@ -35,7 +35,7 @@ pnpm --filter @workspace/study-workspace dev # run the frontend
 API server:
 
 ```bash
-pnpm --filter @workspace/api-server dev # run the backend/server
+pnpm --filter @workspace/api-server dev # run the backend
 ```
 
 Generate/apply DB migration:
@@ -48,8 +48,16 @@ pnpm --filter @workspace/db migrate # apply the migration to the database
 ## Useful commands
 
 ```bash
-pnpm run typecheck # check for type errors
+pnpm run typecheck # check for type errors in the project
 pnpm run build # build the project
+```
+
+```bash
+pnpm --filter @workspace/study-workspace typecheck # check for type errors in the frontend
+```
+
+```bash
+pnpm --filter @workspace/api-server typecheck # check for type errors in the backend
 ```
 
 ## Early Look of the app

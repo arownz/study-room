@@ -19,6 +19,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useListPomodoroSessions,
   useCreatePomodoroSession,
+  usePomodoroPreferences,
+  usePutPomodoroPreferences,
   getListPomodoroSessionsQueryKey,
   type PomodoroMode,
 } from "@workspace/api-client-react";
@@ -118,6 +120,8 @@ export default function Pomodoro() {
   const modeIdxRef = useRef(modeIdx);
   const modesRef = useRef(modes);
   const completionFiredRef = useRef(false);
+  const prefsSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prefsHydratedRef = useRef(false);
 
   const mode = modes[modeIdx];
   const progress = 1 - timeLeft / mode.duration;
@@ -129,6 +133,9 @@ export default function Pomodoro() {
   const { data: sessionsEnvelope } = useListPomodoroSessions({ limit: 80, offset: 0 });
   const sessions = sessionsEnvelope?.data?.items ?? [];
 
+  const { data: prefsEnvelope } = usePomodoroPreferences();
+  const putPrefs = usePutPomodoroPreferences();
+
   const createSession = useCreatePomodoroSession();
 
   useEffect(() => {
@@ -138,6 +145,29 @@ export default function Pomodoro() {
   useEffect(() => {
     modesRef.current = modes;
   }, [modes]);
+
+  useEffect(() => {
+    if (!prefsEnvelope?.success || prefsHydratedRef.current) return;
+    const p = prefsEnvelope.data;
+    if (new Date(p.updatedAt).getTime() > 0) {
+      setModes(
+        buildModes({
+          focus: p.focusSec,
+          short_break: p.shortBreakSec,
+          long_break: p.longBreakSec,
+        }),
+      );
+      localStorage.setItem(
+        "studyroom.pomodoro.modeSeconds",
+        JSON.stringify({
+          focus: p.focusSec,
+          short_break: p.shortBreakSec,
+          long_break: p.longBreakSec,
+        }),
+      );
+    }
+    prefsHydratedRef.current = true;
+  }, [prefsEnvelope]);
 
   useEffect(() => {
     const sec: Record<PomodoroMode, number> = {
@@ -169,12 +199,24 @@ export default function Pomodoro() {
     return { focusHours, focusCount };
   }, [sessions]);
 
-  const setMinutesForMode = useCallback((key: PomodoroMode, minutesVal: number) => {
-    const sec = clampSec(minutesVal * 60, 60, key === "short_break" ? 60 * 60 : 3 * 60 * 60);
-    setModes((prev) =>
-      prev.map((m) => (m.key === key ? { ...m, duration: sec } : m)),
-    );
-  }, []);
+  const setMinutesForMode = useCallback(
+    (key: PomodoroMode, minutesVal: number) => {
+      const sec = clampSec(minutesVal * 60, 60, key === "short_break" ? 60 * 60 : 3 * 60 * 60);
+      setModes((prev) => prev.map((m) => (m.key === key ? { ...m, duration: sec } : m)));
+      if (prefsSaveTimerRef.current) clearTimeout(prefsSaveTimerRef.current);
+      prefsSaveTimerRef.current = setTimeout(() => {
+        const m = modesRef.current;
+        putPrefs.mutate({
+          data: {
+            focusSec: m[0]!.duration,
+            shortBreakSec: m[1]!.duration,
+            longBreakSec: m[2]!.duration,
+          },
+        });
+      }, 900);
+    },
+    [putPrefs],
+  );
 
   const switchMode = useCallback(
     (idx: number) => {
@@ -233,6 +275,12 @@ export default function Pomodoro() {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [running, completeSegment]);
+
+  useEffect(() => {
+    return () => {
+      if (prefsSaveTimerRef.current) clearTimeout(prefsSaveTimerRef.current);
+    };
+  }, []);
 
   const toggleRunning = () => {
     if (timeLeft === 0) {
@@ -466,7 +514,7 @@ export default function Pomodoro() {
                 >
                   <div
                     className={cn(
-                      "w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center mt-0.5 transition-all",
+                      "w-4 h-4 rounded border shrink-0 flex items-center justify-center mt-0.5 transition-all",
                       task.done
                         ? "bg-primary border-primary"
                         : "border-border group-hover:border-primary/50",
@@ -496,7 +544,7 @@ export default function Pomodoro() {
                 />
                 <Button
                   size="icon"
-                  className="h-8 w-8 flex-shrink-0"
+                  className="h-8 w-8 shrink-0"
                   onClick={addTask}
                   type="button"
                   data-testid="button-add-task"

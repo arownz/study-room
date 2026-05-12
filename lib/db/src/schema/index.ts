@@ -206,6 +206,24 @@ export const pomodoroSessions = pgTable(
   ],
 );
 
+export const userWhiteboards = pgTable("user_whiteboards", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  snapshot: text("snapshot").notNull().default("[]"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const userPomodoroPreferences = pgTable("user_pomodoro_preferences", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  focusSec: integer("focus_sec").notNull(),
+  shortBreakSec: integer("short_break_sec").notNull(),
+  longBreakSec: integer("long_break_sec").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const flashcardDecks = pgTable(
   "flashcard_decks",
   {
@@ -274,7 +292,7 @@ export const flashcards = pgTable(
   ],
 );
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ many, one }) => ({
   sessions: many(sessions),
   accounts: many(accounts),
   notes: many(notes),
@@ -286,6 +304,14 @@ export const usersRelations = relations(users, ({ many }) => ({
   aiThreads: many(aiThreads),
   flashcardDecks: many(flashcardDecks),
   flashcards: many(flashcards),
+  whiteboard: one(userWhiteboards, {
+    fields: [users.id],
+    references: [userWhiteboards.userId],
+  }),
+  pomodoroPreferences: one(userPomodoroPreferences, {
+    fields: [users.id],
+    references: [userPomodoroPreferences.userId],
+  }),
 }));
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
@@ -354,6 +380,20 @@ export const studyRoomGoalsRelations = relations(studyRoomGoals, ({ one }) => ({
 export const pomodoroSessionsRelations = relations(pomodoroSessions, ({ one }) => ({
   user: one(users, {
     fields: [pomodoroSessions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const userWhiteboardsRelations = relations(userWhiteboards, ({ one }) => ({
+  user: one(users, {
+    fields: [userWhiteboards.userId],
+    references: [users.id],
+  }),
+}));
+
+export const userPomodoroPreferencesRelations = relations(userPomodoroPreferences, ({ one }) => ({
+  user: one(users, {
+    fields: [userPomodoroPreferences.userId],
     references: [users.id],
   }),
 }));

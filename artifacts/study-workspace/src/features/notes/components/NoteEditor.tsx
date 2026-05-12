@@ -49,30 +49,58 @@ export function NoteEditor({
   isDeleting,
   isDuplicating = false,
 }: NoteEditorProps) {
+  const DRAFT_KEY_PREFIX = "studyroom.note-draft:";
   const { toast } = useToast();
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [hasPendingLocalChanges, setHasPendingLocalChanges] = useState(false);
 
   useEffect(() => {
+    const draftKey = `${DRAFT_KEY_PREFIX}${note.id}`;
+    try {
+      const raw = window.sessionStorage.getItem(draftKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { title?: string; content?: string };
+        setTitle(parsed.title ?? note.title);
+        setContent(parsed.content ?? note.content);
+        setHasPendingLocalChanges(true);
+        return;
+      }
+    } catch {
+      // ignore corrupted local draft
+    }
     setTitle(note.title);
     setContent(note.content);
-  }, [note.id, note.title, note.content]);
+    setHasPendingLocalChanges(false);
+  }, [note.id]);
 
-  const isDirty = title !== note.title || content !== note.content;
+  useEffect(() => {
+    if (hasPendingLocalChanges) return;
+    setTitle(note.title);
+    setContent(note.content);
+  }, [note.title, note.content, hasPendingLocalChanges]);
+
+  useEffect(() => {
+    if (!hasPendingLocalChanges) return;
+    const draftKey = `${DRAFT_KEY_PREFIX}${note.id}`;
+    window.sessionStorage.setItem(
+      draftKey,
+      JSON.stringify({
+        title,
+        content,
+      }),
+    );
+  }, [note.id, title, content, hasPendingLocalChanges]);
+
+  const isDirty = hasPendingLocalChanges || title !== note.title || content !== note.content;
 
   const handleSave = useCallback(async () => {
     if (!isDirty) return;
     await onSave({ title, content }, { silent: false });
-  }, [content, isDirty, onSave, title]);
-
-  useEffect(() => {
-    if (!isDirty || isSaving) return;
-    const timeoutId = window.setTimeout(() => {
-      void onSave({ title, content }, { silent: true });
-    }, 900);
-    return () => window.clearTimeout(timeoutId);
-  }, [content, isDirty, isSaving, onSave, title]);
+    window.sessionStorage.removeItem(`${DRAFT_KEY_PREFIX}${note.id}`);
+    setHasPendingLocalChanges(false);
+  }, [content, isDirty, note.id, onSave, title]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -135,8 +163,13 @@ export function NoteEditor({
 
       <div className="mt-2 flex min-h-0 flex-1 flex-col">
         <RichTextEditor
+          documentKey={note.id}
+          layoutMode="canvas"
           value={content}
-          onChange={setContent}
+          onChange={(next) => {
+            setContent(next);
+            setHasPendingLocalChanges(true);
+          }}
           placeholder="Start writing your note…"
           enableRichMedia
           showMediaHint

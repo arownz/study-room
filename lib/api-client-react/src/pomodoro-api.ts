@@ -11,6 +11,7 @@ import type {
 import type { ErrorResponse } from "./generated/api.schemas";
 import { getDashboardSummaryQueryKey } from "./dashboard-api";
 import { customFetch } from "./custom-fetch";
+import { getStudyAnalyticsQueryKey } from "./study-analytics-api";
 import type { BodyType, ErrorType } from "./custom-fetch";
 
 export type PomodoroMode = "focus" | "short_break" | "long_break";
@@ -184,6 +185,125 @@ export const useCreatePomodoroSession = <
     onSuccess: (data, variables, onMutateResult, context) => {
       void queryClient.invalidateQueries({ queryKey: getListPomodoroSessionsQueryKey() });
       void queryClient.invalidateQueries({ queryKey: getDashboardSummaryQueryKey() });
+      void queryClient.invalidateQueries({ queryKey: getStudyAnalyticsQueryKey() });
+      userOnSuccess?.(data, variables, onMutateResult, context);
+    },
+  });
+};
+
+export interface PomodoroPreferencesDto {
+  focusSec: number;
+  shortBreakSec: number;
+  longBreakSec: number;
+  updatedAt: string;
+}
+
+export interface PutPomodoroPreferencesRequest {
+  focusSec: number;
+  shortBreakSec: number;
+  longBreakSec: number;
+}
+
+interface PomodoroPreferencesEnvelope {
+  success: true;
+  data: PomodoroPreferencesDto;
+}
+
+export const getPomodoroPreferences = async (
+  options?: RequestInit,
+): Promise<PomodoroPreferencesEnvelope> => {
+  return customFetch<PomodoroPreferencesEnvelope>("/api/v1/pomodoro/preferences", {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getPomodoroPreferencesQueryKey = () => ["/api/v1/pomodoro/preferences"] as const;
+
+export const getPomodoroPreferencesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPomodoroPreferences>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getPomodoroPreferences>>, TError, TData>;
+  request?: SP<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getPomodoroPreferencesQueryKey();
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPomodoroPreferences>>> = ({
+    signal,
+  }) => getPomodoroPreferences({ signal, ...requestOptions });
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPomodoroPreferences>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export function usePomodoroPreferences<
+  TData = Awaited<ReturnType<typeof getPomodoroPreferences>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getPomodoroPreferences>>, TError, TData>;
+  request?: SP<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getPomodoroPreferencesQueryOptions(options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const putPomodoroPreferences = async (
+  body: PutPomodoroPreferencesRequest,
+  options?: RequestInit,
+): Promise<PomodoroPreferencesEnvelope> => {
+  return customFetch<PomodoroPreferencesEnvelope>("/api/v1/pomodoro/preferences", {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(body),
+  });
+};
+
+export const usePutPomodoroPreferences = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof putPomodoroPreferences>>,
+    TError,
+    { data: BodyType<PutPomodoroPreferencesRequest> },
+    TContext
+  >;
+  request?: SP<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof putPomodoroPreferences>>,
+  TError,
+  { data: BodyType<PutPomodoroPreferencesRequest> },
+  TContext
+> => {
+  const queryClient = useQueryClient();
+  const mutationKey = ["putPomodoroPreferences"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+        "mutationKey" in options.mutation &&
+        options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof putPomodoroPreferences>>,
+    { data: BodyType<PutPomodoroPreferencesRequest> }
+  > = (props) => putPomodoroPreferences(props.data, requestOptions);
+
+  const userOnSuccess = mutationOptions?.onSuccess;
+
+  return useMutation({
+    mutationFn,
+    ...mutationOptions,
+    onSuccess: (data, variables, onMutateResult, context) => {
+      queryClient.setQueryData(getPomodoroPreferencesQueryKey(), data);
       userOnSuccess?.(data, variables, onMutateResult, context);
     },
   });

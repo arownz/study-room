@@ -51,7 +51,7 @@ export function FlashcardRichHtml({
     <div
       className={cn(
         "prose prose-sm dark:prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_img]:max-h-48 [&_img]:rounded-md [&_img]:mx-auto [&_a]:cursor-pointer [&_a]:text-primary [&_a]:underline [&_a]:break-all",
-        centered && "text-center [&_*]:text-center",
+        centered && "text-center **:text-center",
         lineClamp != null ? LINE_CLAMP_MAP[lineClamp] : undefined,
         className,
       )}

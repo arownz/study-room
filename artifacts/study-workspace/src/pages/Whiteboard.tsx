@@ -1,8 +1,27 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Square, Circle, Minus, Type, StickyNote, MousePointer, Hand, ZoomIn, ZoomOut, Maximize2, Trash2, Undo2, Redo2, Download } from "lucide-react";
+import {
+  Square,
+  Circle,
+  Minus,
+  Type,
+  StickyNote,
+  MousePointer,
+  Hand,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Trash2,
+  Undo2,
+  Redo2,
+  Download,
+  CloudOff,
+  Save,
+} from "lucide-react";
+import { usePutWhiteboard, useWhiteboard } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 const tools = [
@@ -32,24 +51,94 @@ interface StickyItem {
   rotation: number;
 }
 
-const initialStickies: StickyItem[] = [
-  { id: "1", x: 80, y: 80, text: "SN2 reactions require a strong nucleophile and an unhindered substrate", colorIdx: 0, rotation: -2 },
-  { id: "2", x: 300, y: 120, text: "Remember: entropy always increases in isolated systems (2nd law)", colorIdx: 1, rotation: 1.5 },
-  { id: "3", x: 180, y: 300, text: "Chain Rule: d/dx[f(g(x))] = f'(g(x)) · g'(x)", colorIdx: 2, rotation: -1 },
-  { id: "4", x: 520, y: 90, text: "DNA replication is semi-conservative — Watson & Crick, 1953", colorIdx: 3, rotation: 2 },
-  { id: "5", x: 440, y: 280, text: "IS curve: higher interest rates → lower investment → lower output", colorIdx: 4, rotation: -1.5 },
-];
+interface SnapshotV1 {
+  version: 1;
+  zoom?: number;
+  stickies: StickyItem[];
+}
+
+function parseSnapshot(raw: string): { zoom: number; stickies: StickyItem[] } {
+  try {
+    const p = JSON.parse(raw) as Partial<SnapshotV1>;
+    if (p?.version !== 1 || !Array.isArray(p.stickies)) {
+      return { zoom: 100, stickies: [] };
+    }
+    const zoom = typeof p.zoom === "number" && p.zoom >= 40 && p.zoom <= 200 ? p.zoom : 100;
+    return { zoom, stickies: p.stickies };
+  } catch {
+    return { zoom: 100, stickies: [] };
+  }
+}
 
 export default function Whiteboard() {
   const [activeTool, setActiveTool] = useState("select");
   const [zoom, setZoom] = useState(100);
-  const [stickies, setStickies] = useState<StickyItem[]>(initialStickies);
+  const [stickies, setStickies] = useState<StickyItem[]>([]);
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
+  const hydratedRef = useRef(false);
+  const [hasLocalChanges, setHasLocalChanges] = useState(false);
+  const LOCAL_DRAFT_KEY = "studyroom.whiteboard.draft";
+  const pinchRef = useRef<{ initialDistance: number; initialZoom: number } | null>(null);
 
-  const zoomIn = () => setZoom((z) => Math.min(z + 10, 200));
-  const zoomOut = () => setZoom((z) => Math.max(z - 10, 40));
+  const { data: boardEnvelope, isLoading, isError, refetch } = useWhiteboard();
+  const putBoard = usePutWhiteboard();
+
+  useEffect(() => {
+    if (!boardEnvelope?.success || hydratedRef.current) return;
+    const draftRaw = window.localStorage.getItem(LOCAL_DRAFT_KEY);
+    if (draftRaw) {
+      const { zoom: z, stickies: s } = parseSnapshot(draftRaw);
+      setZoom(z);
+      setStickies(s);
+      setHasLocalChanges(true);
+      hydratedRef.current = true;
+      return;
+    }
+    const { zoom: z, stickies: s } = parseSnapshot(boardEnvelope.data.snapshot);
+    setZoom(z);
+    setStickies(s);
+    hydratedRef.current = true;
+  }, [boardEnvelope]);
+
+  const markChanged = useCallback(() => {
+    if (!hydratedRef.current) return;
+    setHasLocalChanges(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydratedRef.current || !hasLocalChanges) return;
+    const snapshot = JSON.stringify({ version: 1, zoom, stickies } satisfies SnapshotV1);
+    window.localStorage.setItem(LOCAL_DRAFT_KEY, snapshot);
+  }, [zoom, stickies, hasLocalChanges]);
+
+  const handleSave = useCallback(async () => {
+    const snapshot = JSON.stringify({ version: 1, zoom, stickies } satisfies SnapshotV1);
+    await putBoard.mutateAsync({ data: { snapshot } });
+    window.localStorage.removeItem(LOCAL_DRAFT_KEY);
+    setHasLocalChanges(false);
+  }, [putBoard, stickies, zoom]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        void handleSave();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [handleSave]);
+
+  const zoomIn = () => {
+    setZoom((z) => Math.min(z + 10, 200));
+    markChanged();
+  };
+  const zoomOut = () => {
+    setZoom((z) => Math.max(z - 10, 40));
+    markChanged();
+  };
 
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (activeTool !== "sticky") return;
@@ -66,6 +155,7 @@ export default function Whiteboard() {
       rotation: (Math.random() - 0.5) * 4,
     };
     setStickies((prev) => [...prev, newSticky]);
+    markChanged();
     setActiveTool("select");
   };
 
@@ -89,15 +179,48 @@ export default function Whiteboard() {
     if (!rect) return;
     const x = (e.clientX - rect.left - dragOffset.x) * (100 / zoom);
     const y = (e.clientY - rect.top - dragOffset.y) * (100 / zoom);
-    setStickies((prev) => prev.map((s) => s.id === dragging ? { ...s, x, y } : s));
+    setStickies((prev) => prev.map((s) => (s.id === dragging ? { ...s, x, y } : s)));
+    markChanged();
   };
 
   const deleteSticky = (id: string) => {
     setStickies((prev) => prev.filter((s) => s.id !== id));
+    markChanged();
   };
 
+  const exportJson = () => {
+    const blob = new Blob([JSON.stringify({ version: 1, zoom, stickies }, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "whiteboard.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const serverUpdated =
+    boardEnvelope?.success && new Date(boardEnvelope.data.updatedAt).getTime() > 0
+      ? new Date(boardEnvelope.data.updatedAt).toLocaleString()
+      : null;
+
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem-3rem)] -m-6 overflow-hidden border border-border/40 rounded-xl bg-background">
+    <div className="flex flex-col h-[calc(100vh-3.5rem-3rem)] -m-6 overflow-hidden border border-border/40 rounded-xl bg-background relative">
+      {isLoading && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/70 backdrop-blur-sm">
+          <Spinner className="h-8 w-8 text-primary" />
+        </div>
+      )}
+      {isError && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
+          <CloudOff size={14} />
+          Could not load whiteboard.
+          <Button variant="outline" size="sm" className="h-7 text-[10px]" type="button" onClick={() => void refetch()}>
+            Retry
+          </Button>
+        </div>
+      )}
       {/* Toolbar */}
       <div className="border-b border-border/60 px-4 py-2 flex items-center gap-2">
         <div className="flex items-center gap-0.5 bg-muted/50 rounded-lg p-1">
@@ -108,7 +231,7 @@ export default function Whiteboard() {
               size="icon"
               className={cn(
                 "h-7 w-7 transition-colors",
-                activeTool === id && "bg-background shadow-sm text-primary"
+                activeTool === id && "bg-background shadow-sm text-primary",
               )}
               title={label}
               onClick={() => setActiveTool(id)}
@@ -121,37 +244,68 @@ export default function Whiteboard() {
 
         <Separator orientation="vertical" className="h-5" />
 
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={zoomOut} data-testid="button-zoom-out">
-            <ZoomOut size={14} />
-          </Button>
-          <span className="text-xs text-muted-foreground w-10 text-center font-mono">{zoom}%</span>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={zoomIn} data-testid="button-zoom-in">
-            <ZoomIn size={14} />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" title="Fit to screen" data-testid="button-fit-screen">
-            <Maximize2 size={13} />
+        <div className="flex items-center gap-1 rounded-md border border-border/60 px-1.5 py-0.5 text-[11px]">
+          <button
+            type="button"
+            className="h-5 w-5 rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={zoomOut}
+            title="Zoom out"
+            data-testid="button-zoom-out"
+          >
+            -
+          </button>
+          <span className="w-11 text-center font-mono text-muted-foreground">{zoom}%</span>
+          <button
+            type="button"
+            className="h-5 w-5 rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={zoomIn}
+            title="Zoom in"
+            data-testid="button-zoom-in"
+          >
+            +
+          </button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5"
+            title="Reset zoom"
+            type="button"
+            onClick={() => setZoom(100)}
+            data-testid="button-fit-screen"
+          >
+            <Maximize2 size={11} />
           </Button>
         </div>
 
         <Separator orientation="vertical" className="h-5" />
 
-        <Button variant="ghost" size="icon" className="h-7 w-7" data-testid="button-undo">
+        <Button variant="ghost" size="icon" className="h-7 w-7" disabled data-testid="button-undo">
           <Undo2 size={14} />
         </Button>
-        <Button variant="ghost" size="icon" className="h-7 w-7" data-testid="button-redo">
+        <Button variant="ghost" size="icon" className="h-7 w-7" disabled data-testid="button-redo">
           <Redo2 size={14} />
         </Button>
 
         <div className="ml-auto flex items-center gap-2">
-            <div className="flex -space-x-2">
-            {["H", "M", "J"].map((av) => (
-              <div key={av} className="w-6 h-6 rounded-full bg-primary/20 border-2 border-background flex items-center justify-center text-[8px] font-bold text-primary">
-                {av}
-              </div>
-            ))}
-          </div>
-          <Button variant="outline" size="sm" className="text-xs gap-1.5" data-testid="button-export-whiteboard">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs gap-1.5"
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={!hasLocalChanges || putBoard.isPending}
+            data-testid="button-save-whiteboard"
+          >
+            <Save size={12} /> Save
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs gap-1.5"
+            type="button"
+            onClick={exportJson}
+            data-testid="button-export-whiteboard"
+          >
             <Download size={12} /> Export
           </Button>
         </div>
@@ -169,18 +323,44 @@ export default function Whiteboard() {
         onClick={handleCanvasClick}
         onMouseMove={onMouseMove}
         onMouseUp={() => setDragging(null)}
+        onWheel={(event) => {
+          event.preventDefault();
+          const next = Math.max(40, Math.min(200, zoom - event.deltaY * 0.05));
+          if (Math.round(next) !== zoom) {
+            setZoom(Math.round(next));
+            markChanged();
+          }
+        }}
+        onTouchStart={(event) => {
+          if (event.touches.length !== 2) return;
+          const [a, b] = [event.touches[0], event.touches[1]];
+          const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+          pinchRef.current = { initialDistance: distance, initialZoom: zoom };
+        }}
+        onTouchMove={(event) => {
+          if (event.touches.length !== 2 || !pinchRef.current) return;
+          const [a, b] = [event.touches[0], event.touches[1]];
+          const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+          const next = pinchRef.current.initialZoom * (distance / pinchRef.current.initialDistance);
+          const clamped = Math.max(40, Math.min(200, Math.round(next)));
+          if (clamped !== zoom) {
+            setZoom(clamped);
+            markChanged();
+          }
+        }}
+        onTouchEnd={() => {
+          pinchRef.current = null;
+        }}
         data-testid="whiteboard-canvas"
       >
-        {/* Grid background */}
         <div
           className="absolute inset-0"
           style={{
             backgroundImage: `radial-gradient(circle, hsl(var(--border)) 1px, transparent 1px)`,
-            backgroundSize: `${24 * zoom / 100}px ${24 * zoom / 100}px`,
+            backgroundSize: `${(24 * zoom) / 100}px ${(24 * zoom) / 100}px`,
           }}
         />
 
-        {/* Stickies */}
         <div
           style={{ transform: `scale(${zoom / 100})`, transformOrigin: "0 0", position: "absolute", inset: 0 }}
         >
@@ -204,15 +384,26 @@ export default function Whiteboard() {
                   variant="ghost"
                   size="icon"
                   className="absolute top-1 right-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-rose-700 hover:text-rose-900 hover:bg-transparent"
-                  onClick={(e) => { e.stopPropagation(); deleteSticky(sticky.id); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteSticky(sticky.id);
+                  }}
                   data-testid={`button-delete-sticky-${sticky.id}`}
                 >
                   <Trash2 size={10} />
                 </Button>
                 <textarea
                   value={sticky.text}
-                  onChange={(e) => setStickies((prev) => prev.map((s) => s.id === sticky.id ? { ...s, text: e.target.value } : s))}
-                  className={cn("w-full h-full bg-transparent border-none outline-none resize-none text-xs font-medium leading-snug", color.text)}
+                  onChange={(e) =>
+                    setStickies((prev) => {
+                      markChanged();
+                      return prev.map((s) => (s.id === sticky.id ? { ...s, text: e.target.value } : s));
+                    })
+                  }
+                  className={cn(
+                    "w-full h-full bg-transparent border-none outline-none resize-none text-xs font-medium leading-snug",
+                    color.text,
+                  )}
                   onClick={(e) => e.stopPropagation()}
                   data-testid={`sticky-textarea-${sticky.id}`}
                 />
@@ -221,8 +412,7 @@ export default function Whiteboard() {
           })}
         </div>
 
-        {/* Empty state hint */}
-        {stickies.length === 0 && (
+        {stickies.length === 0 && !isLoading && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center text-muted-foreground">
               <StickyNote size={32} className="mx-auto mb-2 opacity-20" />
@@ -232,11 +422,12 @@ export default function Whiteboard() {
         )}
       </div>
 
-      {/* Status bar */}
       <div className="border-t border-border/60 px-4 py-1.5 flex items-center gap-4 text-[10px] text-muted-foreground">
-        <span>Tool: {tools.find(t => t.id === activeTool)?.label}</span>
+        <span>Tool: {tools.find((t) => t.id === activeTool)?.label}</span>
         <span>{stickies.length} objects</span>
-        <span className="ml-auto">Collaborative — 3 users viewing</span>
+        <span className="ml-auto tabular-nums">
+          {putBoard.isPending ? "Saving…" : hasLocalChanges ? "Unsaved changes" : serverUpdated ? `Saved · ${serverUpdated}` : "Manual save"}
+        </span>
       </div>
     </div>
   );

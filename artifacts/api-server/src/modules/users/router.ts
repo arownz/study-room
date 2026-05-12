@@ -2,6 +2,10 @@ import { Router, type IRouter } from "express";
 import { asyncHandler } from "../../core/http/async-handler";
 import { validateRequest } from "../../core/http/validate";
 import { requireAuth } from "../auth/middleware";
+import { StudyAnalyticsController } from "../study-analytics/controller";
+import { StudyAnalyticsRepository } from "../study-analytics/repository";
+import { StudyAnalyticsService } from "../study-analytics/service";
+import { studyAnalyticsQuerySchema } from "../study-analytics/contracts";
 import { UsersController } from "./controller";
 import {
   listUsersQuerySchema,
@@ -17,6 +21,10 @@ const repository = new UsersRepository();
 const service = new UsersService(repository);
 const controller = new UsersController(service);
 
+const studyAnalyticsRepository = new StudyAnalyticsRepository();
+const studyAnalyticsService = new StudyAnalyticsService(studyAnalyticsRepository);
+const studyAnalyticsController = new StudyAnalyticsController(studyAnalyticsService);
+
 // `/users/me*` routes are registered before the generic list route so
 // the static segment "me" is never captured as an :id parameter.
 router.get("/users/me", requireAuth, asyncHandler(controller.getMe));
@@ -24,6 +32,12 @@ router.get(
   "/users/me/dashboard-summary",
   requireAuth,
   asyncHandler(controller.getDashboardSummary),
+);
+router.get(
+  "/users/me/study-analytics",
+  requireAuth,
+  validateRequest({ query: studyAnalyticsQuerySchema }),
+  asyncHandler(studyAnalyticsController.getMine),
 );
 router.patch(
   "/users/me",

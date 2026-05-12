@@ -10,6 +10,7 @@ import flashcardsRouter from "../../modules/flashcards/router";
 import aiRouter from "../../modules/ai/router";
 import collaborationRouter from "../../modules/collaboration/router";
 import pomodoroRouter from "../../modules/pomodoro/router";
+import whiteboardRouter from "../../modules/whiteboard/router";
 
 const v1Router: IRouter = Router();
 
@@ -23,6 +24,7 @@ v1Router.use(flashcardDecksRouter);
 v1Router.use(flashcardsRouter);
 v1Router.use(aiRouter);
 v1Router.use(pomodoroRouter);
+v1Router.use(whiteboardRouter);
 v1Router.use(collaborationRouter);
 
 export default v1Router;

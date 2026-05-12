@@ -1,5 +1,5 @@
 import { and, desc, eq, type SQL } from "drizzle-orm";
-import { pomodoroSessions } from "@workspace/db/schema";
+import { pomodoroSessions, userPomodoroPreferences } from "@workspace/db/schema";
 import { db } from "../../lib/database";
 import type { CreatePomodoroSessionBody, ListPomodoroSessionsQuery } from "./contracts";
 
@@ -48,5 +48,41 @@ export class PomodoroRepository {
       .limit(query.limit)
       .offset(query.offset);
     return items;
+  }
+
+  async getPreferences(userId: string) {
+    const [row] = await db
+      .select()
+      .from(userPomodoroPreferences)
+      .where(eq(userPomodoroPreferences.userId, userId))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async upsertPreferences(
+    userId: string,
+    payload: { focusSec: number; shortBreakSec: number; longBreakSec: number },
+  ) {
+    const now = new Date();
+    const [row] = await db
+      .insert(userPomodoroPreferences)
+      .values({
+        userId,
+        focusSec: payload.focusSec,
+        shortBreakSec: payload.shortBreakSec,
+        longBreakSec: payload.longBreakSec,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: userPomodoroPreferences.userId,
+        set: {
+          focusSec: payload.focusSec,
+          shortBreakSec: payload.shortBreakSec,
+          longBreakSec: payload.longBreakSec,
+          updatedAt: now,
+        },
+      })
+      .returning();
+    return row ?? null;
   }
 }

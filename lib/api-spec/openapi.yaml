@@ -30,6 +30,8 @@ tags:
     description: AI tutor threads and jobs
   - name: collaboration
     description: Collaboration sessions
+  - name: whiteboard
+    description: Personal whiteboard persistence
 paths:
   /healthz:
     get:
@@ -821,6 +823,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /users/me/study-analytics:
+    get:
+      operationId: getUserStudyAnalytics
+      tags: [users]
+      summary: Study analytics for current user
+      parameters:
+        - name: chartDays
+          in: query
+          schema:
+            type: integer
+            minimum: 7
+            maximum: 90
+            default: 14
+        - name: heatmapDays
+          in: query
+          schema:
+            type: integer
+            minimum: 14
+            maximum: 56
+            default: 35
+      responses:
+        "200":
+          description: Aggregated analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyAnalyticsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /note-images:
     post:
       operationId: uploadNoteImage
@@ -887,6 +922,88 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PomodoroSessionResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /pomodoro/preferences:
+    get:
+      operationId: getPomodoroPreferences
+      tags: [pomodoro]
+      summary: Timer length preferences
+      responses:
+        "200":
+          description: Preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PomodoroPreferencesResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: putPomodoroPreferences
+      tags: [pomodoro]
+      summary: Update timer length preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PomodoroPreferencesPutRequest"
+      responses:
+        "200":
+          description: Updated preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PomodoroPreferencesResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /whiteboard:
+    get:
+      operationId: getUserWhiteboard
+      tags: [whiteboard]
+      summary: Load personal whiteboard snapshot
+      responses:
+        "200":
+          description: Whiteboard snapshot JSON string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhiteboardResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: putUserWhiteboard
+      tags: [whiteboard]
+      summary: Save personal whiteboard snapshot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WhiteboardPutRequest"
+      responses:
+        "200":
+          description: Saved snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhiteboardResponse"
         "401":
           description: Unauthorized
           content:
@@ -1558,6 +1675,152 @@ components:
           const: true
         data:
           $ref: "#/components/schemas/DashboardSummary"
+      required:
+        - success
+        - data
+    StudyAnalyticsDailyPoint:
+      type: object
+      properties:
+        date:
+          type: string
+        dateKey:
+          type: string
+        hours:
+          type: number
+      required: [date, dateKey, hours]
+    StudyAnalyticsSubjectSlice:
+      type: object
+      properties:
+        subject:
+          type: string
+        hours:
+          type: number
+        color:
+          type: string
+      required: [subject, hours, color]
+    StudyAnalyticsHeatmapDay:
+      type: object
+      properties:
+        dateKey:
+          type: string
+        intensity:
+          type: integer
+      required: [dateKey, intensity]
+    StudyAnalyticsDeckRow:
+      type: object
+      properties:
+        name:
+          type: string
+        mastered:
+          type: integer
+        total:
+          type: integer
+      required: [name, mastered, total]
+    StudyAnalytics:
+      type: object
+      properties:
+        totalFocusHours:
+          type: number
+        streakDays:
+          type: integer
+        flashcardCount:
+          type: integer
+        rankLabel:
+          type: string
+        rankSubtitle:
+          type: string
+        dailyFocus:
+          type: array
+          items:
+            $ref: "#/components/schemas/StudyAnalyticsDailyPoint"
+        subjectBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/StudyAnalyticsSubjectSlice"
+        streakCalendar:
+          type: array
+          items:
+            $ref: "#/components/schemas/StudyAnalyticsHeatmapDay"
+        flashcardMastery:
+          type: array
+          items:
+            $ref: "#/components/schemas/StudyAnalyticsDeckRow"
+      required:
+        - totalFocusHours
+        - streakDays
+        - flashcardCount
+        - rankLabel
+        - rankSubtitle
+        - dailyFocus
+        - subjectBreakdown
+        - streakCalendar
+        - flashcardMastery
+    StudyAnalyticsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          $ref: "#/components/schemas/StudyAnalytics"
+      required:
+        - success
+        - data
+    PomodoroPreferences:
+      type: object
+      properties:
+        focusSec:
+          type: integer
+        shortBreakSec:
+          type: integer
+        longBreakSec:
+          type: integer
+        updatedAt:
+          type: string
+      required: [focusSec, shortBreakSec, longBreakSec, updatedAt]
+    PomodoroPreferencesPutRequest:
+      type: object
+      properties:
+        focusSec:
+          type: integer
+        shortBreakSec:
+          type: integer
+        longBreakSec:
+          type: integer
+      required: [focusSec, shortBreakSec, longBreakSec]
+    PomodoroPreferencesResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          $ref: "#/components/schemas/PomodoroPreferences"
+      required:
+        - success
+        - data
+    WhiteboardDto:
+      type: object
+      properties:
+        snapshot:
+          type: string
+        updatedAt:
+          type: string
+      required: [snapshot, updatedAt]
+    WhiteboardPutRequest:
+      type: object
+      properties:
+        snapshot:
+          type: string
+      required: [snapshot]
+    WhiteboardResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          $ref: "#/components/schemas/WhiteboardDto"
       required:
         - success
         - data
