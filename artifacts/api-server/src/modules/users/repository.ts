@@ -3,6 +3,7 @@ import {
   accounts,
   flashcardDecks,
   flashcards,
+  noteImageAssets,
   notes,
   pomodoroSessions,
   studyRooms,
@@ -150,5 +151,32 @@ export class UsersRepository {
         updatedAt: r.updatedAt.toISOString(),
       })),
     };
+  }
+
+  async insertNoteImageAsset(input: {
+    id: string;
+    userId: string;
+    mimeType: string;
+    data: Buffer;
+  }): Promise<void> {
+    await db.insert(noteImageAssets).values({
+      id: input.id,
+      userId: input.userId,
+      mimeType: input.mimeType,
+      data: input.data,
+      createdAt: new Date(),
+    });
+  }
+
+  async getNoteImageAssetOwned(assetId: string, userId: string) {
+    const [row] = await db
+      .select({
+        mimeType: noteImageAssets.mimeType,
+        data: noteImageAssets.data,
+      })
+      .from(noteImageAssets)
+      .where(and(eq(noteImageAssets.id, assetId), eq(noteImageAssets.userId, userId)))
+      .limit(1);
+    return row ?? null;
   }
 }

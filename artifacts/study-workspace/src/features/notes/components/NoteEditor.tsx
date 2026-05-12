@@ -148,10 +148,10 @@ export function NoteEditor({
   };
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col bg-background">
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col bg-background">
       <NoteEditorBreadcrumb note={{ ...note, title }} />
 
-      <div className="px-6">
+      <div className="shrink-0 px-6">
         <input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
@@ -161,9 +161,9 @@ export function NoteEditor({
         />
       </div>
 
-      <div className="mt-2 flex min-h-0 flex-1 flex-col">
+      <div className="mt-2 flex min-h-0 min-w-0 flex-1 flex-col">
         <RichTextEditor
-          className="flex min-h-0 flex-1 flex-col"
+          className="flex h-full min-h-0 min-w-0 flex-1 flex-col"
           documentKey={note.id}
           layoutMode="canvas"
           value={content}
@@ -171,7 +171,7 @@ export function NoteEditor({
             setContent(next);
             setHasPendingLocalChanges(true);
           }}
-          placeholder="Start writing your note…"
+          placeholder="Click the canvas to place the caret and type to add a text block."
           enableRichMedia
           showMediaHint
           toolbarRight={

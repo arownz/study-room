@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
+  customType,
   index,
   integer,
   pgTable,
@@ -8,6 +9,20 @@ import {
   timestamp,
   unique,
 } from "drizzle-orm/pg-core";
+
+const noteImageBytes = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return "bytea";
+  },
+  toDriver(value: Buffer): Buffer {
+    return value;
+  },
+  fromDriver(value: unknown): Buffer {
+    if (Buffer.isBuffer(value)) return value;
+    if (value instanceof Uint8Array) return Buffer.from(value);
+    return Buffer.from(String(value), "utf8");
+  },
+});
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -103,6 +118,20 @@ export const notes = pgTable(
     index("notes_folder_id_idx").on(table.folderId),
     index("notes_deleted_at_idx").on(table.deletedAt),
   ],
+);
+
+export const noteImageAssets = pgTable(
+  "note_image_assets",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    mimeType: text("mime_type").notNull(),
+    data: noteImageBytes("data").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("note_image_assets_user_id_idx").on(table.userId)],
 );
 
 export const noteFolders = pgTable(
@@ -312,6 +341,7 @@ export const usersRelations = relations(users, ({ many, one }) => ({
     fields: [users.id],
     references: [userPomodoroPreferences.userId],
   }),
+  noteImageAssets: many(noteImageAssets),
 }));
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
@@ -345,6 +375,13 @@ export const noteFoldersRelations = relations(noteFolders, ({ one, many }) => ({
     references: [users.id],
   }),
   notes: many(notes),
+}));
+
+export const noteImageAssetsRelations = relations(noteImageAssets, ({ one }) => ({
+  user: one(users, {
+    fields: [noteImageAssets.userId],
+    references: [users.id],
+  }),
 }));
 
 export const noteCollaboratorsRelations = relations(noteCollaborators, ({ one }) => ({

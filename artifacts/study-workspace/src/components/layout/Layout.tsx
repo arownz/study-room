@@ -53,7 +53,7 @@ export function Layout({ children }: LayoutProps) {
       <main
         className={cn(
           "pt-14 transition-all duration-300",
-          collapsed ? "pl-16" : "pl-64"
+          collapsed ? "pl-16" : "pl-64",
         )}
       >
         <div className="min-h-[calc(100vh-3.5rem)] p-6">

@@ -1,33 +1,24 @@
-import { mkdirSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { randomUUID } from "node:crypto";
-import { open } from "node:fs/promises";
 import multer from "multer";
 import type { Request } from "express";
 import { AppError } from "../../lib/app-error";
 
-const UPLOAD_ROOT = resolve(process.cwd(), "uploads");
-export const NOTE_IMAGE_DIR = join(UPLOAD_ROOT, "note-images");
-
-mkdirSync(NOTE_IMAGE_DIR, { recursive: true });
-
 const ALLOWED_MIME = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
-const MAX_BYTES = 5 * 1024 * 1024;
+export const MAX_NOTE_IMAGE_BYTES = 5 * 1024 * 1024;
 
 export type NoteImageFormat = "png" | "jpeg" | "webp" | "gif";
 
-export function extensionForFormat(format: NoteImageFormat): string {
+export function mimeFromFormat(format: NoteImageFormat): string {
   switch (format) {
     case "png":
-      return ".png";
+      return "image/png";
     case "jpeg":
-      return ".jpg";
+      return "image/jpeg";
     case "webp":
-      return ".webp";
+      return "image/webp";
     case "gif":
-      return ".gif";
+      return "image/gif";
     default:
-      return ".png";
+      return "application/octet-stream";
   }
 }
 
@@ -54,30 +45,14 @@ export function detectImageFormat(buffer: Buffer): NoteImageFormat | null {
   return null;
 }
 
-export async function readFilePrefix(filePath: string, byteLength: number): Promise<Buffer> {
-  const fh = await open(filePath, "r");
-  try {
-    const buf = Buffer.alloc(byteLength);
-    const { bytesRead } = await fh.read(buf, 0, byteLength, 0);
-    return buf.subarray(0, bytesRead);
-  } finally {
-    await fh.close();
-  }
+/** Public URL for inline `<img src>` after POST (served from DB via GET). */
+export function publicNoteImageApiUrl(assetId: string): string {
+  return `/api/v1/note-images/${assetId}`;
 }
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, NOTE_IMAGE_DIR);
-  },
-  filename: (req, _file, cb) => {
-    const userId = req.authUser?.id ?? "anon";
-    cb(null, `${userId}-note-${randomUUID()}.upload`);
-  },
-});
-
 export const noteImageUpload = multer({
-  storage,
-  limits: { fileSize: MAX_BYTES },
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_NOTE_IMAGE_BYTES },
   fileFilter: (_req, file, cb) => {
     const mt = (file.mimetype || "").toLowerCase();
 
@@ -86,7 +61,6 @@ export const noteImageUpload = multer({
       return;
     }
 
-    // Pasted / dropped blobs often report octet-stream or empty MIME until sniffed server-side.
     if (mt === "" || mt === "application/octet-stream") {
       cb(null, true);
       return;
@@ -106,10 +80,5 @@ export const noteImageUpload = multer({
     cb(new AppError("Only image uploads are allowed.", 400, "INVALID_UPLOAD"));
   },
 });
-
-/** Browser-loadable URL (same origin as API in prod, or proxied `/uploads` in Vite dev). */
-export function publicNoteImageUrl(filename: string): string {
-  return `/uploads/note-images/${filename}`;
-}
 
 export type NoteImageRequest = Request & { file?: Express.Multer.File };

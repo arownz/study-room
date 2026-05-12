@@ -131,7 +131,7 @@ export default function Notes() {
   };
 
   return (
-    <div className="-m-6 flex h-[calc(100vh-3.5rem-3rem)] overflow-hidden rounded-xl border border-border/40">
+    <div className="-m-6 flex h-[calc(100vh-3.5rem-3rem)] min-h-0 overflow-hidden rounded-xl border border-border/40">
       <NotesFolderSidebar filter={filter} onChange={setFilter} notes={notes} />
       <NoteList
         notes={visibleNotes}

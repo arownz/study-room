@@ -52,6 +52,15 @@ function handleListTab(editor: Editor | null, event: KeyboardEvent): boolean {
   return false;
 }
 
+/** Inline images keep text flow so users can keep typing after paste/upload (block images trap the caret). */
+const RICH_IMAGE = Image.configure({
+  inline: true,
+  allowBase64: true,
+  HTMLAttributes: {
+    class: "max-w-full max-h-[min(480px,55vh)] rounded-md align-text-bottom",
+  },
+});
+
 function isLikelyImageFile(file: File): boolean {
   return file.type === "" || file.type.startsWith("image/");
 }
@@ -116,7 +125,7 @@ function uid(prefix: string): string {
 }
 
 function createTextBlock(x: number, y: number, html = ""): CanvasBlock {
-  return { id: uid("text"), type: "text", x, y, width: 560, z: 1, html };
+  return { id: uid("text"), type: "text", x, y, width: 680, z: 1, html };
 }
 
 function escapeHtml(s: string): string {
@@ -128,6 +137,29 @@ function escapeHtml(s: string): string {
     .replaceAll("'", "&#39;");
 }
 
+/** Escape attribute values for safe `insertContent` HTML (URLs may contain `&`). */
+function escapeHtmlAttr(s: string): string {
+  return s.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+}
+
+/** After paste/upload, always leave an empty paragraph below the image so the caret has room. */
+function insertUploadedImageIntoEditor(editor: Editor, url: string): void {
+  const safe = escapeHtmlAttr(url);
+  editor.chain().focus().insertContent(`<p><img src="${safe}" alt="" /></p><p></p>`).focus("end").run();
+}
+
+/** Drop canvas text blocks only when there is no text and no images. */
+function isCanvasTextStructuralEmpty(html: string): boolean {
+  const trimmed = html.trim();
+  if (trimmed === "" || trimmed === "<p></p>") return true;
+  if (/<img\b/i.test(html)) return false;
+  if (typeof window === "undefined") {
+    return !trimmed.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  }
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  return (doc.body.textContent ?? "").replace(/\s+/g, " ").trim().length === 0;
+}
+
 function serializeCanvas(blocks: CanvasBlock[]): string {
   const parts = blocks.map((block) => {
     const style = `left:${Math.round(block.x)}px;top:${Math.round(block.y)}px;width:${Math.round(block.width)}px;z-index:${block.z};position:absolute;`;
@@ -136,7 +168,7 @@ function serializeCanvas(blocks: CanvasBlock[]): string {
     }
     return `<div data-note-block="text" data-id="${block.id}" style="${style}">${block.html || "<p></p>"}</div>`;
   });
-  return `<div ${CANVAS_MARKER}="1" style="position:relative;min-height:720px;">${parts.join("")}</div>`;
+  return `<div ${CANVAS_MARKER}="1" style="position:relative;min-height:100%;">${parts.join("")}</div>`;
 }
 
 function parseCanvas(html: string): CanvasBlock[] {
@@ -352,7 +384,9 @@ function LinearRichTextEditor({
     uploadingRef.current = true;
     setImageBusy(true);
     void uploadNoteImageAsset(file)
-      .then((url) => editorInstance.chain().focus().setImage({ src: url }).run())
+      .then((url) => {
+        insertUploadedImageIntoEditor(editorInstance, url);
+      })
       .catch((err: unknown) => {
         const message = err instanceof ApiError ? err.message : "Image upload failed.";
         window.alert(message);
@@ -373,7 +407,7 @@ function LinearRichTextEditor({
       TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder: placeholder ?? "Start writing…" }),
       Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
-      ...(enableRichMedia ? [Image.configure({ inline: false, allowBase64: true })] : []),
+      ...(enableRichMedia ? [RICH_IMAGE] : []),
     ],
     content: value || "",
     editable: !readOnly,
@@ -535,7 +569,7 @@ function TextBlockEditor({
         autolink: true,
         linkOnPaste: true,
       }),
-      Image.configure({ inline: false, allowBase64: true }),
+      RICH_IMAGE,
     ],
     content: html || "",
     editable: !readOnly,
@@ -545,6 +579,8 @@ function TextBlockEditor({
           "tiptap prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed focus:outline-none",
           NESTED_LIST_PROSE,
           "[&_li[data-checked]]:list-none",
+          "[&_.ProseMirror_img]:inline-block [&_.ProseMirror_img]:align-text-bottom",
+          "[&_.ProseMirror]:pb-16",
         ),
       },
       handleKeyDown: (_view, event) => {
@@ -579,7 +615,14 @@ function TextBlockEditor({
     editor.commands.focus("end");
   }, [active, editor]);
 
-  return <EditorContent editor={editor} />;
+  return (
+    <div
+      data-block-body={blockId}
+      className="min-h-20 w-full [&_.ProseMirror]:min-h-18 [&_.ProseMirror]:outline-none"
+    >
+      <EditorContent editor={editor} className="block w-full" />
+    </div>
+  );
 }
 
 export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
@@ -686,14 +729,22 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     useEffect(() => {
       const view = viewportRef.current;
       if (!view) return;
-      const observer = new ResizeObserver(() => {
+      const update = () => {
         setViewportSize({
           width: Math.max(0, view.clientWidth),
           height: Math.max(0, view.clientHeight),
         });
-      });
+      };
+      const observer = new ResizeObserver(update);
       observer.observe(view);
-      return () => observer.disconnect();
+      window.visualViewport?.addEventListener("resize", update);
+      window.visualViewport?.addEventListener("scroll", update);
+      update();
+      return () => {
+        observer.disconnect();
+        window.visualViewport?.removeEventListener("resize", update);
+        window.visualViewport?.removeEventListener("scroll", update);
+      };
     }, []);
 
     useEffect(() => {
@@ -807,22 +858,25 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       updateBlocks((prev) => [...prev, block]);
       setActiveBlockId(block.id);
       requestAnimationFrame(() => {
-        document.querySelector<HTMLElement>(`[data-block-body="${block.id}"]`)?.focus();
+        document
+          .querySelector<HTMLElement>(`[data-block-body="${block.id}"] .ProseMirror`)
+          ?.focus();
       });
     }, [updateBlocks]);
 
-    const appendImageAt = useCallback((x: number, y: number, src: string) => {
-      const block: CanvasBlock = {
-        id: uid("img"),
-        type: "image",
-        x,
-        y,
-        width: 380,
-        z: nextZ(),
-        src,
-      };
+    const appendTextBlockWithImageAt = useCallback((x: number, y: number, src: string) => {
+      zRef.current += 1;
+      const z = zRef.current;
+      const safe = escapeHtmlAttr(src);
+      const html = `<p><img src="${safe}" alt="" /></p><p></p>`;
+      const block: CanvasBlock = { ...createTextBlock(x, y, html), z };
       updateBlocks((prev) => [...prev, block]);
       setActiveBlockId(block.id);
+      requestAnimationFrame(() => {
+        document
+          .querySelector<HTMLElement>(`[data-block-body="${block.id}"] .ProseMirror`)
+          ?.focus();
+      });
     }, [updateBlocks]);
 
     const uploadAndPlaceImage = useCallback((file: File, x: number, y: number) => {
@@ -832,7 +886,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       void uploadNoteImageAsset(file)
         .then((url) => {
           if (activeDocumentKeyRef.current !== opDocKey) return;
-          appendImageAt(x, y, url);
+          appendTextBlockWithImageAt(x, y, url);
           setPendingInsertPoint(null);
         })
         .catch((err: unknown) => {
@@ -840,7 +894,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
           window.alert(message);
         })
         .finally(() => setImageBusy(false));
-    }, [appendImageAt, enableRichMedia]);
+    }, [appendTextBlockWithImageAt, enableRichMedia]);
 
     const uploadImageIntoActiveTextBlock = useCallback(
       async (file: File) => {
@@ -852,7 +906,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         try {
           const url = await uploadNoteImageAsset(file);
           if (activeDocumentKeyRef.current !== opDocKey) return;
-          ed.chain().focus().setImage({ src: url }).run();
+          insertUploadedImageIntoEditor(ed, url);
           setPendingInsertPoint(null);
         } catch (err: unknown) {
           const message = err instanceof ApiError ? err.message : "Image upload failed.";
@@ -908,7 +962,8 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       dragStateRef.current = null;
     };
 
-    const plainHint = `Click anywhere in the canvas to place the cursor, then type.`;
+    const plainHint =
+      "Click the canvas to add a block. Ctrl/Cmd + scroll zooms the canvas.";
     const zoomOut = () => setZoom((z) => Math.max(0.5, z - 0.1));
     const zoomIn = () => setZoom((z) => Math.min(2.5, z + 0.1));
 
@@ -974,7 +1029,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
                 if (!Number.isFinite(n)) return;
                 setZoom(Math.max(0.5, Math.min(2.5, n / 100)));
               }}
-              className="h-5 w-12 bg-transparent text-center font-mono text-muted-foreground outline-none"
+              className="h-5 w-12 bg-transparent text-center font-mono text-muted-foreground outline-none [-moz-appearance:textfield] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               aria-label="Canvas zoom percent"
             />
             <button
@@ -998,11 +1053,11 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         ) : null}
         <div
           ref={viewportRef}
-          className="flex min-h-0 flex-1 flex-col overflow-auto px-1 pb-3 sm:px-3 [scrollbar-width:thin] [scrollbar-color:hsl(var(--muted-foreground))/transparent] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/70 dark:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40"
+          className="flex min-h-[min(28rem,calc(100vh-15rem))] flex-1 flex-col overflow-auto px-1 pb-3 sm:px-3 [scrollbar-width:thin] [scrollbar-color:hsl(var(--muted-foreground))/transparent] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/70 dark:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40"
         >
           <div
             ref={canvasRef}
-            className="relative mt-0 min-h-0 w-full min-w-0 rounded-lg border border-border/60 bg-muted/10 dark:bg-muted/5"
+            className="relative mt-0 w-full min-w-0 rounded-lg border border-border/60 bg-muted/10 dark:bg-muted/5"
             style={{
               width: canvasSize.width * zoom,
               minWidth: canvasSize.width * zoom,
@@ -1022,6 +1077,24 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
               setPendingInsertPoint({
                 x: (event.clientX - rect.left) / zoom,
                 y: (event.clientY - rect.top) / zoom,
+              });
+            }}
+            onDoubleClick={(event) => {
+              if (readOnly) return;
+              const target = event.target as HTMLElement;
+              if (target.closest("[data-note-block-wrap]")) return;
+              event.preventDefault();
+              const rect = event.currentTarget.getBoundingClientRect();
+              const x = Math.max(8, (event.clientX - rect.left) / zoom - 4);
+              const y = Math.max(8, (event.clientY - rect.top) / zoom - 4);
+              const block = { ...createTextBlock(x, y), z: nextZ() };
+              updateBlocks((prev) => [...prev, block]);
+              setActiveBlockId(block.id);
+              setPendingInsertPoint(null);
+              requestAnimationFrame(() => {
+                document
+                  .querySelector<HTMLElement>(`[data-block-body="${block.id}"] .ProseMirror`)
+                  ?.focus();
               });
             }}
             onDrop={(event) => {
@@ -1072,12 +1145,20 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
               uploadAndPlaceImage(file, 56, 120);
             }}
           >
+            {blocks.length === 0 && !readOnly ? (
+              <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center px-6 text-center">
+                <p className="max-w-lg text-sm leading-relaxed text-muted-foreground/85">
+                  {placeholder ??
+                    "Nothing here yet — click once to place a caret and type to open a text block right away."}
+                </p>
+              </div>
+            ) : null}
             {blocks.map((block) => (
               <div
                 key={block.id}
                 data-note-block-wrap={block.id}
                 className={cn(
-                  "absolute rounded-md border bg-background/95 shadow-sm",
+                  "absolute z-1 rounded-md border bg-background/95 shadow-sm",
                   activeBlockId === block.id ? "border-primary/50 ring-2 ring-primary/20" : "border-border/60",
                 )}
                 style={{ left: block.x * zoom, top: block.y * zoom, width: block.width * zoom, zIndex: block.z }}
@@ -1117,7 +1198,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
                       }}
                       onChange={(nextHtml) =>
                         updateBlocks((prev) => {
-                          if (nextHtml.trim() === "") {
+                          if (isCanvasTextStructuralEmpty(nextHtml)) {
                             return prev.filter((b) => b.id !== block.id);
                           }
                           return prev.map((b) => (b.id === block.id ? { ...b, html: nextHtml } : b));

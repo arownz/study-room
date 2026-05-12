@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { z } from "zod";
 import { asyncHandler } from "../../core/http/async-handler";
 import { validateRequest } from "../../core/http/validate";
 import { requireAuth } from "../auth/middleware";
@@ -57,6 +58,17 @@ router.delete(
   "/users/me/avatar",
   requireAuth,
   asyncHandler(controller.deleteAvatar),
+);
+
+const noteImageAssetParamsSchema = z.object({
+  assetId: z.string().uuid(),
+});
+
+router.get(
+  "/note-images/:assetId",
+  requireAuth,
+  validateRequest({ params: noteImageAssetParamsSchema }),
+  asyncHandler(controller.getNoteImage),
 );
 
 router.post(

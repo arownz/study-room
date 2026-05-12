@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { AppError } from "../../lib/app-error";
 import {
   dashboardSummarySchema,
@@ -81,5 +82,23 @@ export class UsersService {
   async getDashboardSummary(userId: string): Promise<DashboardSummary> {
     const raw = await this.repository.getDashboardSummary(userId);
     return dashboardSummarySchema.parse(raw);
+  }
+
+  async createNoteImageFromBuffer(userId: string, buffer: Buffer, mimeType: string): Promise<string> {
+    const id = randomUUID();
+    await this.repository.insertNoteImageAsset({
+      id,
+      userId,
+      mimeType,
+      data: buffer,
+    });
+    return id;
+  }
+
+  async getNoteImageBytesForOwner(
+    assetId: string,
+    userId: string,
+  ): Promise<{ mimeType: string; data: Buffer } | null> {
+    return this.repository.getNoteImageAssetOwned(assetId, userId);
   }
 }

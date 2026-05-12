@@ -1,7 +1,4 @@
 import type { Request, Response } from "express";
-import { randomUUID } from "node:crypto";
-import { dirname, join } from "node:path";
-import { rename, unlink } from "node:fs/promises";
 import { sendError, sendSuccess } from "../../core/http/response";
 import { AppError } from "../../lib/app-error";
 import {
@@ -18,9 +15,8 @@ import {
 } from "./avatar-storage";
 import {
   detectImageFormat,
-  extensionForFormat,
-  publicNoteImageUrl,
-  readFilePrefix,
+  mimeFromFormat,
+  publicNoteImageApiUrl,
   type NoteImageRequest,
 } from "./note-image-upload";
 import { UsersService } from "./service";
@@ -107,28 +103,19 @@ export class UsersController {
     return sendSuccess(res, meDtoSchema.parse(updated));
   };
 
-  /** Authenticated inline image upload for note HTML (editor paste / upload). */
+  /** Authenticated inline image upload for note HTML (stored in PostgreSQL, not disk). */
   uploadNoteImage = async (req: NoteImageRequest, res: Response) => {
     if (!req.authUser) {
       sendError(res, "Unauthorized", 401, "UNAUTHORIZED");
       return;
     }
     const file = req.file;
-    if (!file) {
+    if (!file?.buffer?.length) {
       throw new AppError("No image uploaded", 400, "NO_FILE");
     }
 
-    let prefix: Buffer;
-    try {
-      prefix = await readFilePrefix(file.path, 16);
-    } catch {
-      await unlink(file.path).catch(() => undefined);
-      throw new AppError("Could not read the uploaded image.", 400, "READ_FAILED");
-    }
-
-    const format = detectImageFormat(prefix);
+    const format = detectImageFormat(file.buffer);
     if (!format) {
-      await unlink(file.path).catch(() => undefined);
       throw new AppError(
         "Unsupported image format. Use PNG, JPEG, WebP, or GIF.",
         400,
@@ -136,17 +123,29 @@ export class UsersController {
       );
     }
 
-    const dir = dirname(file.path);
-    const destName = `${req.authUser.id}-note-${randomUUID()}${extensionForFormat(format)}`;
-    const destPath = join(dir, destName);
+    const id = await this.service.createNoteImageFromBuffer(
+      req.authUser.id,
+      file.buffer,
+      mimeFromFormat(format),
+    );
 
-    try {
-      await rename(file.path, destPath);
-    } catch {
-      await unlink(file.path).catch(() => undefined);
-      throw new AppError("Failed to store the image.", 500, "STORE_FAILED");
+    return sendSuccess(res, { url: publicNoteImageApiUrl(id) }, 201);
+  };
+
+  /** Serve a note image bytea row (same user only; used as `<img src>`). */
+  getNoteImage = async (req: Request, res: Response) => {
+    if (!req.authUser) {
+      sendError(res, "Unauthorized", 401, "UNAUTHORIZED");
+      return;
     }
-
-    return sendSuccess(res, { url: publicNoteImageUrl(destName) });
+    const { assetId } = req.params as { assetId: string };
+    const row = await this.service.getNoteImageBytesForOwner(assetId, req.authUser.id);
+    if (!row) {
+      sendError(res, "Not found", 404, "NOT_FOUND");
+      return;
+    }
+    res.setHeader("Content-Type", row.mimeType);
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    res.send(row.data);
   };
 }
