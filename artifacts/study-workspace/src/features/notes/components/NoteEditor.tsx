@@ -59,7 +59,7 @@ export function NoteEditor({
   useEffect(() => {
     const draftKey = `${DRAFT_KEY_PREFIX}${note.id}`;
     try {
-      const raw = window.sessionStorage.getItem(draftKey);
+      const raw = window.localStorage.getItem(draftKey);
       if (raw) {
         const parsed = JSON.parse(raw) as { title?: string; content?: string };
         setTitle(parsed.title ?? note.title);
@@ -84,7 +84,7 @@ export function NoteEditor({
   useEffect(() => {
     if (!hasPendingLocalChanges) return;
     const draftKey = `${DRAFT_KEY_PREFIX}${note.id}`;
-    window.sessionStorage.setItem(
+    window.localStorage.setItem(
       draftKey,
       JSON.stringify({
         title,
@@ -98,7 +98,7 @@ export function NoteEditor({
   const handleSave = useCallback(async () => {
     if (!isDirty) return;
     await onSave({ title, content }, { silent: false });
-    window.sessionStorage.removeItem(`${DRAFT_KEY_PREFIX}${note.id}`);
+    window.localStorage.removeItem(`${DRAFT_KEY_PREFIX}${note.id}`);
     setHasPendingLocalChanges(false);
   }, [content, isDirty, note.id, onSave, title]);
 
@@ -163,6 +163,7 @@ export function NoteEditor({
 
       <div className="mt-2 flex min-h-0 flex-1 flex-col">
         <RichTextEditor
+          className="flex min-h-0 flex-1 flex-col"
           documentKey={note.id}
           layoutMode="canvas"
           value={content}

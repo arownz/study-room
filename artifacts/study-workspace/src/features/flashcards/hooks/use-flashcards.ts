@@ -32,10 +32,13 @@ const listParams = { limit: 100, offset: 0 } as const;
 
 export function useFlashcards(deckId: string | undefined) {
   const queryClient = useQueryClient();
-  const cardsQuery = useListFlashcards(
-    deckId ? { ...listParams, deckId } : { ...listParams },
-    { query: { enabled: Boolean(deckId) } },
-  );
+  const listFlashParams = deckId ? { ...listParams, deckId } : { ...listParams };
+  const cardsQuery = useListFlashcards(listFlashParams, {
+    query: {
+      queryKey: getListFlashcardsQueryKey(listFlashParams),
+      enabled: Boolean(deckId),
+    },
+  });
   const createMutation = useCreateFlashcard();
   const updateMutation = useUpdateFlashcard();
   const deleteMutation = useDeleteFlashcard();

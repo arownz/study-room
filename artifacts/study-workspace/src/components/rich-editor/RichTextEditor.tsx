@@ -36,6 +36,22 @@ import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { shortcutModLabel } from "@/lib/platform";
 
+/** Prose + marker styles so nested ordered/unordered lists stay readable (OneNote-style mixing). */
+const NESTED_LIST_PROSE =
+  "[&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_li]:pl-1 [&_li>ul]:mt-1 [&_li>ol]:mt-1 [&_li>ul]:pl-6 [&_li>ol]:pl-6 [&_li]:marker:text-foreground";
+
+function handleListTab(editor: Editor | null, event: KeyboardEvent): boolean {
+  if (!editor || event.key !== "Tab") return false;
+  const ok = event.shiftKey
+    ? editor.chain().focus().liftListItem("listItem").run()
+    : editor.chain().focus().sinkListItem("listItem").run();
+  if (ok) {
+    event.preventDefault();
+    return true;
+  }
+  return false;
+}
+
 function isLikelyImageFile(file: File): boolean {
   return file.type === "" || file.type.startsWith("image/");
 }
@@ -368,7 +384,7 @@ function LinearRichTextEditor({
           minHeightClass,
           "flex-1 px-6 py-4 text-sm leading-relaxed text-foreground",
           "focus:outline-none",
-          "[&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6",
+          NESTED_LIST_PROSE,
           "[&_li[data-checked]]:list-none",
         ),
         "data-testid": testId ?? "rte-editor",
@@ -396,6 +412,7 @@ function LinearRichTextEditor({
               return true;
             }
           : undefined,
+      handleKeyDown: (_view, event) => (handleListTab(editorRef.current, event) ? true : false),
     },
     onUpdate: ({ editor }) => {
       const next = editor.getHTML();
@@ -503,6 +520,7 @@ function TextBlockEditor({
   onFocus,
   onChange,
 }: TextBlockEditorProps) {
+  const editorRef = useRef<Editor | null>(null);
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -525,14 +543,12 @@ function TextBlockEditor({
       attributes: {
         class: cn(
           "tiptap prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed focus:outline-none",
-          "[&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6",
+          NESTED_LIST_PROSE,
           "[&_li[data-checked]]:list-none",
         ),
       },
       handleKeyDown: (_view, event) => {
-        // If user backspaces through an empty list item, let TipTap lift/outdent
-        // naturally. We only avoid hard failures by always returning false.
-        if (event.key === "Backspace") return false;
+        if (handleListTab(editorRef.current, event)) return true;
         return false;
       },
     },
@@ -553,6 +569,10 @@ function TextBlockEditor({
   useEffect(() => {
     editor?.setEditable(!readOnly);
   }, [editor, readOnly]);
+
+  useEffect(() => {
+    editorRef.current = editor ?? null;
+  }, [editor]);
 
   useEffect(() => {
     if (!active || !editor) return;
@@ -606,12 +626,17 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
 
     const imageInputRef = useRef<HTMLInputElement>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
+    const viewportRef = useRef<HTMLDivElement>(null);
     const [imageBusy, setImageBusy] = useState(false);
     const [blocks, setBlocks] = useState<CanvasBlock[]>(() => parseCanvas(value || ""));
     const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
     const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 760 });
+    const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
     const [zoom, setZoom] = useState(1);
-    const [pendingInsertPoint, setPendingInsertPoint] = useState<{ x: number; y: number } | null>(null);
+    const [pendingInsertPoint, setPendingInsertPoint] = useState<{ x: number; y: number } | null>({
+      x: 28,
+      y: 28,
+    });
     const dragStateRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
     const activeEditorRef = useRef<Editor | null>(null);
     const hydratedRef = useRef(false);
@@ -659,10 +684,38 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     }, [value]); // keep external updates in sync
 
     useEffect(() => {
-      const maxWidth = Math.max(1200, ...blocks.map((b) => b.x + b.width + 80));
-      const maxHeight = Math.max(760, ...blocks.map((b) => b.y + (b.type === "image" ? 360 : 260) + 80));
-      setCanvasSize({ width: maxWidth, height: maxHeight });
-    }, [blocks]);
+      const view = viewportRef.current;
+      if (!view) return;
+      const observer = new ResizeObserver(() => {
+        setViewportSize({
+          width: Math.max(0, view.clientWidth),
+          height: Math.max(0, view.clientHeight),
+        });
+      });
+      observer.observe(view);
+      return () => observer.disconnect();
+    }, []);
+
+    useEffect(() => {
+      const vw = viewportSize.width;
+      const vh = viewportSize.height;
+      const minW = vw > 0 ? vw : 400;
+      const minH = vh > 0 ? vh : 360;
+      const blockMaxW = blocks.reduce((acc, b) => Math.max(acc, b.x + b.width + 96), 0);
+      const blockMaxH = blocks.reduce((acc, b) => {
+        if (b.type === "image") return Math.max(acc, b.y + 360 + 96);
+        const textBlock = document.querySelector(`[data-note-block-wrap="${b.id}"]`);
+        if (textBlock) {
+          const contentHeight = textBlock.scrollHeight || 260;
+          return Math.max(acc, b.y + contentHeight + 96);
+        }
+        return Math.max(acc, b.y + 260 + 96);
+      }, 0);
+      setCanvasSize({
+        width: Math.max(blockMaxW, minW),
+        height: Math.max(blockMaxH, minH),
+      });
+    }, [blocks, viewportSize.height, viewportSize.width]);
 
     useEffect(() => {
       const onKey = (event: KeyboardEvent) => {
@@ -716,6 +769,34 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       return () => window.removeEventListener("keydown", onTypeToCreate);
     }, [pendingInsertPoint, readOnly, updateBlocks]);
 
+    useEffect(() => {
+      const el = canvasRef.current;
+      if (!el) return;
+      const preventBrowserZoom = (event: WheelEvent) => {
+        if (event.ctrlKey || event.metaKey) {
+          event.preventDefault();
+        }
+      };
+      el.addEventListener("wheel", preventBrowserZoom, { passive: false });
+      return () => {
+        el.removeEventListener("wheel", preventBrowserZoom);
+      };
+    }, []);
+
+    useEffect(() => {
+      const onGlobalWheel = (event: WheelEvent) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        if (!(event.ctrlKey || event.metaKey)) return;
+        const target = event.target as Node | null;
+        if (!target || !canvas.contains(target)) return;
+        // Hard-stop browser zoom for Ctrl/Cmd+wheel within notes canvas area.
+        event.preventDefault();
+      };
+      window.addEventListener("wheel", onGlobalWheel, { passive: false, capture: true });
+      return () => window.removeEventListener("wheel", onGlobalWheel, true);
+    }, []);
+
     const nextZ = () => {
       zRef.current += 1;
       return zRef.current;
@@ -752,6 +833,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         .then((url) => {
           if (activeDocumentKeyRef.current !== opDocKey) return;
           appendImageAt(x, y, url);
+          setPendingInsertPoint(null);
         })
         .catch((err: unknown) => {
           const message = err instanceof ApiError ? err.message : "Image upload failed.";
@@ -760,12 +842,42 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         .finally(() => setImageBusy(false));
     }, [appendImageAt, enableRichMedia]);
 
-    const onPickImageFiles = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      event.target.value = "";
-      if (!file || !isLikelyImageFile(file)) return;
-      uploadAndPlaceImage(file, 56, 120);
-    }, [uploadAndPlaceImage]);
+    const uploadImageIntoActiveTextBlock = useCallback(
+      async (file: File) => {
+        if (!enableRichMedia) return;
+        const opDocKey = activeDocumentKeyRef.current;
+        const ed = activeEditorRef.current;
+        if (!ed) return;
+        setImageBusy(true);
+        try {
+          const url = await uploadNoteImageAsset(file);
+          if (activeDocumentKeyRef.current !== opDocKey) return;
+          ed.chain().focus().setImage({ src: url }).run();
+          setPendingInsertPoint(null);
+        } catch (err: unknown) {
+          const message = err instanceof ApiError ? err.message : "Image upload failed.";
+          window.alert(message);
+        } finally {
+          setImageBusy(false);
+        }
+      },
+      [enableRichMedia],
+    );
+
+    const onPickImageFiles = useCallback(
+      (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (!file || !isLikelyImageFile(file)) return;
+        const activeText = blocks.find((b) => b.id === activeBlockId && b.type === "text");
+        if (activeText && activeEditorRef.current) {
+          void uploadImageIntoActiveTextBlock(file);
+          return;
+        }
+        uploadAndPlaceImage(file, 56, 120);
+      },
+      [activeBlockId, blocks, uploadAndPlaceImage, uploadImageIntoActiveTextBlock],
+    );
 
     const beginDrag = (event: React.PointerEvent, block: CanvasBlock) => {
       if (readOnly) return;
@@ -796,10 +908,9 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       dragStateRef.current = null;
     };
 
-    const plainHint = `Click anywhere in the canvas to add a text block.`;
+    const plainHint = `Click anywhere in the canvas to place the cursor, then type.`;
     const zoomOut = () => setZoom((z) => Math.max(0.5, z - 0.1));
     const zoomIn = () => setZoom((z) => Math.min(2.5, z + 0.1));
-    const zoomLabel = `${Math.round(zoom * 100)}%`;
 
     return (
       <div className={cn("flex h-full min-h-0 flex-col", className)}>
@@ -852,7 +963,20 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             >
               -
             </button>
-            <span className="w-11 text-center font-mono text-muted-foreground">{zoomLabel}</span>
+            <input
+              type="number"
+              min={50}
+              max={250}
+              step={5}
+              value={Math.round(zoom * 100)}
+              onChange={(event) => {
+                const n = Number(event.target.value);
+                if (!Number.isFinite(n)) return;
+                setZoom(Math.max(0.5, Math.min(2.5, n / 100)));
+              }}
+              className="h-5 w-12 bg-transparent text-center font-mono text-muted-foreground outline-none"
+              aria-label="Canvas zoom percent"
+            />
             <button
               type="button"
               className="h-5 w-5 rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -868,14 +992,17 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
           ) : null}
         </div>
         {showMediaHint ? (
-          <p className="px-6 pt-2 text-[11px] text-muted-foreground">
+          <p className="px-3 pt-2 text-[11px] text-muted-foreground sm:px-4">
             {enableRichMedia ? "Paste or drop images into the canvas. " : ""}{plainHint}
           </p>
         ) : null}
-        <div className="flex min-h-0 flex-1 flex-col overflow-auto px-6 pb-4">
+        <div
+          ref={viewportRef}
+          className="flex min-h-0 flex-1 flex-col overflow-auto px-1 pb-3 sm:px-3 [scrollbar-width:thin] [scrollbar-color:hsl(var(--muted-foreground))/transparent] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/70 dark:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40"
+        >
           <div
             ref={canvasRef}
-            className={cn("relative mt-2 rounded-xl border border-border/60 bg-muted/15", minHeightClass)}
+            className="relative mt-0 min-h-0 w-full min-w-0 rounded-lg border border-border/60 bg-muted/10 dark:bg-muted/5"
             style={{
               width: canvasSize.width * zoom,
               minWidth: canvasSize.width * zoom,
@@ -909,6 +1036,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
               if (!readOnly && enableRichMedia) event.preventDefault();
             }}
             onWheel={(event) => {
+              if (!event.ctrlKey && !event.metaKey) return;
               event.preventDefault();
               setZoom((z) => Math.max(0.5, Math.min(2.5, z - event.deltaY * 0.001)));
             }}
@@ -930,10 +1058,17 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             }}
             onPaste={(event) => {
               if (readOnly || !enableRichMedia) return;
+              const target = event.target as HTMLElement;
+              if (target.closest(".ProseMirror,[contenteditable='true']")) return;
               const fileItem = Array.from(event.clipboardData.items).find(clipboardItemIsImage);
               const file = fileItem?.getAsFile();
               if (!file) return;
               event.preventDefault();
+              const activeText = blocks.find((b) => b.id === activeBlockId && b.type === "text");
+              if (activeText && activeEditorRef.current) {
+                void uploadImageIntoActiveTextBlock(file);
+                return;
+              }
               uploadAndPlaceImage(file, 56, 120);
             }}
           >
@@ -995,8 +1130,8 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             ))}
             {pendingInsertPoint && !readOnly ? (
               <div
-                className="pointer-events-none absolute h-6 w-6 rounded-sm border border-primary/40 bg-primary/5"
-                style={{ left: pendingInsertPoint.x * zoom, top: pendingInsertPoint.y * zoom }}
+                className="pointer-events-none absolute h-5 w-[2px] animate-pulse bg-primary/80"
+                style={{ left: pendingInsertPoint.x * zoom + 1, top: pendingInsertPoint.y * zoom + 2 }}
               />
             ) : null}
           </div>

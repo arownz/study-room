@@ -29,7 +29,7 @@ export function NoteList({
   isLoading,
 }: NoteListProps) {
   return (
-    <div className="flex w-64 flex-shrink-0 flex-col border-r border-border/60">
+    <div className="flex w-64 shrink-0 flex-col border-r border-border/60">
       <div className="space-y-2 border-b border-border/60 p-3">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
@@ -47,7 +47,7 @@ export function NoteList({
           </div>
           <Button
             size="icon"
-            className="h-7 w-7 flex-shrink-0"
+            className="h-7 w-7 shrink-0"
             onClick={onCreate}
             disabled={isCreating}
             data-testid="button-create-note"
@@ -81,7 +81,7 @@ export function NoteList({
                   {note.isFavorite ? (
                     <Star
                       size={10}
-                      className="mt-0.5 flex-shrink-0 fill-amber-400 text-amber-400"
+                      className="mt-0.5 shrink-0 fill-amber-400 text-amber-400"
                     />
                   ) : null}
                 </div>

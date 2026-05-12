@@ -15,7 +15,12 @@ import {
   useFlashcards,
   type FlashcardViewModel,
 } from "@/features/flashcards/hooks/use-flashcards";
-import { useGetFlashcardById, useGetFlashcardDeckById } from "@workspace/api-client-react";
+import {
+  getGetFlashcardByIdQueryKey,
+  getGetFlashcardDeckByIdQueryKey,
+  useGetFlashcardById,
+  useGetFlashcardDeckById,
+} from "@workspace/api-client-react";
 
 function formatRelative(iso: string): string {
   const ts = new Date(iso).getTime();
@@ -63,11 +68,17 @@ export default function Flashcards() {
   } = useFlashcards(routeDeckId);
 
   const cardDetailQuery = useGetFlashcardById(routeCardId ?? "", {
-    query: { enabled: Boolean(routeCardId) },
+    query: {
+      queryKey: getGetFlashcardByIdQueryKey(routeCardId ?? ""),
+      enabled: Boolean(routeCardId),
+    },
   });
 
   const deckMetaQuery = useGetFlashcardDeckById(routeDeckId ?? "", {
-    query: { enabled: Boolean(routeDeckId) },
+    query: {
+      queryKey: getGetFlashcardDeckByIdQueryKey(routeDeckId ?? ""),
+      enabled: Boolean(routeDeckId),
+    },
   });
 
   const [deckCreateOpen, setDeckCreateOpen] = useState(false);

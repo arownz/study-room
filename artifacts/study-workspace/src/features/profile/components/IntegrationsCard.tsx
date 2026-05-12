@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FcGoogle } from "react-icons/fc";
 import { FaDiscord } from "react-icons/fa";
 import { Mail } from "lucide-react";
+import type { ReactElement } from "react";
 import {
   findProviderAccount,
   isProviderConnected,
@@ -16,7 +17,7 @@ interface ProviderRow {
   id: string;
   label: string;
   description: string;
-  icon: JSX.Element;
+  icon: ReactElement;
 }
 
 const PROVIDERS: ProviderRow[] = [
