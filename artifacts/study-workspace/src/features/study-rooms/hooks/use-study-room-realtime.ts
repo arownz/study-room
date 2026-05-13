@@ -3,8 +3,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { io } from "socket.io-client";
 import {
   getListStudyRoomGoalsQueryKey,
-  getStudyRoomTimerQueryKey,
-  type StudyRoomTimerDto,
+  getGetStudyRoomTimerQueryKey,
+  type StudyRoomTimer,
 } from "@workspace/api-client-react";
 
 export function useStudyRoomRealtime(roomId: string | null) {
@@ -19,8 +19,8 @@ export function useStudyRoomRealtime(roomId: string | null) {
       transports: ["websocket", "polling"],
     });
 
-    const onTimer = (dto: StudyRoomTimerDto) => {
-      queryClient.setQueryData(getStudyRoomTimerQueryKey(roomId), {
+    const onTimer = (dto: StudyRoomTimer) => {
+      queryClient.setQueryData(getGetStudyRoomTimerQueryKey(roomId), {
         success: true,
         data: dto,
       });

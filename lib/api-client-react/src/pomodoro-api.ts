@@ -8,55 +8,26 @@ import type {
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
-import type { ErrorResponse } from "./generated/api.schemas";
-import { getDashboardSummaryQueryKey } from "./dashboard-api";
+import type {
+  CreatePomodoroSessionRequest,
+  ErrorResponse,
+  ListPomodoroSessionsParams,
+  ListPomodoroSessionsResponse,
+  PomodoroPreferences,
+  PomodoroPreferencesPutRequest,
+  PomodoroPreferencesResponse,
+  PomodoroSessionResponse,
+} from "./generated/api.schemas";
+import { getGetPomodoroPreferencesQueryKey, getGetUserDashboardSummaryQueryKey, getGetUserStudyAnalyticsQueryKey } from "./generated/api";
 import { customFetch } from "./custom-fetch";
-import { getStudyAnalyticsQueryKey } from "./study-analytics-api";
 import type { BodyType, ErrorType } from "./custom-fetch";
 
-export type PomodoroMode = "focus" | "short_break" | "long_break";
+export type {
+  PomodoroSession,
+  PomodoroSessionMode,
+} from "./generated/api.schemas";
 
-export interface PomodoroSessionDto {
-  id: string;
-  mode: PomodoroMode;
-  durationPlannedSec: number;
-  durationActualSec: number;
-  label: string | null;
-  startedAt: string;
-  completedAt: string;
-  createdAt: string;
-}
-
-export interface CreatePomodoroSessionRequest {
-  mode: PomodoroMode;
-  durationPlannedSec: number;
-  durationActualSec: number;
-  label?: string;
-  startedAt: string;
-  completedAt: string;
-}
-
-export interface ListPomodoroSessionsParams {
-  limit?: number;
-  offset?: number;
-  mode?: PomodoroMode;
-}
-
-export interface ListPomodoroSessionsResponseBody {
-  items: PomodoroSessionDto[];
-  limit: number;
-  offset: number;
-}
-
-interface PomodoroSessionEnvelope {
-  success: true;
-  data: PomodoroSessionDto;
-}
-
-interface ListPomodoroSessionsEnvelope {
-  success: true;
-  data: ListPomodoroSessionsResponseBody;
-}
+export type { CreatePomodoroSessionRequest, ListPomodoroSessionsParams } from "./generated/api.schemas";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
@@ -76,8 +47,8 @@ const getListPomodoroSessionsUrl = (params?: ListPomodoroSessionsParams) => {
 export const listPomodoroSessions = async (
   params?: ListPomodoroSessionsParams,
   options?: RequestInit,
-): Promise<ListPomodoroSessionsEnvelope> => {
-  return customFetch<ListPomodoroSessionsEnvelope>(getListPomodoroSessionsUrl(params), {
+): Promise<ListPomodoroSessionsResponse> => {
+  return customFetch<ListPomodoroSessionsResponse>(getListPomodoroSessionsUrl(params), {
     ...options,
     method: "GET",
   });
@@ -136,8 +107,8 @@ export function useListPomodoroSessions<
 export const createPomodoroSession = async (
   body: CreatePomodoroSessionRequest,
   options?: RequestInit,
-): Promise<PomodoroSessionEnvelope> => {
-  return customFetch<PomodoroSessionEnvelope>("/api/v1/pomodoro/sessions", {
+): Promise<PomodoroSessionResponse> => {
+  return customFetch<PomodoroSessionResponse>("/api/v1/pomodoro/sessions", {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -184,43 +155,23 @@ export const useCreatePomodoroSession = <
     ...mutationOptions,
     onSuccess: (data, variables, onMutateResult, context) => {
       void queryClient.invalidateQueries({ queryKey: getListPomodoroSessionsQueryKey() });
-      void queryClient.invalidateQueries({ queryKey: getDashboardSummaryQueryKey() });
-      void queryClient.invalidateQueries({ queryKey: getStudyAnalyticsQueryKey() });
+      void queryClient.invalidateQueries({ queryKey: getGetUserDashboardSummaryQueryKey() });
+      void queryClient.invalidateQueries({ queryKey: getGetUserStudyAnalyticsQueryKey() });
       userOnSuccess?.(data, variables, onMutateResult, context);
     },
   });
 };
 
-export interface PomodoroPreferencesDto {
-  focusSec: number;
-  shortBreakSec: number;
-  longBreakSec: number;
-  updatedAt: string;
-}
-
-export interface PutPomodoroPreferencesRequest {
-  focusSec: number;
-  shortBreakSec: number;
-  longBreakSec: number;
-}
-
-interface PomodoroPreferencesEnvelope {
-  success: true;
-  data: PomodoroPreferencesDto;
-}
-
 export const getPomodoroPreferences = async (
   options?: RequestInit,
-): Promise<PomodoroPreferencesEnvelope> => {
-  return customFetch<PomodoroPreferencesEnvelope>("/api/v1/pomodoro/preferences", {
+): Promise<PomodoroPreferencesResponse> => {
+  return customFetch<PomodoroPreferencesResponse>("/api/v1/pomodoro/preferences", {
     ...options,
     method: "GET",
   });
 };
 
-export const getPomodoroPreferencesQueryKey = () => ["/api/v1/pomodoro/preferences"] as const;
-
-export const getPomodoroPreferencesQueryOptions = <
+export const getGetPomodoroPreferencesQueryOptions = <
   TData = Awaited<ReturnType<typeof getPomodoroPreferences>>,
   TError = ErrorType<ErrorResponse>,
 >(options?: {
@@ -228,7 +179,7 @@ export const getPomodoroPreferencesQueryOptions = <
   request?: SP<typeof customFetch>;
 }) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
-  const queryKey = queryOptions?.queryKey ?? getPomodoroPreferencesQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getGetPomodoroPreferencesQueryKey();
   const queryFn: QueryFunction<Awaited<ReturnType<typeof getPomodoroPreferences>>> = ({
     signal,
   }) => getPomodoroPreferences({ signal, ...requestOptions });
@@ -239,14 +190,14 @@ export const getPomodoroPreferencesQueryOptions = <
   > & { queryKey: QueryKey };
 };
 
-export function usePomodoroPreferences<
+export function useGetPomodoroPreferences<
   TData = Awaited<ReturnType<typeof getPomodoroPreferences>>,
   TError = ErrorType<ErrorResponse>,
 >(options?: {
   query?: UseQueryOptions<Awaited<ReturnType<typeof getPomodoroPreferences>>, TError, TData>;
   request?: SP<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getPomodoroPreferencesQueryOptions(options);
+  const queryOptions = getGetPomodoroPreferencesQueryOptions(options);
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
   };
@@ -254,10 +205,10 @@ export function usePomodoroPreferences<
 }
 
 export const putPomodoroPreferences = async (
-  body: PutPomodoroPreferencesRequest,
+  body: PomodoroPreferencesPutRequest,
   options?: RequestInit,
-): Promise<PomodoroPreferencesEnvelope> => {
-  return customFetch<PomodoroPreferencesEnvelope>("/api/v1/pomodoro/preferences", {
+): Promise<PomodoroPreferencesResponse> => {
+  return customFetch<PomodoroPreferencesResponse>("/api/v1/pomodoro/preferences", {
     ...options,
     method: "PUT",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -272,14 +223,14 @@ export const usePutPomodoroPreferences = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof putPomodoroPreferences>>,
     TError,
-    { data: BodyType<PutPomodoroPreferencesRequest> },
+    { data: BodyType<PomodoroPreferencesPutRequest> },
     TContext
   >;
   request?: SP<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof putPomodoroPreferences>>,
   TError,
-  { data: BodyType<PutPomodoroPreferencesRequest> },
+  { data: BodyType<PomodoroPreferencesPutRequest> },
   TContext
 > => {
   const queryClient = useQueryClient();
@@ -294,7 +245,7 @@ export const usePutPomodoroPreferences = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof putPomodoroPreferences>>,
-    { data: BodyType<PutPomodoroPreferencesRequest> }
+    { data: BodyType<PomodoroPreferencesPutRequest> }
   > = (props) => putPomodoroPreferences(props.data, requestOptions);
 
   const userOnSuccess = mutationOptions?.onSuccess;
@@ -303,8 +254,10 @@ export const usePutPomodoroPreferences = <
     mutationFn,
     ...mutationOptions,
     onSuccess: (data, variables, onMutateResult, context) => {
-      queryClient.setQueryData(getPomodoroPreferencesQueryKey(), data);
+      queryClient.setQueryData(getGetPomodoroPreferencesQueryKey(), data);
       userOnSuccess?.(data, variables, onMutateResult, context);
     },
   });
 };
+
+export type { PomodoroPreferences, PomodoroPreferencesPutRequest };

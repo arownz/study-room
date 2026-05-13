@@ -2,7 +2,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import type { AiThreadDto } from "@workspace/api-client-react";
+import type { AiThread } from "@workspace/api-client-react";
 
 function formatThreadDate(iso: string): string {
   const d = new Date(iso);
@@ -18,7 +18,7 @@ function formatThreadDate(iso: string): string {
 }
 
 export function ConversationSidebar(props: {
-  threads: AiThreadDto[];
+  threads: AiThread[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;

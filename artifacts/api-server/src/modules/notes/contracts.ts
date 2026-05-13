@@ -14,14 +14,14 @@ export const noteIdParamsSchema = z.object({
 
 export const createNoteBodySchema = z.object({
   title: z.string().min(1).max(200),
-  content: z.string().max(50000).default(""),
+  content: z.string().max(512000).default(""),
   folderId: z.string().min(1).optional(),
 });
 
 export const updateNoteBodySchema = z
   .object({
     title: z.string().min(1).max(200).optional(),
-    content: z.string().max(50000).optional(),
+    content: z.string().max(512000).optional(),
     folderId: z.string().min(1).nullable().optional(),
   })
   .refine(
@@ -35,7 +35,7 @@ export const updateNoteBodySchema = z
   );
 
 export const autosaveNoteBodySchema = z.object({
-  content: z.string().max(50000),
+  content: z.string().max(512000),
 });
 
 export const noteFolderIdParamsSchema = z.object({

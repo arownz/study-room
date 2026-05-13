@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { Pause, Play, RotateCcw } from "lucide-react";
-import { usePatchStudyRoomTimer, useStudyRoomTimer } from "@workspace/api-client-react";
+import { useGetStudyRoomTimer, usePatchStudyRoomTimer } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export function StudyRoomTimerBar(props: { roomId: string }) {
-  const { data: envelope } = useStudyRoomTimer(props.roomId);
+  const { data: envelope } = useGetStudyRoomTimer(props.roomId);
   const dto = envelope?.data;
   const patch = usePatchStudyRoomTimer();
 

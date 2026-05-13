@@ -7,6 +7,7 @@
  */
 
 export interface CreateFlashcardRequest {
+  deckId: string;
   question: string;
   answer: string;
 }

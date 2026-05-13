@@ -19,10 +19,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useListPomodoroSessions,
   useCreatePomodoroSession,
-  usePomodoroPreferences,
+  useGetPomodoroPreferences,
   usePutPomodoroPreferences,
   getListPomodoroSessionsQueryKey,
-  type PomodoroMode,
+  type PomodoroSessionMode,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,21 +32,21 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
-const MODE_ORDER: PomodoroMode[] = ["focus", "short_break", "long_break"];
+const MODE_ORDER: PomodoroSessionMode[] = ["focus", "short_break", "long_break"];
 
-const DEFAULT_SECONDS: Record<PomodoroMode, number> = {
+const DEFAULT_SECONDS: Record<PomodoroSessionMode, number> = {
   focus: 25 * 60,
   short_break: 5 * 60,
   long_break: 15 * 60,
 };
 
-const MODE_LABEL: Record<PomodoroMode, string> = {
+const MODE_LABEL: Record<PomodoroSessionMode, string> = {
   focus: "Focus",
   short_break: "Short Break",
   long_break: "Long Break",
 };
 
-const MODE_COLOR: Record<PomodoroMode, string> = {
+const MODE_COLOR: Record<PomodoroSessionMode, string> = {
   focus: "hsl(248,87%,66%)",
   short_break: "hsl(160,80%,45%)",
   long_break: "hsl(190,90%,50%)",
@@ -56,11 +56,11 @@ function clampSec(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.floor(n)));
 }
 
-function loadModeSeconds(): Record<PomodoroMode, number> {
+function loadModeSeconds(): Record<PomodoroSessionMode, number> {
   try {
     const raw = localStorage.getItem("studyroom.pomodoro.modeSeconds");
     if (!raw) return { ...DEFAULT_SECONDS };
-    const parsed = JSON.parse(raw) as Partial<Record<PomodoroMode, number>>;
+    const parsed = JSON.parse(raw) as Partial<Record<PomodoroSessionMode, number>>;
     return {
       focus: clampSec(parsed.focus ?? DEFAULT_SECONDS.focus, 60, 3 * 60 * 60),
       short_break: clampSec(parsed.short_break ?? DEFAULT_SECONDS.short_break, 60, 60 * 60),
@@ -71,7 +71,7 @@ function loadModeSeconds(): Record<PomodoroMode, number> {
   }
 }
 
-function buildModes(sec: Record<PomodoroMode, number>) {
+function buildModes(sec: Record<PomodoroSessionMode, number>) {
   return MODE_ORDER.map((key) => ({
     key,
     label: MODE_LABEL[key],
@@ -133,7 +133,7 @@ export default function Pomodoro() {
   const { data: sessionsEnvelope } = useListPomodoroSessions({ limit: 80, offset: 0 });
   const sessions = sessionsEnvelope?.data?.items ?? [];
 
-  const { data: prefsEnvelope } = usePomodoroPreferences();
+  const { data: prefsEnvelope } = useGetPomodoroPreferences();
   const putPrefs = usePutPomodoroPreferences();
 
   const createSession = useCreatePomodoroSession();
@@ -170,7 +170,7 @@ export default function Pomodoro() {
   }, [prefsEnvelope]);
 
   useEffect(() => {
-    const sec: Record<PomodoroMode, number> = {
+    const sec: Record<PomodoroSessionMode, number> = {
       focus: modes[0].duration,
       short_break: modes[1].duration,
       long_break: modes[2].duration,
@@ -200,7 +200,7 @@ export default function Pomodoro() {
   }, [sessions]);
 
   const setMinutesForMode = useCallback(
-    (key: PomodoroMode, minutesVal: number) => {
+    (key: PomodoroSessionMode, minutesVal: number) => {
       const sec = clampSec(minutesVal * 60, 60, key === "short_break" ? 60 * 60 : 3 * 60 * 60);
       setModes((prev) => prev.map((m) => (m.key === key ? { ...m, duration: sec } : m)));
       if (prefsSaveTimerRef.current) clearTimeout(prefsSaveTimerRef.current);

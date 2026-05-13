@@ -70,11 +70,13 @@ export interface Note {
 
 export interface CreateNoteRequest {
   title: string;
+  /** @maxLength 512000 */
   content: string;
 }
 
 export interface UpdateNoteRequest {
   title?: string;
+  /** @maxLength 512000 */
   content?: string;
 }
 
@@ -136,12 +138,22 @@ export interface FlashcardDeck {
 }
 
 export interface CreateFlashcardDeckRequest {
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
   title: string;
+  /** @maxLength 2000 */
   description?: string | null;
 }
 
 export interface UpdateFlashcardDeckRequest {
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
   title?: string;
+  /** @maxLength 2000 */
   description?: string | null;
 }
 
@@ -160,6 +172,7 @@ export interface ListFlashcardDecksResponse {
 }
 
 export interface FlashcardDeckStats {
+  /** @minimum 0 */
   cardCount: number;
   lastCardUpdatedAt: string | null;
 }
@@ -204,6 +217,340 @@ export interface ListFlashcardsResponse {
   data: ListFlashcardsResponseData;
 }
 
+export interface DashboardNoteSnippet {
+  id: string;
+  title: string;
+  updatedAt: string;
+}
+
+export interface DashboardSummary {
+  notesCount: number;
+  flashcardsCount: number;
+  flashcardDecksCount: number;
+  studyRoomsCount: number;
+  pomodoroSessionsCompletedTotal: number;
+  recentNotes: DashboardNoteSnippet[];
+}
+
+export interface DashboardSummaryResponse {
+  success: true;
+  data: DashboardSummary;
+}
+
+export interface StudyAnalyticsDailyPoint {
+  date: string;
+  dateKey: string;
+  hours: number;
+}
+
+export interface StudyAnalyticsSubjectSlice {
+  subject: string;
+  hours: number;
+  color: string;
+}
+
+export interface StudyAnalyticsHeatmapDay {
+  dateKey: string;
+  intensity: number;
+}
+
+export interface StudyAnalyticsDeckRow {
+  name: string;
+  mastered: number;
+  total: number;
+}
+
+export interface StudyAnalytics {
+  totalFocusHours: number;
+  streakDays: number;
+  flashcardCount: number;
+  rankLabel: string;
+  rankSubtitle: string;
+  dailyFocus: StudyAnalyticsDailyPoint[];
+  subjectBreakdown: StudyAnalyticsSubjectSlice[];
+  streakCalendar: StudyAnalyticsHeatmapDay[];
+  flashcardMastery: StudyAnalyticsDeckRow[];
+}
+
+export interface StudyAnalyticsResponse {
+  success: true;
+  data: StudyAnalytics;
+}
+
+export interface PomodoroPreferences {
+  focusSec: number;
+  shortBreakSec: number;
+  longBreakSec: number;
+  updatedAt: string;
+}
+
+export interface PomodoroPreferencesPutRequest {
+  focusSec: number;
+  shortBreakSec: number;
+  longBreakSec: number;
+}
+
+export interface PomodoroPreferencesResponse {
+  success: true;
+  data: PomodoroPreferences;
+}
+
+export interface WhiteboardDto {
+  snapshot: string;
+  updatedAt: string;
+}
+
+export interface WhiteboardPutRequest {
+  snapshot: string;
+}
+
+export interface WhiteboardResponse {
+  success: true;
+  data: WhiteboardDto;
+}
+
+export type NoteImageUploadResponseData = { [key: string]: unknown };
+
+export interface NoteImageUploadResponse {
+  success: true;
+  data: NoteImageUploadResponseData;
+}
+
+export type PomodoroSessionMode =
+  (typeof PomodoroSessionMode)[keyof typeof PomodoroSessionMode];
+
+export const PomodoroSessionMode = {
+  focus: "focus",
+  short_break: "short_break",
+  long_break: "long_break",
+} as const;
+
+export interface PomodoroSession {
+  id: string;
+  mode: PomodoroSessionMode;
+  durationPlannedSec: number;
+  durationActualSec: number;
+  label?: string | null;
+  startedAt: string;
+  completedAt: string;
+  createdAt: string;
+}
+
+export type CreatePomodoroSessionRequestMode =
+  (typeof CreatePomodoroSessionRequestMode)[keyof typeof CreatePomodoroSessionRequestMode];
+
+export const CreatePomodoroSessionRequestMode = {
+  focus: "focus",
+  short_break: "short_break",
+  long_break: "long_break",
+} as const;
+
+export interface CreatePomodoroSessionRequest {
+  mode: CreatePomodoroSessionRequestMode;
+  durationPlannedSec: number;
+  durationActualSec: number;
+  label?: string;
+  startedAt: string;
+  completedAt: string;
+}
+
+export interface PomodoroSessionResponse {
+  success: true;
+  data: PomodoroSession;
+}
+
+export type ListPomodoroSessionsResponseData = {
+  items: PomodoroSession[];
+  limit: number;
+  offset: number;
+};
+
+export interface ListPomodoroSessionsResponse {
+  success: true;
+  data: ListPomodoroSessionsResponseData;
+}
+
+export interface StudyRoomGoal {
+  id: string;
+  roomId: string;
+  text: string;
+  done: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateStudyRoomGoalRequest {
+  text: string;
+}
+
+export interface UpdateStudyRoomGoalRequest {
+  text?: string;
+  done?: boolean;
+}
+
+export interface StudyRoomGoalResponse {
+  success: true;
+  data: StudyRoomGoal;
+}
+
+export type ListStudyRoomGoalsResponseData = {
+  items: StudyRoomGoal[];
+};
+
+export interface ListStudyRoomGoalsResponse {
+  success: true;
+  data: ListStudyRoomGoalsResponseData;
+}
+
+export type StudyRoomTimerPhase =
+  (typeof StudyRoomTimerPhase)[keyof typeof StudyRoomTimerPhase];
+
+export const StudyRoomTimerPhase = {
+  idle: "idle",
+  focus: "focus",
+  break: "break",
+} as const;
+
+export interface StudyRoomTimer {
+  phase: StudyRoomTimerPhase;
+  durationSec: number | null;
+  remainingSec: number;
+  running: boolean;
+  leaderUserId: string | null;
+  anchorEndsAt: string | null;
+  updatedAt: string;
+}
+
+export type PatchStudyRoomTimerRequestPhase =
+  (typeof PatchStudyRoomTimerRequestPhase)[keyof typeof PatchStudyRoomTimerRequestPhase];
+
+export const PatchStudyRoomTimerRequestPhase = {
+  idle: "idle",
+  focus: "focus",
+  break: "break",
+} as const;
+
+export interface PatchStudyRoomTimerRequest {
+  phase?: PatchStudyRoomTimerRequestPhase;
+  durationSec?: number;
+  remainingSec?: number;
+  running?: boolean;
+}
+
+export interface StudyRoomTimerResponse {
+  success: true;
+  data: StudyRoomTimer;
+}
+
+export interface AiThread {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAiThreadRequest {
+  title?: string;
+}
+
+export interface AiThreadResponse {
+  success: true;
+  data: AiThread;
+}
+
+export type ListAiThreadsResponseData = {
+  items: AiThread[];
+  limit: number;
+  offset: number;
+};
+
+export interface ListAiThreadsResponse {
+  success: true;
+  data: ListAiThreadsResponseData;
+}
+
+export type AiMessageRole = (typeof AiMessageRole)[keyof typeof AiMessageRole];
+
+export const AiMessageRole = {
+  user: "user",
+  assistant: "assistant",
+} as const;
+
+export interface AiMessage {
+  id: string;
+  threadId: string;
+  role: AiMessageRole;
+  content: string;
+  templateKey: string | null;
+  createdAt: string;
+}
+
+export type AppendAiMessageRequestTemplateKey =
+  (typeof AppendAiMessageRequestTemplateKey)[keyof typeof AppendAiMessageRequestTemplateKey];
+
+export const AppendAiMessageRequestTemplateKey = {
+  explain_concept: "explain_concept",
+  step_by_step: "step_by_step",
+  quiz_me: "quiz_me",
+  essay_outline: "essay_outline",
+  mnemonic: "mnemonic",
+} as const;
+
+export interface AppendAiMessageRequest {
+  content: string;
+  templateKey?: AppendAiMessageRequestTemplateKey;
+}
+
+export type ListAiMessagesResponseData = {
+  items: AiMessage[];
+};
+
+export interface ListAiMessagesResponse {
+  success: true;
+  data: ListAiMessagesResponseData;
+}
+
+export type AppendAiMessageResponseData = {
+  userMessage: AiMessage;
+  assistantMessage: AiMessage;
+};
+
+export interface AppendAiMessageResponse {
+  success: true;
+  data: AppendAiMessageResponseData;
+}
+
+export interface AiJob {
+  id: string;
+  type: string;
+  status: string;
+}
+
+export type ListAiJobsResponseData = {
+  items: AiJob[];
+};
+
+export interface ListAiJobsResponse {
+  success: true;
+  data: ListAiJobsResponseData;
+}
+
+export interface CollaborationSession {
+  id: string;
+  type: string;
+  status: string;
+}
+
+export type ListCollaborationSessionsResponseData = {
+  items: CollaborationSession[];
+};
+
+export interface ListCollaborationSessionsResponse {
+  success: true;
+  data: ListCollaborationSessionsResponseData;
+}
+
 export type LimitParamParameter = number;
 
 export type OffsetParamParameter = number;
@@ -232,6 +579,18 @@ export type ListStudyRoomsParams = {
   offset?: OffsetParamParameter;
 };
 
+export type ListFlashcardDecksParams = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParamParameter;
+  /**
+   * @minimum 0
+   */
+  offset?: OffsetParamParameter;
+};
+
 export type ListFlashcardsParams = {
   /**
    * @minimum 1
@@ -242,10 +601,73 @@ export type ListFlashcardsParams = {
    * @minimum 0
    */
   offset?: OffsetParamParameter;
+  /**
+   * When set, only cards in this deck (must be owned by the user)
+   */
   deckId?: string;
 };
 
-export type ListFlashcardDecksParams = {
+export type GetUserStudyAnalyticsParams = {
+  /**
+   * @minimum 7
+   * @maximum 90
+   */
+  chartDays?: number;
+  /**
+   * @minimum 14
+   * @maximum 56
+   */
+  heatmapDays?: number;
+};
+
+export type UploadNoteImageBody = {
+  file?: Blob;
+};
+
+export type ListPomodoroSessionsParams = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
   limit?: LimitParamParameter;
+  /**
+   * @minimum 0
+   */
+  offset?: OffsetParamParameter;
+};
+
+export type ListAiJobsParams = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParamParameter;
+  /**
+   * @minimum 0
+   */
+  offset?: OffsetParamParameter;
+};
+
+export type ListAiThreadsParams = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParamParameter;
+  /**
+   * @minimum 0
+   */
+  offset?: OffsetParamParameter;
+};
+
+export type ListCollaborationSessionsParams = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParamParameter;
+  /**
+   * @minimum 0
+   */
   offset?: OffsetParamParameter;
 };

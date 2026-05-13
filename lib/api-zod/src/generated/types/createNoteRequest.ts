@@ -8,5 +8,6 @@
 
 export interface CreateNoteRequest {
   title: string;
+  /** @maxLength 512000 */
   content: string;
 }

@@ -101,9 +101,11 @@ export const ListNotesResponse = zod.object({
 /**
  * @summary Create note
  */
+export const createNoteBodyContentMax = 512000;
+
 export const CreateNoteBody = zod.object({
   title: zod.string(),
-  content: zod.string(),
+  content: zod.string().max(createNoteBodyContentMax),
 });
 
 /**
@@ -131,9 +133,11 @@ export const UpdateNoteParams = zod.object({
   noteId: zod.coerce.string(),
 });
 
+export const updateNoteBodyContentMax = 512000;
+
 export const UpdateNoteBody = zod.object({
   title: zod.string().optional(),
-  content: zod.string().optional(),
+  content: zod.string().max(updateNoteBodyContentMax).optional(),
 });
 
 export const UpdateNoteResponse = zod.object({
@@ -209,6 +213,130 @@ export const CreateStudyRoomBody = zod.object({
 });
 
 /**
+ * @summary List session goals for a study room
+ */
+export const ListStudyRoomGoalsParams = zod.object({
+  roomId: zod.coerce.string(),
+});
+
+export const ListStudyRoomGoalsResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    items: zod.array(
+      zod.object({
+        id: zod.string(),
+        roomId: zod.string(),
+        text: zod.string(),
+        done: zod.boolean(),
+        sortOrder: zod.number(),
+        createdAt: zod.string(),
+        updatedAt: zod.string(),
+      }),
+    ),
+  }),
+});
+
+/**
+ * @summary Create a session goal
+ */
+export const CreateStudyRoomGoalParams = zod.object({
+  roomId: zod.coerce.string(),
+});
+
+export const CreateStudyRoomGoalBody = zod.object({
+  text: zod.string(),
+});
+
+/**
+ * @summary Update a session goal
+ */
+export const UpdateStudyRoomGoalParams = zod.object({
+  roomId: zod.coerce.string(),
+  goalId: zod.coerce.string(),
+});
+
+export const UpdateStudyRoomGoalBody = zod.object({
+  text: zod.string().optional(),
+  done: zod.boolean().optional(),
+});
+
+export const UpdateStudyRoomGoalResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    id: zod.string(),
+    roomId: zod.string(),
+    text: zod.string(),
+    done: zod.boolean(),
+    sortOrder: zod.number(),
+    createdAt: zod.string(),
+    updatedAt: zod.string(),
+  }),
+});
+
+/**
+ * @summary Delete a session goal
+ */
+export const DeleteStudyRoomGoalParams = zod.object({
+  roomId: zod.coerce.string(),
+  goalId: zod.coerce.string(),
+});
+
+export const DeleteStudyRoomGoalResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    id: zod.string(),
+    deleted: zod.boolean(),
+  }),
+});
+
+/**
+ * @summary Get shared timer state for a study room
+ */
+export const GetStudyRoomTimerParams = zod.object({
+  roomId: zod.coerce.string(),
+});
+
+export const GetStudyRoomTimerResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    phase: zod.enum(["idle", "focus", "break"]),
+    durationSec: zod.number().nullable(),
+    remainingSec: zod.number(),
+    running: zod.boolean(),
+    leaderUserId: zod.string().nullable(),
+    anchorEndsAt: zod.string().nullable(),
+    updatedAt: zod.string(),
+  }),
+});
+
+/**
+ * @summary Update shared timer state
+ */
+export const PatchStudyRoomTimerParams = zod.object({
+  roomId: zod.coerce.string(),
+});
+
+export const PatchStudyRoomTimerBody = zod.object({
+  phase: zod.enum(["idle", "focus", "break"]).optional(),
+  durationSec: zod.number().optional(),
+  remainingSec: zod.number().optional(),
+  running: zod.boolean().optional(),
+});
+
+export const PatchStudyRoomTimerResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    phase: zod.enum(["idle", "focus", "break"]),
+    durationSec: zod.number().nullable(),
+    remainingSec: zod.number(),
+    running: zod.boolean(),
+    leaderUserId: zod.string().nullable(),
+    anchorEndsAt: zod.string().nullable(),
+    updatedAt: zod.string(),
+  }),
+});
+
+/**
  * @summary Get study room by id
  */
 export const GetStudyRoomByIdParams = zod.object({
@@ -268,6 +396,137 @@ export const DeleteStudyRoomResponse = zod.object({
 });
 
 /**
+ * @summary List flashcard decks
+ */
+export const listFlashcardDecksQueryLimitDefault = 20;
+export const listFlashcardDecksQueryLimitMax = 100;
+
+export const listFlashcardDecksQueryOffsetDefault = 0;
+export const listFlashcardDecksQueryOffsetMin = 0;
+
+export const ListFlashcardDecksQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listFlashcardDecksQueryLimitMax)
+    .default(listFlashcardDecksQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .min(listFlashcardDecksQueryOffsetMin)
+    .default(listFlashcardDecksQueryOffsetDefault),
+});
+
+export const ListFlashcardDecksResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    items: zod.array(
+      zod.object({
+        id: zod.string(),
+        title: zod.string(),
+        description: zod.string().nullable(),
+        createdAt: zod.coerce.date(),
+        updatedAt: zod.coerce.date(),
+      }),
+    ),
+  }),
+});
+
+/**
+ * @summary Create flashcard deck
+ */
+export const createFlashcardDeckBodyTitleMax = 200;
+
+export const createFlashcardDeckBodyDescriptionMax = 2000;
+
+export const CreateFlashcardDeckBody = zod.object({
+  title: zod.string().min(1).max(createFlashcardDeckBodyTitleMax),
+  description: zod
+    .string()
+    .max(createFlashcardDeckBodyDescriptionMax)
+    .nullish(),
+});
+
+/**
+ * @summary Deck statistics (card count, last update)
+ */
+export const GetFlashcardDeckStatsParams = zod.object({
+  deckId: zod.coerce.string(),
+});
+
+export const getFlashcardDeckStatsResponseDataCardCountMin = 0;
+
+export const GetFlashcardDeckStatsResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    cardCount: zod.number().min(getFlashcardDeckStatsResponseDataCardCountMin),
+    lastCardUpdatedAt: zod.coerce.date().nullable(),
+  }),
+});
+
+/**
+ * @summary Get flashcard deck by id
+ */
+export const GetFlashcardDeckByIdParams = zod.object({
+  deckId: zod.coerce.string(),
+});
+
+export const GetFlashcardDeckByIdResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    id: zod.string(),
+    title: zod.string(),
+    description: zod.string().nullable(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary Update flashcard deck
+ */
+export const UpdateFlashcardDeckParams = zod.object({
+  deckId: zod.coerce.string(),
+});
+
+export const updateFlashcardDeckBodyTitleMax = 200;
+
+export const updateFlashcardDeckBodyDescriptionMax = 2000;
+
+export const UpdateFlashcardDeckBody = zod.object({
+  title: zod.string().min(1).max(updateFlashcardDeckBodyTitleMax).optional(),
+  description: zod
+    .string()
+    .max(updateFlashcardDeckBodyDescriptionMax)
+    .nullish(),
+});
+
+export const UpdateFlashcardDeckResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    id: zod.string(),
+    title: zod.string(),
+    description: zod.string().nullable(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary Delete flashcard deck
+ */
+export const DeleteFlashcardDeckParams = zod.object({
+  deckId: zod.coerce.string(),
+});
+
+export const DeleteFlashcardDeckResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    id: zod.string(),
+    deleted: zod.boolean(),
+  }),
+});
+
+/**
  * @summary List flashcards
  */
 export const listFlashcardsQueryLimitDefault = 20;
@@ -286,6 +545,10 @@ export const ListFlashcardsQueryParams = zod.object({
     .number()
     .min(listFlashcardsQueryOffsetMin)
     .default(listFlashcardsQueryOffsetDefault),
+  deckId: zod.coerce
+    .string()
+    .optional()
+    .describe("When set, only cards in this deck (must be owned by the user)"),
 });
 
 export const ListFlashcardsResponse = zod.object({
@@ -294,6 +557,7 @@ export const ListFlashcardsResponse = zod.object({
     items: zod.array(
       zod.object({
         id: zod.string(),
+        deckId: zod.string(),
         question: zod.string(),
         answer: zod.string(),
         createdAt: zod.coerce.date(),
@@ -307,6 +571,7 @@ export const ListFlashcardsResponse = zod.object({
  * @summary Create flashcard
  */
 export const CreateFlashcardBody = zod.object({
+  deckId: zod.string(),
   question: zod.string(),
   answer: zod.string(),
 });
@@ -322,6 +587,7 @@ export const GetFlashcardByIdResponse = zod.object({
   success: zod.boolean(),
   data: zod.object({
     id: zod.string(),
+    deckId: zod.string(),
     question: zod.string(),
     answer: zod.string(),
     createdAt: zod.coerce.date(),
@@ -337,6 +603,7 @@ export const UpdateFlashcardParams = zod.object({
 });
 
 export const UpdateFlashcardBody = zod.object({
+  deckId: zod.string().optional(),
   question: zod.string().optional(),
   answer: zod.string().optional(),
 });
@@ -345,6 +612,7 @@ export const UpdateFlashcardResponse = zod.object({
   success: zod.boolean(),
   data: zod.object({
     id: zod.string(),
+    deckId: zod.string(),
     question: zod.string(),
     answer: zod.string(),
     createdAt: zod.coerce.date(),
@@ -364,5 +632,390 @@ export const DeleteFlashcardResponse = zod.object({
   data: zod.object({
     id: zod.string(),
     deleted: zod.boolean(),
+  }),
+});
+
+/**
+ * @summary Dashboard aggregates for current user
+ */
+export const GetUserDashboardSummaryResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    notesCount: zod.number(),
+    flashcardsCount: zod.number(),
+    flashcardDecksCount: zod.number(),
+    studyRoomsCount: zod.number(),
+    pomodoroSessionsCompletedTotal: zod.number(),
+    recentNotes: zod.array(
+      zod.object({
+        id: zod.string(),
+        title: zod.string(),
+        updatedAt: zod.string(),
+      }),
+    ),
+  }),
+});
+
+/**
+ * @summary Study analytics for current user
+ */
+export const getUserStudyAnalyticsQueryChartDaysDefault = 14;
+export const getUserStudyAnalyticsQueryChartDaysMin = 7;
+export const getUserStudyAnalyticsQueryChartDaysMax = 90;
+
+export const getUserStudyAnalyticsQueryHeatmapDaysDefault = 35;
+export const getUserStudyAnalyticsQueryHeatmapDaysMin = 14;
+export const getUserStudyAnalyticsQueryHeatmapDaysMax = 56;
+
+export const GetUserStudyAnalyticsQueryParams = zod.object({
+  chartDays: zod.coerce
+    .number()
+    .min(getUserStudyAnalyticsQueryChartDaysMin)
+    .max(getUserStudyAnalyticsQueryChartDaysMax)
+    .default(getUserStudyAnalyticsQueryChartDaysDefault),
+  heatmapDays: zod.coerce
+    .number()
+    .min(getUserStudyAnalyticsQueryHeatmapDaysMin)
+    .max(getUserStudyAnalyticsQueryHeatmapDaysMax)
+    .default(getUserStudyAnalyticsQueryHeatmapDaysDefault),
+});
+
+export const GetUserStudyAnalyticsResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    totalFocusHours: zod.number(),
+    streakDays: zod.number(),
+    flashcardCount: zod.number(),
+    rankLabel: zod.string(),
+    rankSubtitle: zod.string(),
+    dailyFocus: zod.array(
+      zod.object({
+        date: zod.string(),
+        dateKey: zod.string(),
+        hours: zod.number(),
+      }),
+    ),
+    subjectBreakdown: zod.array(
+      zod.object({
+        subject: zod.string(),
+        hours: zod.number(),
+        color: zod.string(),
+      }),
+    ),
+    streakCalendar: zod.array(
+      zod.object({
+        dateKey: zod.string(),
+        intensity: zod.number(),
+      }),
+    ),
+    flashcardMastery: zod.array(
+      zod.object({
+        name: zod.string(),
+        mastered: zod.number(),
+        total: zod.number(),
+      }),
+    ),
+  }),
+});
+
+/**
+ * @summary Upload a note image (multipart file)
+ */
+export const UploadNoteImageBody = zod.object({
+  file: zod.instanceof(File).optional(),
+});
+
+/**
+ * @summary Download a note image asset (owner only)
+ */
+export const GetNoteImageParams = zod.object({
+  assetId: zod.coerce.string().uuid(),
+});
+
+/**
+ * @summary List pomodoro sessions
+ */
+export const listPomodoroSessionsQueryLimitDefault = 20;
+export const listPomodoroSessionsQueryLimitMax = 100;
+
+export const listPomodoroSessionsQueryOffsetDefault = 0;
+export const listPomodoroSessionsQueryOffsetMin = 0;
+
+export const ListPomodoroSessionsQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listPomodoroSessionsQueryLimitMax)
+    .default(listPomodoroSessionsQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .min(listPomodoroSessionsQueryOffsetMin)
+    .default(listPomodoroSessionsQueryOffsetDefault),
+});
+
+export const ListPomodoroSessionsResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    items: zod.array(
+      zod.object({
+        id: zod.string(),
+        mode: zod.enum(["focus", "short_break", "long_break"]),
+        durationPlannedSec: zod.number(),
+        durationActualSec: zod.number(),
+        label: zod.string().nullish(),
+        startedAt: zod.string(),
+        completedAt: zod.string(),
+        createdAt: zod.string(),
+      }),
+    ),
+    limit: zod.number(),
+    offset: zod.number(),
+  }),
+});
+
+/**
+ * @summary Log a completed pomodoro session
+ */
+export const CreatePomodoroSessionBody = zod.object({
+  mode: zod.enum(["focus", "short_break", "long_break"]),
+  durationPlannedSec: zod.number(),
+  durationActualSec: zod.number(),
+  label: zod.string().optional(),
+  startedAt: zod.string(),
+  completedAt: zod.string(),
+});
+
+/**
+ * @summary Timer length preferences
+ */
+export const GetPomodoroPreferencesResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    focusSec: zod.number(),
+    shortBreakSec: zod.number(),
+    longBreakSec: zod.number(),
+    updatedAt: zod.string(),
+  }),
+});
+
+/**
+ * @summary Update timer length preferences
+ */
+export const PutPomodoroPreferencesBody = zod.object({
+  focusSec: zod.number(),
+  shortBreakSec: zod.number(),
+  longBreakSec: zod.number(),
+});
+
+export const PutPomodoroPreferencesResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    focusSec: zod.number(),
+    shortBreakSec: zod.number(),
+    longBreakSec: zod.number(),
+    updatedAt: zod.string(),
+  }),
+});
+
+/**
+ * @summary Load personal whiteboard snapshot
+ */
+export const GetUserWhiteboardResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    snapshot: zod.string(),
+    updatedAt: zod.string(),
+  }),
+});
+
+/**
+ * @summary Save personal whiteboard snapshot
+ */
+export const PutUserWhiteboardBody = zod.object({
+  snapshot: zod.string(),
+});
+
+export const PutUserWhiteboardResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    snapshot: zod.string(),
+    updatedAt: zod.string(),
+  }),
+});
+
+/**
+ * @summary List AI jobs (placeholder)
+ */
+export const listAiJobsQueryLimitDefault = 20;
+export const listAiJobsQueryLimitMax = 100;
+
+export const listAiJobsQueryOffsetDefault = 0;
+export const listAiJobsQueryOffsetMin = 0;
+
+export const ListAiJobsQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listAiJobsQueryLimitMax)
+    .default(listAiJobsQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .min(listAiJobsQueryOffsetMin)
+    .default(listAiJobsQueryOffsetDefault),
+});
+
+export const ListAiJobsResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    items: zod.array(
+      zod.object({
+        id: zod.string(),
+        type: zod.string(),
+        status: zod.string(),
+      }),
+    ),
+  }),
+});
+
+/**
+ * @summary List AI tutor threads
+ */
+export const listAiThreadsQueryLimitDefault = 20;
+export const listAiThreadsQueryLimitMax = 100;
+
+export const listAiThreadsQueryOffsetDefault = 0;
+export const listAiThreadsQueryOffsetMin = 0;
+
+export const ListAiThreadsQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listAiThreadsQueryLimitMax)
+    .default(listAiThreadsQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .min(listAiThreadsQueryOffsetMin)
+    .default(listAiThreadsQueryOffsetDefault),
+});
+
+export const ListAiThreadsResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    items: zod.array(
+      zod.object({
+        id: zod.string(),
+        title: zod.string(),
+        createdAt: zod.string(),
+        updatedAt: zod.string(),
+      }),
+    ),
+    limit: zod.number(),
+    offset: zod.number(),
+  }),
+});
+
+/**
+ * @summary Create AI tutor thread
+ */
+export const CreateAiThreadBody = zod.object({
+  title: zod.string().optional(),
+});
+
+/**
+ * @summary List messages in a thread
+ */
+export const ListAiThreadMessagesParams = zod.object({
+  threadId: zod.coerce.string(),
+});
+
+export const ListAiThreadMessagesResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    items: zod.array(
+      zod.object({
+        id: zod.string(),
+        threadId: zod.string(),
+        role: zod.enum(["user", "assistant"]),
+        content: zod.string(),
+        templateKey: zod.string().nullable(),
+        createdAt: zod.string(),
+      }),
+    ),
+  }),
+});
+
+/**
+ * @summary Append user message and receive assistant reply
+ */
+export const AppendAiThreadMessageParams = zod.object({
+  threadId: zod.coerce.string(),
+});
+
+export const AppendAiThreadMessageBody = zod.object({
+  content: zod.string(),
+  templateKey: zod
+    .enum([
+      "explain_concept",
+      "step_by_step",
+      "quiz_me",
+      "essay_outline",
+      "mnemonic",
+    ])
+    .optional(),
+});
+
+export const AppendAiThreadMessageResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    userMessage: zod.object({
+      id: zod.string(),
+      threadId: zod.string(),
+      role: zod.enum(["user", "assistant"]),
+      content: zod.string(),
+      templateKey: zod.string().nullable(),
+      createdAt: zod.string(),
+    }),
+    assistantMessage: zod.object({
+      id: zod.string(),
+      threadId: zod.string(),
+      role: zod.enum(["user", "assistant"]),
+      content: zod.string(),
+      templateKey: zod.string().nullable(),
+      createdAt: zod.string(),
+    }),
+  }),
+});
+
+/**
+ * @summary List collaboration sessions
+ */
+export const listCollaborationSessionsQueryLimitDefault = 20;
+export const listCollaborationSessionsQueryLimitMax = 100;
+
+export const listCollaborationSessionsQueryOffsetDefault = 0;
+export const listCollaborationSessionsQueryOffsetMin = 0;
+
+export const ListCollaborationSessionsQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listCollaborationSessionsQueryLimitMax)
+    .default(listCollaborationSessionsQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .min(listCollaborationSessionsQueryOffsetMin)
+    .default(listCollaborationSessionsQueryOffsetDefault),
+});
+
+export const ListCollaborationSessionsResponse = zod.object({
+  success: zod.boolean(),
+  data: zod.object({
+    items: zod.array(
+      zod.object({
+        id: zod.string(),
+        type: zod.string(),
+        status: zod.string(),
+      }),
+    ),
   }),
 });

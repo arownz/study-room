@@ -23,7 +23,7 @@ import { splitFullName } from "@/features/profile";
 import { useToast } from "@/hooks/use-toast";
 import {
   useCreateNote,
-  useDashboardSummary,
+  useGetUserDashboardSummary,
   useListFlashcardDecks,
 } from "@workspace/api-client-react";
 const stagger = {
@@ -53,7 +53,7 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { session, isLoading: isSessionLoading } = useAuth();
-  const summaryQuery = useDashboardSummary();
+  const summaryQuery = useGetUserDashboardSummary();
   const decksPreview = useListFlashcardDecks({ limit: 4, offset: 0 });
   const createNote = useCreateNote();
   const [quickTitle, setQuickTitle] = useState("");

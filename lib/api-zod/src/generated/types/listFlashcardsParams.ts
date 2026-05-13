@@ -18,4 +18,8 @@ export type ListFlashcardsParams = {
    * @minimum 0
    */
   offset?: OffsetParamParameter;
+  /**
+   * When set, only cards in this deck (must be owned by the user)
+   */
+  deckId?: string;
 };

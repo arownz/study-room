@@ -17,26 +17,62 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AiThreadResponse,
+  AppendAiMessageRequest,
+  AppendAiMessageResponse,
   AuthMeResponse,
+  CreateAiThreadRequest,
+  CreateFlashcardDeckRequest,
   CreateFlashcardRequest,
   CreateNoteRequest,
+  CreatePomodoroSessionRequest,
+  CreateStudyRoomGoalRequest,
   CreateStudyRoomRequest,
+  DashboardSummaryResponse,
   DeleteResponse,
   ErrorResponse,
+  FlashcardDeckResponse,
+  FlashcardDeckStatsResponse,
   FlashcardResponse,
+  GetUserStudyAnalyticsParams,
   HealthStatus,
+  ListAiJobsParams,
+  ListAiJobsResponse,
+  ListAiMessagesResponse,
+  ListAiThreadsParams,
+  ListAiThreadsResponse,
+  ListCollaborationSessionsParams,
+  ListCollaborationSessionsResponse,
+  ListFlashcardDecksParams,
+  ListFlashcardDecksResponse,
   ListFlashcardsParams,
   ListFlashcardsResponse,
   ListNotesParams,
   ListNotesResponse,
+  ListPomodoroSessionsParams,
+  ListPomodoroSessionsResponse,
+  ListStudyRoomGoalsResponse,
   ListStudyRoomsParams,
   ListStudyRoomsResponse,
+  NoteImageUploadResponse,
   NoteResponse,
+  PatchStudyRoomTimerRequest,
+  PomodoroPreferencesPutRequest,
+  PomodoroPreferencesResponse,
+  PomodoroSessionResponse,
   ProtectedDashboardResponse,
+  StudyAnalyticsResponse,
+  StudyRoomGoalResponse,
   StudyRoomResponse,
+  StudyRoomTimerResponse,
+  UpdateFlashcardDeckRequest,
   UpdateFlashcardRequest,
   UpdateNoteRequest,
+  UpdateStudyRoomGoalRequest,
   UpdateStudyRoomRequest,
+  UploadNoteImageBody,
+  WhiteboardPutRequest,
+  WhiteboardResponse,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -898,6 +934,564 @@ export const useCreateStudyRoom = <
 };
 
 /**
+ * @summary List session goals for a study room
+ */
+export const getListStudyRoomGoalsUrl = (roomId: string) => {
+  return `/api/v1/study-rooms/${roomId}/goals`;
+};
+
+export const listStudyRoomGoals = async (
+  roomId: string,
+  options?: RequestInit,
+): Promise<ListStudyRoomGoalsResponse> => {
+  return customFetch<ListStudyRoomGoalsResponse>(
+    getListStudyRoomGoalsUrl(roomId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListStudyRoomGoalsQueryKey = (roomId: string) => {
+  return [`/api/v1/study-rooms/${roomId}/goals`] as const;
+};
+
+export const getListStudyRoomGoalsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listStudyRoomGoals>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  roomId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listStudyRoomGoals>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListStudyRoomGoalsQueryKey(roomId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listStudyRoomGoals>>
+  > = ({ signal }) => listStudyRoomGoals(roomId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!roomId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listStudyRoomGoals>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListStudyRoomGoalsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listStudyRoomGoals>>
+>;
+export type ListStudyRoomGoalsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List session goals for a study room
+ */
+
+export function useListStudyRoomGoals<
+  TData = Awaited<ReturnType<typeof listStudyRoomGoals>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  roomId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listStudyRoomGoals>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListStudyRoomGoalsQueryOptions(roomId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a session goal
+ */
+export const getCreateStudyRoomGoalUrl = (roomId: string) => {
+  return `/api/v1/study-rooms/${roomId}/goals`;
+};
+
+export const createStudyRoomGoal = async (
+  roomId: string,
+  createStudyRoomGoalRequest: CreateStudyRoomGoalRequest,
+  options?: RequestInit,
+): Promise<StudyRoomGoalResponse> => {
+  return customFetch<StudyRoomGoalResponse>(getCreateStudyRoomGoalUrl(roomId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createStudyRoomGoalRequest),
+  });
+};
+
+export const getCreateStudyRoomGoalMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createStudyRoomGoal>>,
+    TError,
+    { roomId: string; data: BodyType<CreateStudyRoomGoalRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createStudyRoomGoal>>,
+  TError,
+  { roomId: string; data: BodyType<CreateStudyRoomGoalRequest> },
+  TContext
+> => {
+  const mutationKey = ["createStudyRoomGoal"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createStudyRoomGoal>>,
+    { roomId: string; data: BodyType<CreateStudyRoomGoalRequest> }
+  > = (props) => {
+    const { roomId, data } = props ?? {};
+
+    return createStudyRoomGoal(roomId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateStudyRoomGoalMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createStudyRoomGoal>>
+>;
+export type CreateStudyRoomGoalMutationBody =
+  BodyType<CreateStudyRoomGoalRequest>;
+export type CreateStudyRoomGoalMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a session goal
+ */
+export const useCreateStudyRoomGoal = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createStudyRoomGoal>>,
+    TError,
+    { roomId: string; data: BodyType<CreateStudyRoomGoalRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createStudyRoomGoal>>,
+  TError,
+  { roomId: string; data: BodyType<CreateStudyRoomGoalRequest> },
+  TContext
+> => {
+  return useMutation(getCreateStudyRoomGoalMutationOptions(options));
+};
+
+/**
+ * @summary Update a session goal
+ */
+export const getUpdateStudyRoomGoalUrl = (roomId: string, goalId: string) => {
+  return `/api/v1/study-rooms/${roomId}/goals/${goalId}`;
+};
+
+export const updateStudyRoomGoal = async (
+  roomId: string,
+  goalId: string,
+  updateStudyRoomGoalRequest: UpdateStudyRoomGoalRequest,
+  options?: RequestInit,
+): Promise<StudyRoomGoalResponse> => {
+  return customFetch<StudyRoomGoalResponse>(
+    getUpdateStudyRoomGoalUrl(roomId, goalId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateStudyRoomGoalRequest),
+    },
+  );
+};
+
+export const getUpdateStudyRoomGoalMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateStudyRoomGoal>>,
+    TError,
+    {
+      roomId: string;
+      goalId: string;
+      data: BodyType<UpdateStudyRoomGoalRequest>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateStudyRoomGoal>>,
+  TError,
+  {
+    roomId: string;
+    goalId: string;
+    data: BodyType<UpdateStudyRoomGoalRequest>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateStudyRoomGoal"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateStudyRoomGoal>>,
+    {
+      roomId: string;
+      goalId: string;
+      data: BodyType<UpdateStudyRoomGoalRequest>;
+    }
+  > = (props) => {
+    const { roomId, goalId, data } = props ?? {};
+
+    return updateStudyRoomGoal(roomId, goalId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateStudyRoomGoalMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateStudyRoomGoal>>
+>;
+export type UpdateStudyRoomGoalMutationBody =
+  BodyType<UpdateStudyRoomGoalRequest>;
+export type UpdateStudyRoomGoalMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update a session goal
+ */
+export const useUpdateStudyRoomGoal = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateStudyRoomGoal>>,
+    TError,
+    {
+      roomId: string;
+      goalId: string;
+      data: BodyType<UpdateStudyRoomGoalRequest>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateStudyRoomGoal>>,
+  TError,
+  {
+    roomId: string;
+    goalId: string;
+    data: BodyType<UpdateStudyRoomGoalRequest>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateStudyRoomGoalMutationOptions(options));
+};
+
+/**
+ * @summary Delete a session goal
+ */
+export const getDeleteStudyRoomGoalUrl = (roomId: string, goalId: string) => {
+  return `/api/v1/study-rooms/${roomId}/goals/${goalId}`;
+};
+
+export const deleteStudyRoomGoal = async (
+  roomId: string,
+  goalId: string,
+  options?: RequestInit,
+): Promise<DeleteResponse> => {
+  return customFetch<DeleteResponse>(
+    getDeleteStudyRoomGoalUrl(roomId, goalId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteStudyRoomGoalMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteStudyRoomGoal>>,
+    TError,
+    { roomId: string; goalId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteStudyRoomGoal>>,
+  TError,
+  { roomId: string; goalId: string },
+  TContext
+> => {
+  const mutationKey = ["deleteStudyRoomGoal"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteStudyRoomGoal>>,
+    { roomId: string; goalId: string }
+  > = (props) => {
+    const { roomId, goalId } = props ?? {};
+
+    return deleteStudyRoomGoal(roomId, goalId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteStudyRoomGoalMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteStudyRoomGoal>>
+>;
+
+export type DeleteStudyRoomGoalMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete a session goal
+ */
+export const useDeleteStudyRoomGoal = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteStudyRoomGoal>>,
+    TError,
+    { roomId: string; goalId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteStudyRoomGoal>>,
+  TError,
+  { roomId: string; goalId: string },
+  TContext
+> => {
+  return useMutation(getDeleteStudyRoomGoalMutationOptions(options));
+};
+
+/**
+ * @summary Get shared timer state for a study room
+ */
+export const getGetStudyRoomTimerUrl = (roomId: string) => {
+  return `/api/v1/study-rooms/${roomId}/timer`;
+};
+
+export const getStudyRoomTimer = async (
+  roomId: string,
+  options?: RequestInit,
+): Promise<StudyRoomTimerResponse> => {
+  return customFetch<StudyRoomTimerResponse>(getGetStudyRoomTimerUrl(roomId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetStudyRoomTimerQueryKey = (roomId: string) => {
+  return [`/api/v1/study-rooms/${roomId}/timer`] as const;
+};
+
+export const getGetStudyRoomTimerQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStudyRoomTimer>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  roomId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStudyRoomTimer>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetStudyRoomTimerQueryKey(roomId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStudyRoomTimer>>
+  > = ({ signal }) => getStudyRoomTimer(roomId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!roomId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStudyRoomTimer>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStudyRoomTimerQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStudyRoomTimer>>
+>;
+export type GetStudyRoomTimerQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get shared timer state for a study room
+ */
+
+export function useGetStudyRoomTimer<
+  TData = Awaited<ReturnType<typeof getStudyRoomTimer>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  roomId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStudyRoomTimer>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStudyRoomTimerQueryOptions(roomId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update shared timer state
+ */
+export const getPatchStudyRoomTimerUrl = (roomId: string) => {
+  return `/api/v1/study-rooms/${roomId}/timer`;
+};
+
+export const patchStudyRoomTimer = async (
+  roomId: string,
+  patchStudyRoomTimerRequest: PatchStudyRoomTimerRequest,
+  options?: RequestInit,
+): Promise<StudyRoomTimerResponse> => {
+  return customFetch<StudyRoomTimerResponse>(
+    getPatchStudyRoomTimerUrl(roomId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(patchStudyRoomTimerRequest),
+    },
+  );
+};
+
+export const getPatchStudyRoomTimerMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchStudyRoomTimer>>,
+    TError,
+    { roomId: string; data: BodyType<PatchStudyRoomTimerRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof patchStudyRoomTimer>>,
+  TError,
+  { roomId: string; data: BodyType<PatchStudyRoomTimerRequest> },
+  TContext
+> => {
+  const mutationKey = ["patchStudyRoomTimer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof patchStudyRoomTimer>>,
+    { roomId: string; data: BodyType<PatchStudyRoomTimerRequest> }
+  > = (props) => {
+    const { roomId, data } = props ?? {};
+
+    return patchStudyRoomTimer(roomId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PatchStudyRoomTimerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof patchStudyRoomTimer>>
+>;
+export type PatchStudyRoomTimerMutationBody =
+  BodyType<PatchStudyRoomTimerRequest>;
+export type PatchStudyRoomTimerMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update shared timer state
+ */
+export const usePatchStudyRoomTimer = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchStudyRoomTimer>>,
+    TError,
+    { roomId: string; data: BodyType<PatchStudyRoomTimerRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof patchStudyRoomTimer>>,
+  TError,
+  { roomId: string; data: BodyType<PatchStudyRoomTimerRequest> },
+  TContext
+> => {
+  return useMutation(getPatchStudyRoomTimerMutationOptions(options));
+};
+
+/**
  * @summary Get study room by id
  */
 export const getGetStudyRoomByIdUrl = (roomId: string) => {
@@ -1154,6 +1748,549 @@ export const useDeleteStudyRoom = <
   TContext
 > => {
   return useMutation(getDeleteStudyRoomMutationOptions(options));
+};
+
+/**
+ * @summary List flashcard decks
+ */
+export const getListFlashcardDecksUrl = (params?: ListFlashcardDecksParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/flashcard-decks?${stringifiedParams}`
+    : `/api/v1/flashcard-decks`;
+};
+
+export const listFlashcardDecks = async (
+  params?: ListFlashcardDecksParams,
+  options?: RequestInit,
+): Promise<ListFlashcardDecksResponse> => {
+  return customFetch<ListFlashcardDecksResponse>(
+    getListFlashcardDecksUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListFlashcardDecksQueryKey = (
+  params?: ListFlashcardDecksParams,
+) => {
+  return [`/api/v1/flashcard-decks`, ...(params ? [params] : [])] as const;
+};
+
+export const getListFlashcardDecksQueryOptions = <
+  TData = Awaited<ReturnType<typeof listFlashcardDecks>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListFlashcardDecksParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listFlashcardDecks>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListFlashcardDecksQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listFlashcardDecks>>
+  > = ({ signal }) => listFlashcardDecks(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listFlashcardDecks>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListFlashcardDecksQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listFlashcardDecks>>
+>;
+export type ListFlashcardDecksQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List flashcard decks
+ */
+
+export function useListFlashcardDecks<
+  TData = Awaited<ReturnType<typeof listFlashcardDecks>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListFlashcardDecksParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listFlashcardDecks>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListFlashcardDecksQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create flashcard deck
+ */
+export const getCreateFlashcardDeckUrl = () => {
+  return `/api/v1/flashcard-decks`;
+};
+
+export const createFlashcardDeck = async (
+  createFlashcardDeckRequest: CreateFlashcardDeckRequest,
+  options?: RequestInit,
+): Promise<FlashcardDeckResponse> => {
+  return customFetch<FlashcardDeckResponse>(getCreateFlashcardDeckUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createFlashcardDeckRequest),
+  });
+};
+
+export const getCreateFlashcardDeckMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createFlashcardDeck>>,
+    TError,
+    { data: BodyType<CreateFlashcardDeckRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createFlashcardDeck>>,
+  TError,
+  { data: BodyType<CreateFlashcardDeckRequest> },
+  TContext
+> => {
+  const mutationKey = ["createFlashcardDeck"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createFlashcardDeck>>,
+    { data: BodyType<CreateFlashcardDeckRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createFlashcardDeck(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateFlashcardDeckMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createFlashcardDeck>>
+>;
+export type CreateFlashcardDeckMutationBody =
+  BodyType<CreateFlashcardDeckRequest>;
+export type CreateFlashcardDeckMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create flashcard deck
+ */
+export const useCreateFlashcardDeck = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createFlashcardDeck>>,
+    TError,
+    { data: BodyType<CreateFlashcardDeckRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createFlashcardDeck>>,
+  TError,
+  { data: BodyType<CreateFlashcardDeckRequest> },
+  TContext
+> => {
+  return useMutation(getCreateFlashcardDeckMutationOptions(options));
+};
+
+/**
+ * @summary Deck statistics (card count, last update)
+ */
+export const getGetFlashcardDeckStatsUrl = (deckId: string) => {
+  return `/api/v1/flashcard-decks/${deckId}/stats`;
+};
+
+export const getFlashcardDeckStats = async (
+  deckId: string,
+  options?: RequestInit,
+): Promise<FlashcardDeckStatsResponse> => {
+  return customFetch<FlashcardDeckStatsResponse>(
+    getGetFlashcardDeckStatsUrl(deckId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetFlashcardDeckStatsQueryKey = (deckId: string) => {
+  return [`/api/v1/flashcard-decks/${deckId}/stats`] as const;
+};
+
+export const getGetFlashcardDeckStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFlashcardDeckStats>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  deckId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFlashcardDeckStats>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetFlashcardDeckStatsQueryKey(deckId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFlashcardDeckStats>>
+  > = ({ signal }) =>
+    getFlashcardDeckStats(deckId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!deckId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFlashcardDeckStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFlashcardDeckStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFlashcardDeckStats>>
+>;
+export type GetFlashcardDeckStatsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Deck statistics (card count, last update)
+ */
+
+export function useGetFlashcardDeckStats<
+  TData = Awaited<ReturnType<typeof getFlashcardDeckStats>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  deckId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFlashcardDeckStats>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFlashcardDeckStatsQueryOptions(deckId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get flashcard deck by id
+ */
+export const getGetFlashcardDeckByIdUrl = (deckId: string) => {
+  return `/api/v1/flashcard-decks/${deckId}`;
+};
+
+export const getFlashcardDeckById = async (
+  deckId: string,
+  options?: RequestInit,
+): Promise<FlashcardDeckResponse> => {
+  return customFetch<FlashcardDeckResponse>(
+    getGetFlashcardDeckByIdUrl(deckId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetFlashcardDeckByIdQueryKey = (deckId: string) => {
+  return [`/api/v1/flashcard-decks/${deckId}`] as const;
+};
+
+export const getGetFlashcardDeckByIdQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFlashcardDeckById>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  deckId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFlashcardDeckById>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetFlashcardDeckByIdQueryKey(deckId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFlashcardDeckById>>
+  > = ({ signal }) =>
+    getFlashcardDeckById(deckId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!deckId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFlashcardDeckById>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFlashcardDeckByIdQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFlashcardDeckById>>
+>;
+export type GetFlashcardDeckByIdQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get flashcard deck by id
+ */
+
+export function useGetFlashcardDeckById<
+  TData = Awaited<ReturnType<typeof getFlashcardDeckById>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  deckId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFlashcardDeckById>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFlashcardDeckByIdQueryOptions(deckId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update flashcard deck
+ */
+export const getUpdateFlashcardDeckUrl = (deckId: string) => {
+  return `/api/v1/flashcard-decks/${deckId}`;
+};
+
+export const updateFlashcardDeck = async (
+  deckId: string,
+  updateFlashcardDeckRequest: UpdateFlashcardDeckRequest,
+  options?: RequestInit,
+): Promise<FlashcardDeckResponse> => {
+  return customFetch<FlashcardDeckResponse>(getUpdateFlashcardDeckUrl(deckId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateFlashcardDeckRequest),
+  });
+};
+
+export const getUpdateFlashcardDeckMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateFlashcardDeck>>,
+    TError,
+    { deckId: string; data: BodyType<UpdateFlashcardDeckRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateFlashcardDeck>>,
+  TError,
+  { deckId: string; data: BodyType<UpdateFlashcardDeckRequest> },
+  TContext
+> => {
+  const mutationKey = ["updateFlashcardDeck"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateFlashcardDeck>>,
+    { deckId: string; data: BodyType<UpdateFlashcardDeckRequest> }
+  > = (props) => {
+    const { deckId, data } = props ?? {};
+
+    return updateFlashcardDeck(deckId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateFlashcardDeckMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateFlashcardDeck>>
+>;
+export type UpdateFlashcardDeckMutationBody =
+  BodyType<UpdateFlashcardDeckRequest>;
+export type UpdateFlashcardDeckMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update flashcard deck
+ */
+export const useUpdateFlashcardDeck = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateFlashcardDeck>>,
+    TError,
+    { deckId: string; data: BodyType<UpdateFlashcardDeckRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateFlashcardDeck>>,
+  TError,
+  { deckId: string; data: BodyType<UpdateFlashcardDeckRequest> },
+  TContext
+> => {
+  return useMutation(getUpdateFlashcardDeckMutationOptions(options));
+};
+
+/**
+ * @summary Delete flashcard deck
+ */
+export const getDeleteFlashcardDeckUrl = (deckId: string) => {
+  return `/api/v1/flashcard-decks/${deckId}`;
+};
+
+export const deleteFlashcardDeck = async (
+  deckId: string,
+  options?: RequestInit,
+): Promise<DeleteResponse> => {
+  return customFetch<DeleteResponse>(getDeleteFlashcardDeckUrl(deckId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteFlashcardDeckMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteFlashcardDeck>>,
+    TError,
+    { deckId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteFlashcardDeck>>,
+  TError,
+  { deckId: string },
+  TContext
+> => {
+  const mutationKey = ["deleteFlashcardDeck"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteFlashcardDeck>>,
+    { deckId: string }
+  > = (props) => {
+    const { deckId } = props ?? {};
+
+    return deleteFlashcardDeck(deckId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteFlashcardDeckMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteFlashcardDeck>>
+>;
+
+export type DeleteFlashcardDeckMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete flashcard deck
+ */
+export const useDeleteFlashcardDeck = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteFlashcardDeck>>,
+    TError,
+    { deckId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteFlashcardDeck>>,
+  TError,
+  { deckId: string },
+  TContext
+> => {
+  return useMutation(getDeleteFlashcardDeckMutationOptions(options));
 };
 
 /**
@@ -1595,3 +2732,1451 @@ export const useDeleteFlashcard = <
 > => {
   return useMutation(getDeleteFlashcardMutationOptions(options));
 };
+
+/**
+ * @summary Dashboard aggregates for current user
+ */
+export const getGetUserDashboardSummaryUrl = () => {
+  return `/api/v1/users/me/dashboard-summary`;
+};
+
+export const getUserDashboardSummary = async (
+  options?: RequestInit,
+): Promise<DashboardSummaryResponse> => {
+  return customFetch<DashboardSummaryResponse>(
+    getGetUserDashboardSummaryUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetUserDashboardSummaryQueryKey = () => {
+  return [`/api/v1/users/me/dashboard-summary`] as const;
+};
+
+export const getGetUserDashboardSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getUserDashboardSummary>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getUserDashboardSummary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetUserDashboardSummaryQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getUserDashboardSummary>>
+  > = ({ signal }) => getUserDashboardSummary({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getUserDashboardSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetUserDashboardSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getUserDashboardSummary>>
+>;
+export type GetUserDashboardSummaryQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Dashboard aggregates for current user
+ */
+
+export function useGetUserDashboardSummary<
+  TData = Awaited<ReturnType<typeof getUserDashboardSummary>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getUserDashboardSummary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetUserDashboardSummaryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Study analytics for current user
+ */
+export const getGetUserStudyAnalyticsUrl = (
+  params?: GetUserStudyAnalyticsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/users/me/study-analytics?${stringifiedParams}`
+    : `/api/v1/users/me/study-analytics`;
+};
+
+export const getUserStudyAnalytics = async (
+  params?: GetUserStudyAnalyticsParams,
+  options?: RequestInit,
+): Promise<StudyAnalyticsResponse> => {
+  return customFetch<StudyAnalyticsResponse>(
+    getGetUserStudyAnalyticsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetUserStudyAnalyticsQueryKey = (
+  params?: GetUserStudyAnalyticsParams,
+) => {
+  return [
+    `/api/v1/users/me/study-analytics`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetUserStudyAnalyticsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getUserStudyAnalytics>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: GetUserStudyAnalyticsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUserStudyAnalytics>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetUserStudyAnalyticsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getUserStudyAnalytics>>
+  > = ({ signal }) =>
+    getUserStudyAnalytics(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getUserStudyAnalytics>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetUserStudyAnalyticsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getUserStudyAnalytics>>
+>;
+export type GetUserStudyAnalyticsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Study analytics for current user
+ */
+
+export function useGetUserStudyAnalytics<
+  TData = Awaited<ReturnType<typeof getUserStudyAnalytics>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: GetUserStudyAnalyticsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUserStudyAnalytics>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetUserStudyAnalyticsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Upload a note image (multipart file)
+ */
+export const getUploadNoteImageUrl = () => {
+  return `/api/v1/note-images`;
+};
+
+export const uploadNoteImage = async (
+  uploadNoteImageBody: UploadNoteImageBody,
+  options?: RequestInit,
+): Promise<NoteImageUploadResponse> => {
+  const formData = new FormData();
+  if (uploadNoteImageBody.file !== undefined) {
+    formData.append(`file`, uploadNoteImageBody.file);
+  }
+
+  return customFetch<NoteImageUploadResponse>(getUploadNoteImageUrl(), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getUploadNoteImageMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadNoteImage>>,
+    TError,
+    { data: BodyType<UploadNoteImageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof uploadNoteImage>>,
+  TError,
+  { data: BodyType<UploadNoteImageBody> },
+  TContext
+> => {
+  const mutationKey = ["uploadNoteImage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof uploadNoteImage>>,
+    { data: BodyType<UploadNoteImageBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return uploadNoteImage(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UploadNoteImageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof uploadNoteImage>>
+>;
+export type UploadNoteImageMutationBody = BodyType<UploadNoteImageBody>;
+export type UploadNoteImageMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Upload a note image (multipart file)
+ */
+export const useUploadNoteImage = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadNoteImage>>,
+    TError,
+    { data: BodyType<UploadNoteImageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof uploadNoteImage>>,
+  TError,
+  { data: BodyType<UploadNoteImageBody> },
+  TContext
+> => {
+  return useMutation(getUploadNoteImageMutationOptions(options));
+};
+
+/**
+ * @summary Download a note image asset (owner only)
+ */
+export const getGetNoteImageUrl = (assetId: string) => {
+  return `/api/v1/note-images/${assetId}`;
+};
+
+export const getNoteImage = async (
+  assetId: string,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getGetNoteImageUrl(assetId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetNoteImageQueryKey = (assetId: string) => {
+  return [`/api/v1/note-images/${assetId}`] as const;
+};
+
+export const getGetNoteImageQueryOptions = <
+  TData = Awaited<ReturnType<typeof getNoteImage>>,
+  TError = ErrorType<void>,
+>(
+  assetId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getNoteImage>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetNoteImageQueryKey(assetId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getNoteImage>>> = ({
+    signal,
+  }) => getNoteImage(assetId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!assetId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getNoteImage>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetNoteImageQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getNoteImage>>
+>;
+export type GetNoteImageQueryError = ErrorType<void>;
+
+/**
+ * @summary Download a note image asset (owner only)
+ */
+
+export function useGetNoteImage<
+  TData = Awaited<ReturnType<typeof getNoteImage>>,
+  TError = ErrorType<void>,
+>(
+  assetId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getNoteImage>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetNoteImageQueryOptions(assetId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List pomodoro sessions
+ */
+export const getListPomodoroSessionsUrl = (
+  params?: ListPomodoroSessionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/pomodoro/sessions?${stringifiedParams}`
+    : `/api/v1/pomodoro/sessions`;
+};
+
+export const listPomodoroSessions = async (
+  params?: ListPomodoroSessionsParams,
+  options?: RequestInit,
+): Promise<ListPomodoroSessionsResponse> => {
+  return customFetch<ListPomodoroSessionsResponse>(
+    getListPomodoroSessionsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListPomodoroSessionsQueryKey = (
+  params?: ListPomodoroSessionsParams,
+) => {
+  return [`/api/v1/pomodoro/sessions`, ...(params ? [params] : [])] as const;
+};
+
+export const getListPomodoroSessionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPomodoroSessions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListPomodoroSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPomodoroSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListPomodoroSessionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPomodoroSessions>>
+  > = ({ signal }) =>
+    listPomodoroSessions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPomodoroSessions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPomodoroSessionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPomodoroSessions>>
+>;
+export type ListPomodoroSessionsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List pomodoro sessions
+ */
+
+export function useListPomodoroSessions<
+  TData = Awaited<ReturnType<typeof listPomodoroSessions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListPomodoroSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPomodoroSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPomodoroSessionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Log a completed pomodoro session
+ */
+export const getCreatePomodoroSessionUrl = () => {
+  return `/api/v1/pomodoro/sessions`;
+};
+
+export const createPomodoroSession = async (
+  createPomodoroSessionRequest: CreatePomodoroSessionRequest,
+  options?: RequestInit,
+): Promise<PomodoroSessionResponse> => {
+  return customFetch<PomodoroSessionResponse>(getCreatePomodoroSessionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createPomodoroSessionRequest),
+  });
+};
+
+export const getCreatePomodoroSessionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPomodoroSession>>,
+    TError,
+    { data: BodyType<CreatePomodoroSessionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPomodoroSession>>,
+  TError,
+  { data: BodyType<CreatePomodoroSessionRequest> },
+  TContext
+> => {
+  const mutationKey = ["createPomodoroSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPomodoroSession>>,
+    { data: BodyType<CreatePomodoroSessionRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createPomodoroSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreatePomodoroSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPomodoroSession>>
+>;
+export type CreatePomodoroSessionMutationBody =
+  BodyType<CreatePomodoroSessionRequest>;
+export type CreatePomodoroSessionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Log a completed pomodoro session
+ */
+export const useCreatePomodoroSession = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPomodoroSession>>,
+    TError,
+    { data: BodyType<CreatePomodoroSessionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createPomodoroSession>>,
+  TError,
+  { data: BodyType<CreatePomodoroSessionRequest> },
+  TContext
+> => {
+  return useMutation(getCreatePomodoroSessionMutationOptions(options));
+};
+
+/**
+ * @summary Timer length preferences
+ */
+export const getGetPomodoroPreferencesUrl = () => {
+  return `/api/v1/pomodoro/preferences`;
+};
+
+export const getPomodoroPreferences = async (
+  options?: RequestInit,
+): Promise<PomodoroPreferencesResponse> => {
+  return customFetch<PomodoroPreferencesResponse>(
+    getGetPomodoroPreferencesUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetPomodoroPreferencesQueryKey = () => {
+  return [`/api/v1/pomodoro/preferences`] as const;
+};
+
+export const getGetPomodoroPreferencesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPomodoroPreferences>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPomodoroPreferences>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPomodoroPreferencesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPomodoroPreferences>>
+  > = ({ signal }) => getPomodoroPreferences({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPomodoroPreferences>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPomodoroPreferencesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPomodoroPreferences>>
+>;
+export type GetPomodoroPreferencesQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Timer length preferences
+ */
+
+export function useGetPomodoroPreferences<
+  TData = Awaited<ReturnType<typeof getPomodoroPreferences>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPomodoroPreferences>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPomodoroPreferencesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update timer length preferences
+ */
+export const getPutPomodoroPreferencesUrl = () => {
+  return `/api/v1/pomodoro/preferences`;
+};
+
+export const putPomodoroPreferences = async (
+  pomodoroPreferencesPutRequest: PomodoroPreferencesPutRequest,
+  options?: RequestInit,
+): Promise<PomodoroPreferencesResponse> => {
+  return customFetch<PomodoroPreferencesResponse>(
+    getPutPomodoroPreferencesUrl(),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(pomodoroPreferencesPutRequest),
+    },
+  );
+};
+
+export const getPutPomodoroPreferencesMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof putPomodoroPreferences>>,
+    TError,
+    { data: BodyType<PomodoroPreferencesPutRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof putPomodoroPreferences>>,
+  TError,
+  { data: BodyType<PomodoroPreferencesPutRequest> },
+  TContext
+> => {
+  const mutationKey = ["putPomodoroPreferences"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof putPomodoroPreferences>>,
+    { data: BodyType<PomodoroPreferencesPutRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return putPomodoroPreferences(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PutPomodoroPreferencesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof putPomodoroPreferences>>
+>;
+export type PutPomodoroPreferencesMutationBody =
+  BodyType<PomodoroPreferencesPutRequest>;
+export type PutPomodoroPreferencesMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update timer length preferences
+ */
+export const usePutPomodoroPreferences = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof putPomodoroPreferences>>,
+    TError,
+    { data: BodyType<PomodoroPreferencesPutRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof putPomodoroPreferences>>,
+  TError,
+  { data: BodyType<PomodoroPreferencesPutRequest> },
+  TContext
+> => {
+  return useMutation(getPutPomodoroPreferencesMutationOptions(options));
+};
+
+/**
+ * @summary Load personal whiteboard snapshot
+ */
+export const getGetUserWhiteboardUrl = () => {
+  return `/api/v1/whiteboard`;
+};
+
+export const getUserWhiteboard = async (
+  options?: RequestInit,
+): Promise<WhiteboardResponse> => {
+  return customFetch<WhiteboardResponse>(getGetUserWhiteboardUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetUserWhiteboardQueryKey = () => {
+  return [`/api/v1/whiteboard`] as const;
+};
+
+export const getGetUserWhiteboardQueryOptions = <
+  TData = Awaited<ReturnType<typeof getUserWhiteboard>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getUserWhiteboard>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetUserWhiteboardQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getUserWhiteboard>>
+  > = ({ signal }) => getUserWhiteboard({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getUserWhiteboard>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetUserWhiteboardQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getUserWhiteboard>>
+>;
+export type GetUserWhiteboardQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Load personal whiteboard snapshot
+ */
+
+export function useGetUserWhiteboard<
+  TData = Awaited<ReturnType<typeof getUserWhiteboard>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getUserWhiteboard>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetUserWhiteboardQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Save personal whiteboard snapshot
+ */
+export const getPutUserWhiteboardUrl = () => {
+  return `/api/v1/whiteboard`;
+};
+
+export const putUserWhiteboard = async (
+  whiteboardPutRequest: WhiteboardPutRequest,
+  options?: RequestInit,
+): Promise<WhiteboardResponse> => {
+  return customFetch<WhiteboardResponse>(getPutUserWhiteboardUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(whiteboardPutRequest),
+  });
+};
+
+export const getPutUserWhiteboardMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof putUserWhiteboard>>,
+    TError,
+    { data: BodyType<WhiteboardPutRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof putUserWhiteboard>>,
+  TError,
+  { data: BodyType<WhiteboardPutRequest> },
+  TContext
+> => {
+  const mutationKey = ["putUserWhiteboard"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof putUserWhiteboard>>,
+    { data: BodyType<WhiteboardPutRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return putUserWhiteboard(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PutUserWhiteboardMutationResult = NonNullable<
+  Awaited<ReturnType<typeof putUserWhiteboard>>
+>;
+export type PutUserWhiteboardMutationBody = BodyType<WhiteboardPutRequest>;
+export type PutUserWhiteboardMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Save personal whiteboard snapshot
+ */
+export const usePutUserWhiteboard = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof putUserWhiteboard>>,
+    TError,
+    { data: BodyType<WhiteboardPutRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof putUserWhiteboard>>,
+  TError,
+  { data: BodyType<WhiteboardPutRequest> },
+  TContext
+> => {
+  return useMutation(getPutUserWhiteboardMutationOptions(options));
+};
+
+/**
+ * @summary List AI jobs (placeholder)
+ */
+export const getListAiJobsUrl = (params?: ListAiJobsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/ai/jobs?${stringifiedParams}`
+    : `/api/v1/ai/jobs`;
+};
+
+export const listAiJobs = async (
+  params?: ListAiJobsParams,
+  options?: RequestInit,
+): Promise<ListAiJobsResponse> => {
+  return customFetch<ListAiJobsResponse>(getListAiJobsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAiJobsQueryKey = (params?: ListAiJobsParams) => {
+  return [`/api/v1/ai/jobs`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAiJobsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAiJobs>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListAiJobsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAiJobs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAiJobsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAiJobs>>> = ({
+    signal,
+  }) => listAiJobs(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAiJobs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAiJobsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAiJobs>>
+>;
+export type ListAiJobsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List AI jobs (placeholder)
+ */
+
+export function useListAiJobs<
+  TData = Awaited<ReturnType<typeof listAiJobs>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListAiJobsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAiJobs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAiJobsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List AI tutor threads
+ */
+export const getListAiThreadsUrl = (params?: ListAiThreadsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/ai/threads?${stringifiedParams}`
+    : `/api/v1/ai/threads`;
+};
+
+export const listAiThreads = async (
+  params?: ListAiThreadsParams,
+  options?: RequestInit,
+): Promise<ListAiThreadsResponse> => {
+  return customFetch<ListAiThreadsResponse>(getListAiThreadsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAiThreadsQueryKey = (params?: ListAiThreadsParams) => {
+  return [`/api/v1/ai/threads`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAiThreadsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAiThreads>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListAiThreadsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAiThreads>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAiThreadsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAiThreads>>> = ({
+    signal,
+  }) => listAiThreads(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAiThreads>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAiThreadsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAiThreads>>
+>;
+export type ListAiThreadsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List AI tutor threads
+ */
+
+export function useListAiThreads<
+  TData = Awaited<ReturnType<typeof listAiThreads>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListAiThreadsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAiThreads>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAiThreadsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create AI tutor thread
+ */
+export const getCreateAiThreadUrl = () => {
+  return `/api/v1/ai/threads`;
+};
+
+export const createAiThread = async (
+  createAiThreadRequest: CreateAiThreadRequest,
+  options?: RequestInit,
+): Promise<AiThreadResponse> => {
+  return customFetch<AiThreadResponse>(getCreateAiThreadUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAiThreadRequest),
+  });
+};
+
+export const getCreateAiThreadMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAiThread>>,
+    TError,
+    { data: BodyType<CreateAiThreadRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAiThread>>,
+  TError,
+  { data: BodyType<CreateAiThreadRequest> },
+  TContext
+> => {
+  const mutationKey = ["createAiThread"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAiThread>>,
+    { data: BodyType<CreateAiThreadRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createAiThread(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAiThreadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAiThread>>
+>;
+export type CreateAiThreadMutationBody = BodyType<CreateAiThreadRequest>;
+export type CreateAiThreadMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create AI tutor thread
+ */
+export const useCreateAiThread = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAiThread>>,
+    TError,
+    { data: BodyType<CreateAiThreadRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAiThread>>,
+  TError,
+  { data: BodyType<CreateAiThreadRequest> },
+  TContext
+> => {
+  return useMutation(getCreateAiThreadMutationOptions(options));
+};
+
+/**
+ * @summary List messages in a thread
+ */
+export const getListAiThreadMessagesUrl = (threadId: string) => {
+  return `/api/v1/ai/threads/${threadId}/messages`;
+};
+
+export const listAiThreadMessages = async (
+  threadId: string,
+  options?: RequestInit,
+): Promise<ListAiMessagesResponse> => {
+  return customFetch<ListAiMessagesResponse>(
+    getListAiThreadMessagesUrl(threadId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAiThreadMessagesQueryKey = (threadId: string) => {
+  return [`/api/v1/ai/threads/${threadId}/messages`] as const;
+};
+
+export const getListAiThreadMessagesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAiThreadMessages>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  threadId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAiThreadMessages>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAiThreadMessagesQueryKey(threadId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAiThreadMessages>>
+  > = ({ signal }) =>
+    listAiThreadMessages(threadId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!threadId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAiThreadMessages>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAiThreadMessagesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAiThreadMessages>>
+>;
+export type ListAiThreadMessagesQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List messages in a thread
+ */
+
+export function useListAiThreadMessages<
+  TData = Awaited<ReturnType<typeof listAiThreadMessages>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  threadId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAiThreadMessages>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAiThreadMessagesQueryOptions(threadId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Append user message and receive assistant reply
+ */
+export const getAppendAiThreadMessageUrl = (threadId: string) => {
+  return `/api/v1/ai/threads/${threadId}/messages`;
+};
+
+export const appendAiThreadMessage = async (
+  threadId: string,
+  appendAiMessageRequest: AppendAiMessageRequest,
+  options?: RequestInit,
+): Promise<AppendAiMessageResponse> => {
+  return customFetch<AppendAiMessageResponse>(
+    getAppendAiThreadMessageUrl(threadId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(appendAiMessageRequest),
+    },
+  );
+};
+
+export const getAppendAiThreadMessageMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof appendAiThreadMessage>>,
+    TError,
+    { threadId: string; data: BodyType<AppendAiMessageRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof appendAiThreadMessage>>,
+  TError,
+  { threadId: string; data: BodyType<AppendAiMessageRequest> },
+  TContext
+> => {
+  const mutationKey = ["appendAiThreadMessage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof appendAiThreadMessage>>,
+    { threadId: string; data: BodyType<AppendAiMessageRequest> }
+  > = (props) => {
+    const { threadId, data } = props ?? {};
+
+    return appendAiThreadMessage(threadId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AppendAiThreadMessageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof appendAiThreadMessage>>
+>;
+export type AppendAiThreadMessageMutationBody =
+  BodyType<AppendAiMessageRequest>;
+export type AppendAiThreadMessageMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Append user message and receive assistant reply
+ */
+export const useAppendAiThreadMessage = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof appendAiThreadMessage>>,
+    TError,
+    { threadId: string; data: BodyType<AppendAiMessageRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof appendAiThreadMessage>>,
+  TError,
+  { threadId: string; data: BodyType<AppendAiMessageRequest> },
+  TContext
+> => {
+  return useMutation(getAppendAiThreadMessageMutationOptions(options));
+};
+
+/**
+ * @summary List collaboration sessions
+ */
+export const getListCollaborationSessionsUrl = (
+  params?: ListCollaborationSessionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/collaboration/sessions?${stringifiedParams}`
+    : `/api/v1/collaboration/sessions`;
+};
+
+export const listCollaborationSessions = async (
+  params?: ListCollaborationSessionsParams,
+  options?: RequestInit,
+): Promise<ListCollaborationSessionsResponse> => {
+  return customFetch<ListCollaborationSessionsResponse>(
+    getListCollaborationSessionsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListCollaborationSessionsQueryKey = (
+  params?: ListCollaborationSessionsParams,
+) => {
+  return [
+    `/api/v1/collaboration/sessions`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListCollaborationSessionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCollaborationSessions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListCollaborationSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCollaborationSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListCollaborationSessionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCollaborationSessions>>
+  > = ({ signal }) =>
+    listCollaborationSessions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCollaborationSessions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCollaborationSessionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCollaborationSessions>>
+>;
+export type ListCollaborationSessionsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List collaboration sessions
+ */
+
+export function useListCollaborationSessions<
+  TData = Awaited<ReturnType<typeof listCollaborationSessions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListCollaborationSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCollaborationSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCollaborationSessionsQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

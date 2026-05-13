@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import type { AiMessageDto } from "@workspace/api-client-react";
+import type { AiMessage } from "@workspace/api-client-react";
 
 export function ChatMessageList(props: {
-  messages: AiMessageDto[];
+  messages: AiMessage[];
   loading: boolean;
   bottomRef: RefObject<HTMLDivElement | null>;
   onCopy: (text: string) => void;

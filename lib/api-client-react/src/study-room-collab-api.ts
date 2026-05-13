@@ -9,57 +9,32 @@ import type {
   UseQueryResult,
 } from "@tanstack/react-query";
 import type { ErrorResponse } from "./generated/api.schemas";
+import type {
+  ListStudyRoomGoalsResponse,
+  PatchStudyRoomTimerRequest,
+  StudyRoomGoalResponse,
+} from "./generated/api.schemas";
+import { getGetStudyRoomTimerQueryKey, getStudyRoomTimer, patchStudyRoomTimer } from "./generated/api";
 import { customFetch } from "./custom-fetch";
 import type { BodyType, ErrorType } from "./custom-fetch";
 
-export interface StudyRoomGoalDto {
-  id: string;
-  roomId: string;
-  text: string;
-  done: boolean;
-  sortOrder: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface StudyRoomTimerDto {
-  phase: "idle" | "focus" | "break";
-  durationSec: number | null;
-  remainingSec: number;
-  running: boolean;
-  leaderUserId: string | null;
-  anchorEndsAt: string | null;
-  updatedAt: string;
-}
-
-export interface StudyRoomTimerPatch {
-  phase?: "idle" | "focus" | "break";
-  durationSec?: number;
-  remainingSec?: number;
-  running?: boolean;
-}
-
-interface GoalsListEnvelope {
-  success: true;
-  data: { items: StudyRoomGoalDto[] };
-}
-
-interface GoalEnvelope {
-  success: true;
-  data: StudyRoomGoalDto;
-}
-
-interface TimerEnvelope {
-  success: true;
-  data: StudyRoomTimerDto;
-}
+export type {
+  ListStudyRoomGoalsResponse,
+  PatchStudyRoomTimerRequest,
+  StudyRoomGoal,
+  StudyRoomTimer,
+  StudyRoomTimerResponse,
+} from "./generated/api.schemas";
 
 type SP<T extends (...args: never) => unknown> = Parameters<T>[1];
 type AwaitedInput<T> = PromiseLike<T> | T;
 type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 
-export const listStudyRoomGoals = async (roomId: string, options?: RequestInit): Promise<GoalsListEnvelope> => {
-  return customFetch<GoalsListEnvelope>(`/api/v1/study-rooms/${roomId}/goals`, {
+export const listStudyRoomGoals = async (
+  roomId: string,
+  options?: RequestInit,
+): Promise<ListStudyRoomGoalsResponse> => {
+  return customFetch<ListStudyRoomGoalsResponse>(`/api/v1/study-rooms/${roomId}/goals`, {
     ...options,
     method: "GET",
   });
@@ -97,8 +72,8 @@ export const createStudyRoomGoal = async (
   roomId: string,
   body: { text: string },
   options?: RequestInit,
-): Promise<GoalEnvelope> => {
-  return customFetch<GoalEnvelope>(`/api/v1/study-rooms/${roomId}/goals`, {
+): Promise<StudyRoomGoalResponse> => {
+  return customFetch<StudyRoomGoalResponse>(`/api/v1/study-rooms/${roomId}/goals`, {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -155,8 +130,8 @@ export const updateStudyRoomGoal = async (
   goalId: string,
   body: { text?: string; done?: boolean },
   options?: RequestInit,
-): Promise<GoalEnvelope> => {
-  return customFetch<GoalEnvelope>(`/api/v1/study-rooms/${roomId}/goals/${goalId}`, {
+): Promise<StudyRoomGoalResponse> => {
+  return customFetch<StudyRoomGoalResponse>(`/api/v1/study-rooms/${roomId}/goals/${goalId}`, {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -208,17 +183,7 @@ export const useUpdateStudyRoomGoal = <
   });
 };
 
-export const getStudyRoomTimer = async (roomId: string, options?: RequestInit): Promise<TimerEnvelope> => {
-  return customFetch<TimerEnvelope>(`/api/v1/study-rooms/${roomId}/timer`, {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getStudyRoomTimerQueryKey = (roomId: string | null) =>
-  roomId ? ([`/api/v1/study-rooms/${roomId}/timer`] as const) : (["study-room-timer", "none"] as const);
-
-export function useStudyRoomTimer<
+export function useGetStudyRoomTimer<
   TData = Awaited<ReturnType<typeof getStudyRoomTimer>>,
   TError = ErrorType<ErrorResponse>,
 >(
@@ -229,7 +194,8 @@ export function useStudyRoomTimer<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const { query: queryOptions, request: requestOptions } = options ?? {};
-  const queryKey = queryOptions?.queryKey ?? getStudyRoomTimerQueryKey(roomId);
+  const queryKey =
+    queryOptions?.queryKey ?? (roomId ? getGetStudyRoomTimerQueryKey(roomId) : (["study-room-timer", "none"] as const));
   const queryFn: QueryFunction<Awaited<ReturnType<typeof getStudyRoomTimer>>> = ({ signal }) => {
     if (!roomId) return Promise.reject(new Error("roomId required"));
     return getStudyRoomTimer(roomId, { signal, ...requestOptions });
@@ -244,19 +210,6 @@ export function useStudyRoomTimer<
   return { ...query, queryKey };
 }
 
-export const patchStudyRoomTimer = async (
-  roomId: string,
-  body: StudyRoomTimerPatch,
-  options?: RequestInit,
-): Promise<TimerEnvelope> => {
-  return customFetch<TimerEnvelope>(`/api/v1/study-rooms/${roomId}/timer`, {
-    ...options,
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(body),
-  });
-};
-
 export const usePatchStudyRoomTimer = <
   TError = ErrorType<ErrorResponse>,
   TContext = unknown,
@@ -264,14 +217,14 @@ export const usePatchStudyRoomTimer = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof patchStudyRoomTimer>>,
     TError,
-    { roomId: string; data: BodyType<StudyRoomTimerPatch> },
+    { roomId: string; data: BodyType<PatchStudyRoomTimerRequest> },
     TContext
   >;
   request?: SP<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof patchStudyRoomTimer>>,
   TError,
-  { roomId: string; data: BodyType<StudyRoomTimerPatch> },
+  { roomId: string; data: BodyType<PatchStudyRoomTimerRequest> },
   TContext
 > => {
   const queryClient = useQueryClient();
@@ -286,7 +239,7 @@ export const usePatchStudyRoomTimer = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof patchStudyRoomTimer>>,
-    { roomId: string; data: BodyType<StudyRoomTimerPatch> }
+    { roomId: string; data: BodyType<PatchStudyRoomTimerRequest> }
   > = (props) => patchStudyRoomTimer(props.roomId, props.data, requestOptions);
 
   const userOnSuccess = mutationOptions?.onSuccess;
@@ -295,8 +248,10 @@ export const usePatchStudyRoomTimer = <
     mutationFn,
     ...mutationOptions,
     onSuccess: (data, variables, onMutateResult, context) => {
-      void queryClient.invalidateQueries({ queryKey: getStudyRoomTimerQueryKey(variables.roomId) });
+      void queryClient.invalidateQueries({ queryKey: getGetStudyRoomTimerQueryKey(variables.roomId) });
       userOnSuccess?.(data, variables, onMutateResult, context);
     },
   });
 };
+
+export { getGetStudyRoomTimerQueryKey, getStudyRoomTimer, patchStudyRoomTimer };

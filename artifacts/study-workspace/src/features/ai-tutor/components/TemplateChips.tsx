@@ -1,9 +1,9 @@
 import { BookOpen, Layers, FileText, ListOrdered, Brain } from "lucide-react";
-import type { AiTemplateKey } from "@workspace/api-client-react";
+import type { AppendAiMessageRequestTemplateKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 
 const CHIPS: {
-  key: AiTemplateKey;
+  key: AppendAiMessageRequestTemplateKey;
   label: string;
   icon: typeof BookOpen;
 }[] = [
@@ -15,8 +15,8 @@ const CHIPS: {
 ];
 
 export function TemplateChips(props: {
-  activeKey: AiTemplateKey | null;
-  onSelect: (key: AiTemplateKey | null) => void;
+  activeKey: AppendAiMessageRequestTemplateKey | null;
+  onSelect: (key: AppendAiMessageRequestTemplateKey | null) => void;
 }) {
   return (
     <div className="border-t border-border/60 px-4 pt-2 pb-1 flex gap-2 overflow-x-auto">

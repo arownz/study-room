@@ -7,6 +7,7 @@
  */
 
 export interface UpdateFlashcardRequest {
+  deckId?: string;
   question?: string;
   answer?: string;
 }

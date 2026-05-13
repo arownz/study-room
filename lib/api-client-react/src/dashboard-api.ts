@@ -7,79 +7,61 @@ import type {
 } from "@tanstack/react-query";
 import { customFetch } from "./custom-fetch";
 import type { ErrorType } from "./custom-fetch";
-import type { ErrorResponse } from "./generated/api.schemas";
+import type { DashboardSummaryResponse, ErrorResponse } from "./generated/api.schemas";
 
-export interface DashboardNoteSnippet {
-  id: string;
-  title: string;
-  updatedAt: string;
-}
-
-export interface DashboardSummary {
-  notesCount: number;
-  flashcardsCount: number;
-  flashcardDecksCount: number;
-  studyRoomsCount: number;
-  pomodoroSessionsCompletedTotal: number;
-  recentNotes: DashboardNoteSnippet[];
-}
-
-interface DashboardSummaryEnvelope {
-  success: true;
-  data: DashboardSummary;
-}
+export type { DashboardNoteSnippet, DashboardSummary } from "./generated/api.schemas";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 type SP<T extends (...args: never) => unknown> = Parameters<T>[1];
 
-export const getDashboardSummary = async (
+export const getUserDashboardSummary = async (
   options?: RequestInit,
-): Promise<DashboardSummaryEnvelope> => {
-  return customFetch<DashboardSummaryEnvelope>("/api/v1/users/me/dashboard-summary", {
+): Promise<DashboardSummaryResponse> => {
+  return customFetch<DashboardSummaryResponse>("/api/v1/users/me/dashboard-summary", {
     ...options,
     method: "GET",
   });
 };
 
-export const getDashboardSummaryQueryKey = () =>
+export const getGetUserDashboardSummaryQueryKey = () =>
   ["/api/v1/users/me/dashboard-summary"] as const;
 
-export const getDashboardSummaryQueryOptions = <
-  TData = Awaited<ReturnType<typeof getDashboardSummary>>,
+export const getGetUserDashboardSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getUserDashboardSummary>>,
   TError = ErrorType<ErrorResponse>,
 >(options?: {
   query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getDashboardSummary>>,
+    Awaited<ReturnType<typeof getUserDashboardSummary>>,
     TError,
     TData
   >;
   request?: SP<typeof customFetch>;
 }) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
-  const queryKey = queryOptions?.queryKey ?? getDashboardSummaryQueryKey();
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getDashboardSummary>>> = ({
+  const queryKey = queryOptions?.queryKey ?? getGetUserDashboardSummaryQueryKey();
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getUserDashboardSummary>>> = ({
     signal,
-  }) => getDashboardSummary({ signal, ...requestOptions });
+  }) => getUserDashboardSummary({ signal, ...requestOptions });
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof getDashboardSummary>>,
+    Awaited<ReturnType<typeof getUserDashboardSummary>>,
     TError,
     TData
   > & { queryKey: QueryKey };
 };
 
-export function useDashboardSummary<
-  TData = Awaited<ReturnType<typeof getDashboardSummary>>,
+export function useGetUserDashboardSummary<
+  TData = Awaited<ReturnType<typeof getUserDashboardSummary>>,
   TError = ErrorType<ErrorResponse>,
 >(options?: {
   query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getDashboardSummary>>,
+    Awaited<ReturnType<typeof getUserDashboardSummary>>,
     TError,
     TData
   >;
   request?: SP<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getDashboardSummaryQueryOptions(options);
+  const queryOptions = getGetUserDashboardSummaryQueryOptions(options);
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
   };

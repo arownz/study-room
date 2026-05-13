@@ -3,9 +3,9 @@ import { Sparkles, Upload, Layers, Send } from "lucide-react";
 import {
   useListAiThreads,
   useCreateAiThread,
-  useListAiMessages,
-  useAppendAiMessage,
-  type AiTemplateKey,
+  useListAiThreadMessages,
+  useAppendAiThreadMessage,
+  type AppendAiMessageRequestTemplateKey,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,16 +19,18 @@ export default function AITutorPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [input, setInput] = useState("");
-  const [templateKey, setTemplateKey] = useState<AiTemplateKey | null>(null);
+  const [templateKey, setTemplateKey] = useState<AppendAiMessageRequestTemplateKey | null>(null);
 
   const { data: threadsEnvelope } = useListAiThreads({ limit: 50, offset: 0 });
   const threads = threadsEnvelope?.data?.items ?? [];
 
-  const { data: messagesEnvelope, isLoading: messagesLoading } = useListAiMessages(selectedId);
+  const { data: messagesEnvelope, isLoading: messagesLoading } = useListAiThreadMessages(
+    selectedId ?? "",
+  );
   const messages = messagesEnvelope?.data?.items ?? [];
 
   const createThread = useCreateAiThread();
-  const appendMessage = useAppendAiMessage();
+  const appendMessage = useAppendAiThreadMessage();
 
   useEffect(() => {
     if (selectedId || threads.length === 0) return;

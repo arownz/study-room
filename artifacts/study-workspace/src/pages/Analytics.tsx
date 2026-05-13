@@ -13,7 +13,7 @@ import {
   Cell,
 } from "recharts";
 import { TrendingUp, Flame, Clock, Layers, Award, Calendar, AlertCircle } from "lucide-react";
-import { useStudyAnalytics } from "@workspace/api-client-react";
+import { useGetUserStudyAnalytics } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -49,7 +49,7 @@ function formatTotalHours(h: number): string {
 }
 
 export default function Analytics() {
-  const { data: envelope, isLoading, isError, refetch } = useStudyAnalytics({
+  const { data: envelope, isLoading, isError, refetch } = useGetUserStudyAnalytics({
     chartDays: 14,
     heatmapDays: 35,
   });

@@ -1362,6 +1362,7 @@ components:
           type: string
         content:
           type: string
+          maxLength: 512000
       required:
         - title
         - content
@@ -1372,6 +1373,7 @@ components:
           type: string
         content:
           type: string
+          maxLength: 512000
       minProperties: 1
     NoteResponse:
       type: object

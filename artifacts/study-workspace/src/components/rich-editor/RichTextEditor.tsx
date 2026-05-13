@@ -28,6 +28,10 @@ import {
   GripVertical,
   SquarePen,
   Trash2,
+  Pencil,
+  Highlighter,
+  Eraser,
+  MousePointer2,
 } from "lucide-react";
 import { ApiError, customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -35,7 +39,15 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { shortcutModLabel } from "@/lib/platform";
-
+import {
+  createTextBlock,
+  parseCanvas,
+  serializeCanvas,
+  uid,
+  type CanvasBlock,
+  type InkCanvasBlock,
+} from "./canvas/canvas-blocks";
+import { minDistanceToPolyline, pointsToPathD, simplifyRdp } from "./canvas/ink-geometry";
 /** Prose + marker styles so nested ordered/unordered lists stay readable (OneNote-style mixing). */
 const NESTED_LIST_PROSE =
   "[&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_li]:pl-1 [&_li>ul]:mt-1 [&_li>ol]:mt-1 [&_li>ul]:pl-6 [&_li>ol]:pl-6 [&_li]:marker:text-foreground";
@@ -107,27 +119,6 @@ interface RichTextEditorProps {
   showMediaHint?: boolean;
 }
 
-type BlockType = "text" | "image";
-type CanvasBlock = {
-  id: string;
-  type: BlockType;
-  x: number;
-  y: number;
-  width: number;
-  z: number;
-  html?: string;
-  src?: string;
-};
-
-const CANVAS_MARKER = "data-note-canvas";
-function uid(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function createTextBlock(x: number, y: number, html = ""): CanvasBlock {
-  return { id: uid("text"), type: "text", x, y, width: 680, z: 1, html };
-}
-
 function escapeHtml(s: string): string {
   return s
     .replaceAll("&", "&amp;")
@@ -160,37 +151,59 @@ function isCanvasTextStructuralEmpty(html: string): boolean {
   return (doc.body.textContent ?? "").replace(/\s+/g, " ").trim().length === 0;
 }
 
-function serializeCanvas(blocks: CanvasBlock[]): string {
-  const parts = blocks.map((block) => {
-    const style = `left:${Math.round(block.x)}px;top:${Math.round(block.y)}px;width:${Math.round(block.width)}px;z-index:${block.z};position:absolute;`;
-    if (block.type === "image") {
-      return `<div data-note-block="image" data-id="${block.id}" style="${style}"><img src="${escapeHtml(block.src ?? "")}" alt="" /></div>`;
+function findInkToErase(blocks: CanvasBlock[], canvasX: number, canvasY: number): string | null {
+  const inks = blocks
+    .filter((b): b is InkCanvasBlock => b.type === "ink")
+    .slice()
+    .sort((a, b) => b.z - a.z);
+  for (const b of inks) {
+    const pts = b.points.map(([px, py]) => [px + b.x, py + b.y] as [number, number]);
+    if (minDistanceToPolyline(canvasX, canvasY, pts) < Math.max(12, b.strokeWidth * 1.5)) {
+      return b.id;
     }
-    return `<div data-note-block="text" data-id="${block.id}" style="${style}">${block.html || "<p></p>"}</div>`;
-  });
-  return `<div ${CANVAS_MARKER}="1" style="position:relative;min-height:100%;">${parts.join("")}</div>`;
+  }
+  return null;
 }
 
-function parseCanvas(html: string): CanvasBlock[] {
-  if (!html.trim()) return [];
-  if (typeof window === "undefined") return [createTextBlock(48, 48, `<p>${escapeHtml(htmlToPlainText(html))}</p>`)];
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  const root = doc.querySelector(`[${CANVAS_MARKER}]`);
-  if (!root) return [createTextBlock(48, 48, html)];
-  const els = Array.from(root.querySelectorAll<HTMLElement>("[data-note-block]"));
-  return els.map((el, idx) => {
-    const type = (el.getAttribute("data-note-block") ?? "text") as BlockType;
-    const x = Number.parseFloat(el.style.left || "48") || 48;
-    const y = Number.parseFloat(el.style.top || "48") || 48;
-    const width = Number.parseFloat(el.style.width || "520") || 520;
-    const z = Number.parseInt(el.style.zIndex || `${idx + 1}`, 10) || idx + 1;
-    const id = el.getAttribute("data-id") ?? uid("block");
-    if (type === "image") {
-      const img = el.querySelector("img");
-      return { id, type, x, y, width, z, src: img?.getAttribute("src") ?? "" };
-    }
-    return { id, type: "text", x, y, width, z, html: el.innerHTML };
-  });
+function buildInkBlockFromDraft(
+  draft: { points: [number, number][]; color: string; strokeWidth: number; opacity: number },
+  z: number,
+): InkCanvasBlock | null {
+  if (draft.points.length < 2) return null;
+  const pad = 6;
+  const xs = draft.points.map((p) => p[0]);
+  const ys = draft.points.map((p) => p[1]);
+  const minx = Math.min(...xs) - pad;
+  const miny = Math.min(...ys) - pad;
+  const maxx = Math.max(...xs) + pad;
+  const maxy = Math.max(...ys) + pad;
+  const width = Math.max(12, maxx - minx);
+  const height = Math.max(12, maxy - miny);
+  const rel = draft.points.map(([px, py]) => [px - minx, py - miny] as [number, number]);
+  let pts = simplifyRdp(rel, 2.4);
+  if (pts.length < 2) return null;
+  if (pts.length > 480) {
+    const step = Math.ceil(pts.length / 480);
+    const thinned: [number, number][] = [];
+    for (let i = 0; i < pts.length; i += step) thinned.push(pts[i]);
+    const last = pts[pts.length - 1];
+    const oLast = thinned[thinned.length - 1];
+    if (!oLast || oLast[0] !== last[0] || oLast[1] !== last[1]) thinned.push(last);
+    pts = thinned;
+  }
+  return {
+    type: "ink",
+    id: uid("ink"),
+    x: minx,
+    y: miny,
+    width,
+    height,
+    z,
+    points: pts,
+    color: draft.color,
+    strokeWidth: draft.strokeWidth,
+    opacity: draft.opacity,
+  };
 }
 
 interface ToolbarButton {
@@ -576,7 +589,7 @@ function TextBlockEditor({
     editorProps: {
       attributes: {
         class: cn(
-          "tiptap prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed focus:outline-none",
+          "tiptap prose prose-sm max-w-none text-sm leading-relaxed text-foreground focus:outline-none dark:prose-invert",
           NESTED_LIST_PROSE,
           "[&_li[data-checked]]:list-none",
           "[&_.ProseMirror_img]:inline-block [&_.ProseMirror_img]:align-text-bottom",
@@ -687,6 +700,15 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     const activeDocumentKeyRef = useRef(documentKey ?? "default");
     const pinchRef = useRef<{ initialDistance: number; initialZoom: number } | null>(null);
     const clipboardBlockRef = useRef<CanvasBlock | null>(null);
+    const [canvasDrawTool, setCanvasDrawTool] = useState<"select" | "pen" | "highlighter" | "eraser">("select");
+    const [inkDraft, setInkDraft] = useState<{
+      points: [number, number][];
+      color: string;
+      strokeWidth: number;
+      opacity: number;
+    } | null>(null);
+    const inkDraftRef = useRef(inkDraft);
+    inkDraftRef.current = inkDraft;
 
     const emitChange = useCallback(
       (nextBlocks: CanvasBlock[]) => {
@@ -755,6 +777,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       const blockMaxW = blocks.reduce((acc, b) => Math.max(acc, b.x + b.width + 96), 0);
       const blockMaxH = blocks.reduce((acc, b) => {
         if (b.type === "image") return Math.max(acc, b.y + 360 + 96);
+        if (b.type === "ink") return Math.max(acc, b.y + b.height + 96);
         const textBlock = document.querySelector(`[data-note-block-wrap="${b.id}"]`);
         if (textBlock) {
           const contentHeight = textBlock.scrollHeight || 260;
@@ -801,7 +824,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
 
     useEffect(() => {
       const onTypeToCreate = (event: KeyboardEvent) => {
-        if (readOnly || !pendingInsertPoint) return;
+        if (readOnly || !pendingInsertPoint || canvasDrawTool !== "select") return;
         if (event.ctrlKey || event.metaKey || event.altKey) return;
         const active = document.activeElement as HTMLElement | null;
         const editable = Boolean(active?.closest(".ProseMirror,[contenteditable='true'],textarea,input"));
@@ -818,7 +841,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       };
       window.addEventListener("keydown", onTypeToCreate);
       return () => window.removeEventListener("keydown", onTypeToCreate);
-    }, [pendingInsertPoint, readOnly, updateBlocks]);
+    }, [pendingInsertPoint, readOnly, updateBlocks, canvasDrawTool]);
 
     useEffect(() => {
       const el = canvasRef.current;
@@ -962,8 +985,67 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       dragStateRef.current = null;
     };
 
+    const onCanvasDrawPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+      if (readOnly) return;
+      const t = event.target as HTMLElement;
+      if (t.closest("[data-note-block-wrap]")) return;
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const cx = (event.clientX - rect.left) / zoom;
+      const cy = (event.clientY - rect.top) / zoom;
+      if (canvasDrawTool === "eraser") {
+        const id = findInkToErase(blocks, cx, cy);
+        if (id) updateBlocks((prev) => prev.filter((b) => b.id !== id));
+        return;
+      }
+      if (canvasDrawTool === "pen" || canvasDrawTool === "highlighter") {
+        event.currentTarget.setPointerCapture(event.pointerId);
+        setInkDraft({
+          points: [[cx, cy]],
+          color: canvasDrawTool === "pen" ? "#0f172a" : "#ca8a04",
+          strokeWidth: canvasDrawTool === "pen" ? 2.2 : 14,
+          opacity: canvasDrawTool === "pen" ? 1 : 0.35,
+        });
+      }
+    };
+
+    const onCanvasDrawPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+      onCanvasPointerMove(event);
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const cx = (event.clientX - rect.left) / zoom;
+      const cy = (event.clientY - rect.top) / zoom;
+      setInkDraft((prev) => {
+        if (!prev) return prev;
+        const last = prev.points[prev.points.length - 1];
+        if (last && Math.hypot(cx - last[0], cy - last[1]) < 1.1) return prev;
+        const next = [...prev.points, [cx, cy] as [number, number]];
+        if (next.length > 1200) return prev;
+        return { ...prev, points: next };
+      });
+    };
+
+    const onCanvasDrawPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+      endDrag();
+      if (inkDraftRef.current) {
+        try {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        } catch {
+          /* noop */
+        }
+        const draftCopy = inkDraftRef.current;
+        setInkDraft(null);
+        if (draftCopy) {
+          const built = buildInkBlockFromDraft(draftCopy, nextZ());
+          if (built) {
+            updateBlocks((prev) => [...prev, built]);
+          }
+        }
+      }
+    };
+
     const plainHint =
-      "Click the canvas to add a block. Ctrl/Cmd + scroll zooms the canvas.";
+      "Select tool: place caret or double‑click for text. Pen / highlighter / eraser for ink. Ctrl/Cmd + scroll zooms.";
     const zoomOut = () => setZoom((z) => Math.max(0.5, z - 0.1));
     const zoomIn = () => setZoom((z) => Math.min(2.5, z + 0.1));
 
@@ -1007,6 +1089,55 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             {imageBusy ? <Spinner className="size-3" /> : <ImagePlus size={13} />}
           </Button>
           <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={onPickImageFiles} />
+          <Separator orientation="vertical" className="mx-1 h-5" />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn("h-7 w-7", canvasDrawTool === "select" && "bg-muted text-foreground")}
+            disabled={readOnly}
+            title="Select & edit blocks"
+            onClick={() => setCanvasDrawTool("select")}
+            data-testid="rte-canvas-select"
+          >
+            <MousePointer2 size={13} />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn("h-7 w-7", canvasDrawTool === "pen" && "bg-muted text-foreground")}
+            disabled={readOnly}
+            title="Pen"
+            onClick={() => setCanvasDrawTool("pen")}
+            data-testid="rte-canvas-pen"
+          >
+            <Pencil size={13} />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn("h-7 w-7", canvasDrawTool === "highlighter" && "bg-muted text-foreground")}
+            disabled={readOnly}
+            title="Highlighter"
+            onClick={() => setCanvasDrawTool("highlighter")}
+            data-testid="rte-canvas-highlighter"
+          >
+            <Highlighter size={13} />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn("h-7 w-7", canvasDrawTool === "eraser" && "bg-muted text-foreground")}
+            disabled={readOnly}
+            title="Eraser (click stroke)"
+            onClick={() => setCanvasDrawTool("eraser")}
+            data-testid="rte-canvas-eraser"
+          >
+            <Eraser size={13} />
+          </Button>
           <Separator orientation="vertical" className="mx-1 h-5" />
           <div className="flex items-center rounded-md border border-border/60 px-1.5 py-0.5 text-[11px]">
             <button
@@ -1057,7 +1188,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         >
           <div
             ref={canvasRef}
-            className="relative mt-0 w-full min-w-0 rounded-lg border border-border/60 bg-muted/10 dark:bg-muted/5"
+            className="relative mt-0 w-full min-w-0 rounded-lg border border-border bg-card text-card-foreground shadow-sm"
             style={{
               width: canvasSize.width * zoom,
               minWidth: canvasSize.width * zoom,
@@ -1066,11 +1197,13 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
               transformOrigin: "top left",
             }}
             data-testid={testId ?? "rte-editor"}
-            onPointerMove={onCanvasPointerMove}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
+            onPointerDown={onCanvasDrawPointerDown}
+            onPointerMove={onCanvasDrawPointerMove}
+            onPointerUp={onCanvasDrawPointerUp}
+            onPointerCancel={onCanvasDrawPointerUp}
             onClick={(event) => {
               if (readOnly) return;
+              if (canvasDrawTool !== "select") return;
               const target = event.target as HTMLElement;
               if (target.closest("[data-note-block-wrap]")) return;
               const rect = event.currentTarget.getBoundingClientRect();
@@ -1081,6 +1214,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             }}
             onDoubleClick={(event) => {
               if (readOnly) return;
+              if (canvasDrawTool !== "select") return;
               const target = event.target as HTMLElement;
               if (target.closest("[data-note-block-wrap]")) return;
               event.preventDefault();
@@ -1153,6 +1287,26 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
                 </p>
               </div>
             ) : null}
+            {inkDraft ? (
+              <svg
+                className="pointer-events-none absolute left-0 top-0 z-300"
+                width={canvasSize.width * zoom}
+                height={canvasSize.height * zoom}
+                aria-hidden
+              >
+                <g transform={`scale(${zoom})`}>
+                  <path
+                    d={pointsToPathD(inkDraft.points)}
+                    fill="none"
+                    stroke={inkDraft.color}
+                    strokeWidth={inkDraft.strokeWidth}
+                    strokeOpacity={inkDraft.opacity}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </g>
+              </svg>
+            ) : null}
             {blocks.map((block) => (
               <div
                 key={block.id}
@@ -1161,7 +1315,13 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
                   "absolute z-1 rounded-md border bg-background/95 shadow-sm",
                   activeBlockId === block.id ? "border-primary/50 ring-2 ring-primary/20" : "border-border/60",
                 )}
-                style={{ left: block.x * zoom, top: block.y * zoom, width: block.width * zoom, zIndex: block.z }}
+                style={{
+                  left: block.x * zoom,
+                  top: block.y * zoom,
+                  width: block.width * zoom,
+                  ...(block.type === "ink" ? { height: block.height * zoom } : {}),
+                  zIndex: block.z,
+                }}
                 onMouseDown={() => {
                   setActiveBlockId(block.id);
                   setPendingInsertPoint(null);
@@ -1181,9 +1341,28 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
                     </div>
                   </div>
                 ) : null}
-                <div className="p-3">
+                <div className={cn("p-3", block.type === "ink" && "p-1 pt-0")}>
                   {block.type === "image" ? (
                     <img src={block.src} alt="" className="max-h-[520px] w-full rounded-md object-contain" />
+                  ) : null}
+                  {block.type === "ink" ? (
+                    <svg
+                      className="block max-h-[520px] w-full"
+                      viewBox={`0 0 ${block.width} ${block.height}`}
+                      preserveAspectRatio="xMinYMin meet"
+                      aria-hidden
+                    >
+                      <path
+                        d={pointsToPathD(block.points)}
+                        fill="none"
+                        stroke={block.color}
+                        strokeWidth={block.strokeWidth}
+                        strokeOpacity={block.opacity}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    </svg>
                   ) : null}
                   {block.type === "text" ? (
                     <TextBlockEditor
@@ -1222,17 +1401,4 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
   },
 );
 
-/** Strip HTML tags for use in list previews / search snippets. */
-export function htmlToPlainText(html: string): string {
-  if (!html) return "";
-  if (typeof window === "undefined") {
-    return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-  }
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  return (doc.body.textContent ?? "").replace(/\s+/g, " ").trim();
-}
-
-/** True if pasted HTML contributes visible text beyond empty paragraphs. */
-export function richTextHasPlainContent(html: string): boolean {
-  return htmlToPlainText(html).trim().length > 0;
-}
+export { htmlToPlainText, richTextHasPlainContent } from "./html-plain-text";
