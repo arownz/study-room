@@ -1,6 +1,15 @@
 import { z } from "zod";
 import { AppError } from "../../lib/app-error";
-import { whiteboardDtoSchema, type WhiteboardDto } from "./contracts";
+import {
+  createWhiteboardBodySchema,
+  listWhiteboardsResponseSchema,
+  updateWhiteboardBodySchema,
+  whiteboardDtoSchema,
+  type CreateWhiteboardBody,
+  type ListWhiteboardsQuery,
+  type UpdateWhiteboardBody,
+  type WhiteboardDto,
+} from "./contracts";
 import { WhiteboardRepository } from "./repository";
 
 const MAX_STICKIES = 200;
@@ -117,31 +126,34 @@ const snapshotV2Schema = z
   .strip();
 
 const snapshotPayloadSchema = z.union([snapshotV1Schema, snapshotV2Schema]);
+const EMPTY_WHITEBOARD_SNAPSHOT = JSON.stringify({
+  version: 2,
+  viewport: { zoom: 100, panX: 0, panY: 0 },
+  stickies: [],
+  strokes: [],
+  shapes: [],
+});
+
+function toWhiteboardDto(row: {
+  id: string;
+  title: string;
+  snapshot: string;
+  createdAt: Date;
+  updatedAt: Date;
+}): WhiteboardDto {
+  return whiteboardDtoSchema.parse({
+    id: row.id,
+    title: row.title,
+    snapshot: row.snapshot,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  });
+}
 
 export class WhiteboardService {
   constructor(private readonly repository: WhiteboardRepository) {}
 
-  async getOrEmpty(userId: string): Promise<WhiteboardDto> {
-    const row = await this.repository.getByUserId(userId);
-    if (!row) {
-      return whiteboardDtoSchema.parse({
-        snapshot: JSON.stringify({
-          version: 2,
-          viewport: { zoom: 100, panX: 0, panY: 0 },
-          stickies: [],
-          strokes: [],
-          shapes: [],
-        }),
-        updatedAt: new Date(0).toISOString(),
-      });
-    }
-    return whiteboardDtoSchema.parse({
-      snapshot: row.snapshot,
-      updatedAt: row.updatedAt.toISOString(),
-    });
-  }
-
-  async saveSnapshot(userId: string, snapshot: string): Promise<WhiteboardDto> {
+  private validateSnapshot(snapshot: string): string {
     let parsed: unknown;
     try {
       parsed = JSON.parse(snapshot) as unknown;
@@ -152,14 +164,92 @@ export class WhiteboardService {
     if (!validated.success) {
       throw new AppError("Invalid whiteboard snapshot shape", 400, "VALIDATION_ERROR");
     }
-    const normalized = JSON.stringify(validated.data);
-    const row = await this.repository.upsertSnapshot(userId, normalized);
+    return JSON.stringify(validated.data);
+  }
+
+  async list(userId: string, query: ListWhiteboardsQuery) {
+    const rows = await this.repository.listByUserId(userId, query);
+    return listWhiteboardsResponseSchema.parse({
+      items: rows.map(toWhiteboardDto),
+      page: {
+        limit: query.limit,
+        offset: query.offset,
+      },
+    });
+  }
+
+  async getById(userId: string, whiteboardId: string): Promise<WhiteboardDto> {
+    const row = await this.repository.getById(userId, whiteboardId);
+    if (!row) {
+      throw new AppError("Whiteboard not found", 404, "WHITEBOARD_NOT_FOUND");
+    }
+    return toWhiteboardDto(row);
+  }
+
+  async create(userId: string, payload: CreateWhiteboardBody): Promise<WhiteboardDto> {
+    const parsed = createWhiteboardBodySchema.parse(payload);
+    const row = await this.repository.create(userId, {
+      ...parsed,
+      title: parsed.title ?? "Untitled Whiteboard",
+      snapshot: EMPTY_WHITEBOARD_SNAPSHOT,
+    });
+    if (!row) {
+      throw new AppError("Failed to create whiteboard", 500, "INTERNAL_ERROR");
+    }
+    return toWhiteboardDto(row);
+  }
+
+  async update(userId: string, whiteboardId: string, payload: UpdateWhiteboardBody): Promise<WhiteboardDto> {
+    const parsed = updateWhiteboardBodySchema.parse(payload);
+    const nextPayload: UpdateWhiteboardBody = {
+      ...parsed,
+      ...(parsed.snapshot !== undefined ? { snapshot: this.validateSnapshot(parsed.snapshot) } : {}),
+    };
+    const row = await this.repository.update(userId, whiteboardId, nextPayload);
+    if (!row) {
+      throw new AppError("Whiteboard not found", 404, "WHITEBOARD_NOT_FOUND");
+    }
+    return toWhiteboardDto(row);
+  }
+
+  async remove(userId: string, whiteboardId: string): Promise<void> {
+    const deleted = await this.repository.delete(userId, whiteboardId);
+    if (!deleted) {
+      throw new AppError("Whiteboard not found", 404, "WHITEBOARD_NOT_FOUND");
+    }
+  }
+
+  async getMine(userId: string): Promise<WhiteboardDto> {
+    const row = await this.repository.getMostRecentlyUpdated(userId);
+    if (!row) {
+      return whiteboardDtoSchema.parse({
+        id: "unsaved",
+        title: "Untitled Whiteboard",
+        snapshot: EMPTY_WHITEBOARD_SNAPSHOT,
+        createdAt: new Date(0).toISOString(),
+        updatedAt: new Date(0).toISOString(),
+      });
+    }
+    return toWhiteboardDto(row);
+  }
+
+  async saveMine(userId: string, snapshot: string): Promise<WhiteboardDto> {
+    const normalized = this.validateSnapshot(snapshot);
+    const latest = await this.repository.getMostRecentlyUpdated(userId);
+    if (latest) {
+      const updated = await this.repository.update(userId, latest.id, { snapshot: normalized });
+      if (!updated) {
+        throw new AppError("Failed to persist whiteboard", 500, "INTERNAL_ERROR");
+      }
+      return toWhiteboardDto(updated);
+    }
+    const row = await this.repository.create(userId, {
+      title: "Untitled Whiteboard",
+      snapshot: normalized,
+    });
     if (!row) {
       throw new AppError("Failed to persist whiteboard", 500, "INTERNAL_ERROR");
     }
-    return whiteboardDtoSchema.parse({
-      snapshot: row.snapshot,
-      updatedAt: row.updatedAt.toISOString(),
-    });
+    return toWhiteboardDto(row);
   }
 }

@@ -13,3 +13,4 @@ export type {
   ErrorType,
   BodyType,
 } from "./custom-fetch";
+export * from "./whiteboards-api";

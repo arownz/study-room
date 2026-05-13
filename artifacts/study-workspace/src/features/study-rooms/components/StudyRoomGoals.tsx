@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckSquare, Plus, Square } from "lucide-react";
 import {
   useCreateStudyRoomGoal,
@@ -11,7 +11,30 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 export function StudyRoomGoals(props: { roomId: string }) {
+  const draftKey = `studyroom.room-goal-draft:${props.roomId}`;
   const [draft, setDraft] = useState("");
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(draftKey);
+      setDraft(stored ?? "");
+    } catch {
+      setDraft("");
+    }
+  }, [draftKey]);
+
+  const persistDraft = (value: string) => {
+    try {
+      if (value.trim()) {
+        window.localStorage.setItem(draftKey, value);
+      } else {
+        window.localStorage.removeItem(draftKey);
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
   const { data: goalsEnvelope } = useListStudyRoomGoals(props.roomId);
   const goals = goalsEnvelope?.data?.items ?? [];
   const createGoal = useCreateStudyRoomGoal();
@@ -22,6 +45,11 @@ export function StudyRoomGoals(props: { roomId: string }) {
     if (!trimmed) return;
     createGoal.mutate({ roomId: props.roomId, data: { text: trimmed } });
     setDraft("");
+    try {
+      window.localStorage.removeItem(draftKey);
+    } catch {
+      /* ignore */
+    }
   };
 
   const toggleGoal = (id: string, done: boolean) => {
@@ -73,7 +101,11 @@ export function StudyRoomGoals(props: { roomId: string }) {
         <Input
           placeholder="Add goal..."
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => {
+            const value = event.target.value;
+            setDraft(value);
+            persistDraft(value);
+          }}
           onKeyDown={(event) => event.key === "Enter" && addGoal()}
           className="h-7 text-xs"
           data-testid="input-add-goal"

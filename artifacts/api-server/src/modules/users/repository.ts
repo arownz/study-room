@@ -20,6 +20,7 @@ const userColumns = {
   role: users.role,
   roleSelected: users.roleSelected,
   emailVerified: users.emailVerified,
+  notificationPreferences: users.notificationPreferences,
   createdAt: users.createdAt,
   updatedAt: users.updatedAt,
 } as const;
@@ -66,6 +67,9 @@ export class UsersRepository {
     if (patch.avatar !== undefined) updates.avatar = patch.avatar;
     if (patch.role !== undefined) updates.role = patch.role;
     if (patch.roleSelected !== undefined) updates.roleSelected = patch.roleSelected;
+    if (patch.notificationPreferences !== undefined) {
+      updates.notificationPreferences = JSON.stringify(patch.notificationPreferences);
+    }
 
     if (Object.keys(updates).length === 0) {
       return this.getUserById(id);

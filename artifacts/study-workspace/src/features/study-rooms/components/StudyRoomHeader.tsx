@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Mic, MicOff, Pencil, Save, Settings, Timer, Trash2, Video, VideoOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ export function StudyRoomHeader({
   isSaving,
   isDeleting,
 }: StudyRoomHeaderProps) {
+  const headerDraftKey = `studyroom.room-header-draft:${room.id}`;
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(room.name);
   const [isPublic, setIsPublic] = useState(room.isPublic);
@@ -46,14 +47,57 @@ export function StudyRoomHeader({
   const [micOn, setMicOn] = useState(false);
   const [camOn, setCamOn] = useState(false);
 
+  useEffect(() => {
+    if (editing) return;
+    setName(room.name);
+    setIsPublic(room.isPublic);
+  }, [editing, room.name, room.isPublic]);
+
   const isDirty = editing && (name !== room.name || isPublic !== room.isPublic);
+
+  useEffect(() => {
+    if (!editing) return;
+    try {
+      window.sessionStorage.setItem(headerDraftKey, JSON.stringify({ name, isPublic }));
+    } catch {
+      /* ignore */
+    }
+  }, [editing, headerDraftKey, name, isPublic]);
+
+  const beginEdit = () => {
+    try {
+      const raw = window.sessionStorage.getItem(headerDraftKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { name?: unknown; isPublic?: unknown };
+        if (typeof parsed.name === "string") setName(parsed.name);
+        if (typeof parsed.isPublic === "boolean") setIsPublic(parsed.isPublic);
+      } else {
+        setName(room.name);
+        setIsPublic(room.isPublic);
+      }
+    } catch {
+      setName(room.name);
+      setIsPublic(room.isPublic);
+    }
+    setEditing(true);
+  };
 
   const handleSave = async () => {
     await onSave({ name: name.trim() || room.name, description: room.description, isPublic });
+    try {
+      window.sessionStorage.removeItem(headerDraftKey);
+    } catch {
+      /* ignore */
+    }
     setEditing(false);
   };
 
   const handleCancelEdit = () => {
+    try {
+      window.sessionStorage.removeItem(headerDraftKey);
+    } catch {
+      /* ignore */
+    }
     setName(room.name);
     setIsPublic(room.isPublic);
     setEditing(false);
@@ -128,7 +172,7 @@ export function StudyRoomHeader({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setEditing(true)}>
+                <DropdownMenuItem onClick={beginEdit}>
                   <Pencil size={13} /> Edit room
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

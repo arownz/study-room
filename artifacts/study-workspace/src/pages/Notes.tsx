@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useRoute } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
@@ -9,6 +9,8 @@ import { NotesFolderSidebar } from "@/features/notes/components/NotesFolderSideb
 import { useNotes } from "@/features/notes/hooks/use-notes";
 import type { NotesFilter } from "@/features/notes/types";
 import { htmlToPlainText } from "@/components/rich-editor/RichTextEditor";
+
+const LAST_NOTE_ID_KEY = "studyroom.notes.lastNoteId";
 
 export default function Notes() {
   const { toast } = useToast();
@@ -33,10 +35,35 @@ export default function Notes() {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string>(routeNoteId ?? "");
   const [duplicateBusy, setDuplicateBusy] = useState(false);
+  const [selectedNoteDirty, setSelectedNoteDirty] = useState(false);
+  const attemptedLastNoteRestore = useRef(false);
 
   useEffect(() => {
     if (routeNoteId) setSelectedId(routeNoteId);
   }, [routeNoteId]);
+
+  useEffect(() => {
+    if (routeNoteId) {
+      try {
+        sessionStorage.setItem(LAST_NOTE_ID_KEY, routeNoteId);
+      } catch {
+        /* ignore quota / private mode */
+      }
+      return;
+    }
+    if (attemptedLastNoteRestore.current || isLoading || isError) return;
+    let last: string | null = null;
+    try {
+      last = sessionStorage.getItem(LAST_NOTE_ID_KEY);
+    } catch {
+      return;
+    }
+    if (!last) return;
+    attemptedLastNoteRestore.current = true;
+    if (notes.some((n) => n.id === last)) {
+      setLocation(`/notes/${last}`);
+    }
+  }, [routeNoteId, isLoading, isError, notes, setLocation]);
 
   const visibleNotes = useMemo(() => {
     const lowered = search.toLowerCase();
@@ -74,10 +101,19 @@ export default function Notes() {
   };
 
   const handleCreate = async () => {
+    if (
+      selectedNoteDirty &&
+      !window.confirm(
+        "This note has unsaved changes. A local draft will be kept, but create a new note anyway?",
+      )
+    ) {
+      return;
+    }
     try {
       const created = await createNote();
       setSelectedId(created.id);
       setLocation(`/notes/${created.id}`);
+      setSelectedNoteDirty(false);
       toast({ title: "Note created" });
     } catch {
       toast({ title: "Failed to create note", variant: "destructive" });
@@ -150,6 +186,7 @@ export default function Notes() {
           onDelete={handleDelete}
           onDuplicate={handleDuplicate}
           onToggleFavorite={() => toggleFavorite(selected.id)}
+          onDirtyChange={setSelectedNoteDirty}
           isSaving={isSaving}
           isDeleting={isDeleting}
           isDuplicating={duplicateBusy}

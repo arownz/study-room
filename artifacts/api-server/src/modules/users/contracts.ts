@@ -42,8 +42,43 @@ export const connectedAccountSchema = z.object({
   updatedAt: z.string(),
 });
 
+export const notificationPreferencesSchema = z.object({
+  studyReminders: z.boolean(),
+  roomInvites: z.boolean(),
+  aiSuggestions: z.boolean(),
+  streakAlerts: z.boolean(),
+  weeklyDigest: z.boolean(),
+});
+
+export type NotificationPreferences = z.infer<typeof notificationPreferencesSchema>;
+
+export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  studyReminders: true,
+  roomInvites: true,
+  aiSuggestions: false,
+  streakAlerts: true,
+  weeklyDigest: true,
+};
+
+export function parseStoredNotificationPreferences(
+  raw: string | null | undefined,
+): NotificationPreferences {
+  let parsed: unknown = {};
+  try {
+    parsed = raw ? (JSON.parse(raw) as unknown) : {};
+  } catch {
+    parsed = {};
+  }
+  const partial = notificationPreferencesSchema.partial().safeParse(parsed);
+  if (!partial.success) {
+    return { ...DEFAULT_NOTIFICATION_PREFERENCES };
+  }
+  return { ...DEFAULT_NOTIFICATION_PREFERENCES, ...partial.data };
+}
+
 export const meDtoSchema = userDtoSchema.extend({
   accounts: z.array(connectedAccountSchema),
+  notificationPreferences: notificationPreferencesSchema,
 });
 
 export const updateMeRequestSchema = z
@@ -52,6 +87,7 @@ export const updateMeRequestSchema = z
     avatar: z.string().url().max(2048).nullable().optional(),
     role: userRoleSchema.optional(),
     roleSelected: z.boolean().optional(),
+    notificationPreferences: notificationPreferencesSchema.partial().optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, {

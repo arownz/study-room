@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MoreHorizontal, Save, Star, StarOff, Trash2, Copy, FileStack, Printer, FileCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -34,6 +34,7 @@ interface NoteEditorProps {
   onDelete: () => Promise<void>;
   onDuplicate: () => Promise<void>;
   onToggleFavorite: () => void;
+  onDirtyChange?: (isDirty: boolean) => void;
   isSaving: boolean;
   isDeleting: boolean;
   isDuplicating?: boolean;
@@ -45,6 +46,7 @@ export function NoteEditor({
   onDelete,
   onDuplicate,
   onToggleFavorite,
+  onDirtyChange,
   isSaving,
   isDeleting,
   isDuplicating = false,
@@ -55,6 +57,24 @@ export function NoteEditor({
   const [content, setContent] = useState(note.content);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [hasPendingLocalChanges, setHasPendingLocalChanges] = useState(false);
+  const latestDraftRef = useRef({ title: note.title, content: note.content, dirty: false });
+
+  const persistDraft = useCallback(
+    (draftTitle: string, draftContent: string) => {
+      try {
+        window.localStorage.setItem(
+          `${DRAFT_KEY_PREFIX}${note.id}`,
+          JSON.stringify({
+            title: draftTitle,
+            content: draftContent,
+          }),
+        );
+      } catch {
+        /* ignore quota / private mode */
+      }
+    },
+    [note.id],
+  );
 
   useEffect(() => {
     const draftKey = `${DRAFT_KEY_PREFIX}${note.id}`;
@@ -83,17 +103,22 @@ export function NoteEditor({
 
   useEffect(() => {
     if (!hasPendingLocalChanges) return;
-    const draftKey = `${DRAFT_KEY_PREFIX}${note.id}`;
-    window.localStorage.setItem(
-      draftKey,
-      JSON.stringify({
-        title,
-        content,
-      }),
-    );
-  }, [note.id, title, content, hasPendingLocalChanges]);
+    persistDraft(title, content);
+  }, [title, content, hasPendingLocalChanges, persistDraft]);
 
   const isDirty = hasPendingLocalChanges || title !== note.title || content !== note.content;
+  latestDraftRef.current = { title, content, dirty: isDirty };
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  useEffect(() => {
+    return () => {
+      if (!latestDraftRef.current.dirty) return;
+      persistDraft(latestDraftRef.current.title, latestDraftRef.current.content);
+    };
+  }, [persistDraft]);
 
   const handleSave = useCallback(async () => {
     if (!isDirty) return;
@@ -154,7 +179,12 @@ export function NoteEditor({
       <div className="shrink-0 px-6">
         <input
           value={title}
-          onChange={(event) => setTitle(event.target.value)}
+          onChange={(event) => {
+            const nextTitle = event.target.value;
+            setTitle(nextTitle);
+            setHasPendingLocalChanges(true);
+            persistDraft(nextTitle, content);
+          }}
           className="w-full border-none bg-transparent text-2xl font-bold text-foreground outline-none placeholder:text-muted-foreground"
           placeholder="Untitled"
           data-testid="input-note-title"
@@ -170,6 +200,7 @@ export function NoteEditor({
           onChange={(next) => {
             setContent(next);
             setHasPendingLocalChanges(true);
+            persistDraft(title, next);
           }}
           placeholder="Click the canvas to place the caret and type to add a text block."
           enableRichMedia

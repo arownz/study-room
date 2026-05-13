@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { AppError } from "../../lib/app-error";
 import {
   dashboardSummarySchema,
+  parseStoredNotificationPreferences,
   type DashboardSummary,
   type ListUsersQuery,
   type ListUsersResponse,
@@ -60,11 +61,25 @@ export class UsersService {
         createdAt: account.createdAt.toISOString(),
         updatedAt: account.updatedAt.toISOString(),
       })),
+      notificationPreferences: parseStoredNotificationPreferences(user.notificationPreferences),
     };
   }
 
   async updateMe(userId: string, patch: UpdateMeRequest): Promise<MeDto> {
-    const updated = await this.repository.updateUser(userId, patch);
+    let effectivePatch: UpdateMeRequest = patch;
+    if (patch.notificationPreferences !== undefined) {
+      const existing = await this.repository.getUserById(userId);
+      if (!existing) {
+        throw new AppError("User not found", 404, "USER_NOT_FOUND");
+      }
+      const current = parseStoredNotificationPreferences(existing.notificationPreferences);
+      effectivePatch = {
+        ...patch,
+        notificationPreferences: { ...current, ...patch.notificationPreferences },
+      };
+    }
+
+    const updated = await this.repository.updateUser(userId, effectivePatch);
     if (!updated) {
       throw new AppError("User not found", 404, "USER_NOT_FOUND");
     }

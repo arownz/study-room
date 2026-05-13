@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Send } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -21,20 +21,68 @@ interface StudyRoomChatProps {
   room: StudyRoomViewModel;
 }
 
+function chatStorageKey(roomId: string): string {
+  return `studyroom.room-chat.v1:${roomId}`;
+}
+
+function loadPersistedChat(roomId: string): { messages: ChatMessage[]; draft: string } {
+  try {
+    const raw = window.localStorage.getItem(chatStorageKey(roomId));
+    if (!raw) return { messages: [], draft: "" };
+    const parsed = JSON.parse(raw) as { messages?: unknown; draft?: unknown };
+    const messages = Array.isArray(parsed.messages)
+      ? parsed.messages.filter(
+          (m): m is ChatMessage =>
+            Boolean(m) &&
+            typeof (m as ChatMessage).id === "string" &&
+            typeof (m as ChatMessage).sender === "string" &&
+            typeof (m as ChatMessage).initials === "string" &&
+            typeof (m as ChatMessage).text === "string" &&
+            typeof (m as ChatMessage).time === "string",
+        )
+      : [];
+    const draft = typeof parsed.draft === "string" ? parsed.draft : "";
+    return { messages, draft };
+  } catch {
+    return { messages: [], draft: "" };
+  }
+}
+
+function persistChat(roomId: string, messages: ChatMessage[], draft: string) {
+  try {
+    window.localStorage.setItem(chatStorageKey(roomId), JSON.stringify({ messages, draft }));
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
 export function StudyRoomChat({ room }: StudyRoomChatProps) {
   const { session } = useAuth();
+  const roomId = room.id;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+
+  useEffect(() => {
+    const next = loadPersistedChat(roomId);
+    setMessages(next.messages);
+    setDraft(next.draft);
+  }, [roomId]);
 
   const myName = session?.user?.name ?? "You";
-  const myInitials = myName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part: string) => part[0]?.toUpperCase() ?? "")
-    .join("") || "H";
+  const myInitials = useMemo(
+    () =>
+      myName
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part: string) => part[0]?.toUpperCase() ?? "")
+        .join("") || "H",
+    [myName],
+  );
 
-  const sendMessage = () => {
+  const sendMessage = useCallback(() => {
     const trimmed = draft.trim();
     if (!trimmed) return;
     const newMsg: ChatMessage = {
@@ -44,8 +92,17 @@ export function StudyRoomChat({ room }: StudyRoomChatProps) {
       text: trimmed,
       time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
-    setMessages((prev) => [...prev, newMsg]);
+    setMessages((prev) => {
+      const next = [...prev, newMsg];
+      persistChat(roomId, next, "");
+      return next;
+    });
     setDraft("");
+  }, [draft, myInitials, myName, roomId]);
+
+  const onDraftChange = (value: string) => {
+    setDraft(value);
+    persistChat(roomId, messagesRef.current, value);
   };
 
   return (
@@ -53,7 +110,8 @@ export function StudyRoomChat({ room }: StudyRoomChatProps) {
       <div className="border-b border-border/60 px-4 py-2">
         <p className="text-xs text-muted-foreground">
           Live chat for <span className="font-semibold text-foreground">{room.name}</span> — local
-          only until real-time is wired.
+          only until real-time is wired. Drafts and messages persist in this browser until you clear
+          site data.
         </p>
       </div>
 
@@ -103,7 +161,7 @@ export function StudyRoomChat({ room }: StudyRoomChatProps) {
         <Input
           placeholder={`Message ${room.name}...`}
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => onDraftChange(event.target.value)}
           onKeyDown={(event) => event.key === "Enter" && sendMessage()}
           className="text-sm"
           data-testid="input-message"

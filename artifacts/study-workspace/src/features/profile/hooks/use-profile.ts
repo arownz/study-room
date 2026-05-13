@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/auth-context";
 import type { ProfileUpdateInput, ProfileUser } from "../types";
+import { DEFAULT_NOTIFICATION_PREFERENCES } from "../types";
 
 const PROFILE_PATH = "/api/v1/users/me";
 const AVATAR_PATH = "/api/v1/users/me/avatar";
@@ -18,7 +19,14 @@ async function fetchProfile(): Promise<ProfileUser> {
   const envelope = await customFetch<ApiEnvelope<ProfileUser>>(PROFILE_PATH, {
     method: "GET",
   });
-  return envelope.data;
+  const data = envelope.data;
+  return {
+    ...data,
+    notificationPreferences: {
+      ...DEFAULT_NOTIFICATION_PREFERENCES,
+      ...(data.notificationPreferences ?? {}),
+    },
+  };
 }
 
 async function patchProfile(input: ProfileUpdateInput): Promise<ProfileUser> {

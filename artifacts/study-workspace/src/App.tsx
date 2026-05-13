@@ -37,6 +37,7 @@ function ProtectedRoutes() {
             <Route path="/rooms/:roomId" component={StudyRooms} />
             <Route path="/rooms" component={StudyRooms} />
             <Route path="/ai-tutor" component={AITutor} />
+            <Route path="/whiteboard/:whiteboardId" component={Whiteboard} />
             <Route path="/whiteboard" component={Whiteboard} />
             <Route path="/pomodoro" component={Pomodoro} />
             <Route path="/analytics" component={Analytics} />

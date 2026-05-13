@@ -98,6 +98,17 @@ const soundIcons = {
   TreePine,
 } as const;
 
+const POMODORO_SESSION_KEY = "studyroom.pomodoro.session.v1";
+
+type PomodoroSessionSnapshot = {
+  v: 1;
+  modeIdx: number;
+  timeLeft: number;
+  tasks: { id: string; text: string; done: boolean }[];
+  newTask: string;
+  sounds: typeof AMBIENT_SOUNDS;
+};
+
 function startOfLocalDay(now: Date): Date {
   const d = new Date(now);
   d.setHours(0, 0, 0, 0);
@@ -122,6 +133,7 @@ export default function Pomodoro() {
   const completionFiredRef = useRef(false);
   const prefsSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prefsHydratedRef = useRef(false);
+  const sessionPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const mode = modes[modeIdx];
   const progress = 1 - timeLeft / mode.duration;
@@ -149,14 +161,13 @@ export default function Pomodoro() {
   useEffect(() => {
     if (!prefsEnvelope?.success || prefsHydratedRef.current) return;
     const p = prefsEnvelope.data;
+    let nextSec = loadModeSeconds();
     if (new Date(p.updatedAt).getTime() > 0) {
-      setModes(
-        buildModes({
-          focus: p.focusSec,
-          short_break: p.shortBreakSec,
-          long_break: p.longBreakSec,
-        }),
-      );
+      nextSec = {
+        focus: p.focusSec,
+        short_break: p.shortBreakSec,
+        long_break: p.longBreakSec,
+      };
       localStorage.setItem(
         "studyroom.pomodoro.modeSeconds",
         JSON.stringify({
@@ -166,6 +177,45 @@ export default function Pomodoro() {
         }),
       );
     }
+    const nextModes = buildModes(nextSec);
+    setModes(nextModes);
+
+    try {
+      const raw = localStorage.getItem(POMODORO_SESSION_KEY);
+      if (raw) {
+        const snap = JSON.parse(raw) as Partial<PomodoroSessionSnapshot>;
+        if (snap.v === 1) {
+          const idx = Math.min(2, Math.max(0, Math.floor(snap.modeIdx ?? 0)));
+          setModeIdx(idx);
+          const cap = nextModes[idx]?.duration ?? snap.timeLeft ?? 0;
+          const tl =
+            typeof snap.timeLeft === "number" && Number.isFinite(snap.timeLeft)
+              ? Math.floor(snap.timeLeft)
+              : cap;
+          setTimeLeft(Math.min(cap, Math.max(0, tl)));
+          if (Array.isArray(snap.tasks)) {
+            setTasks(
+              snap.tasks.filter(
+                (t) =>
+                  t &&
+                  typeof t.id === "string" &&
+                  typeof t.text === "string" &&
+                  typeof t.done === "boolean",
+              ),
+            );
+          }
+          if (typeof snap.newTask === "string") {
+            setNewTask(snap.newTask);
+          }
+          if (Array.isArray(snap.sounds) && snap.sounds.length === AMBIENT_SOUNDS.length) {
+            setSounds(snap.sounds as typeof AMBIENT_SOUNDS);
+          }
+        }
+      }
+    } catch {
+      /* ignore corrupted snapshot */
+    }
+
     prefsHydratedRef.current = true;
   }, [prefsEnvelope]);
 
@@ -281,6 +331,29 @@ export default function Pomodoro() {
       if (prefsSaveTimerRef.current) clearTimeout(prefsSaveTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!prefsHydratedRef.current) return;
+    if (sessionPersistTimerRef.current) clearTimeout(sessionPersistTimerRef.current);
+    sessionPersistTimerRef.current = setTimeout(() => {
+      try {
+        const payload: PomodoroSessionSnapshot = {
+          v: 1,
+          modeIdx,
+          timeLeft,
+          tasks,
+          newTask,
+          sounds,
+        };
+        localStorage.setItem(POMODORO_SESSION_KEY, JSON.stringify(payload));
+      } catch {
+        /* ignore quota */
+      }
+    }, 600);
+    return () => {
+      if (sessionPersistTimerRef.current) clearTimeout(sessionPersistTimerRef.current);
+    };
+  }, [modeIdx, timeLeft, tasks, newTask, sounds]);
 
   const toggleRunning = () => {
     if (timeLeft === 0) {

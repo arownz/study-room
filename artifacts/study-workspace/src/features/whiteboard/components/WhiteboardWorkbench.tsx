@@ -1,11 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Trash2 } from "lucide-react";
-import { useGetUserWhiteboard, usePutUserWhiteboard } from "@workspace/api-client-react";
+import { MoveDiagonal2, Trash2 } from "lucide-react";
+import { useGetWhiteboard, useUpdateWhiteboard } from "@workspace/api-client-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/hooks/use-toast";
-import { applyDragFromSnapshot, cloneBoard } from "../board-mutations";
+import {
+  applyDragFromSnapshot,
+  clearBoardObjects,
+  cloneBoard,
+  deleteSelectionFromBoard,
+  eraseStrokeSegmentsFromBoard,
+} from "../board-mutations";
 import { boardToSvgString, downloadBlob } from "../export-whiteboard";
 import { hitTestBoard } from "../hit-test-board";
 import { emptyBoardState, parseSnapshot, serializeBoard, SNAPSHOT_BYTES_WARN } from "../snapshot";
@@ -23,21 +40,32 @@ import {
 } from "../types";
 import { WhiteboardToolbar } from "./WhiteboardToolbar";
 
-const LOCAL_DRAFT_KEY = "studyroom.whiteboard.draft";
+const LOCAL_DRAFT_KEY_PREFIX = "studyroom.whiteboard.draft:";
 const MAX_UNDO = 80;
 const STICKY_W = 176;
 const STICKY_H = 100;
+
+interface WhiteboardWorkbenchProps {
+  whiteboardId: string;
+  onDirtyChange?: (dirty: boolean) => void;
+  onCreateRequested?: () => void;
+}
 
 function uid(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-export function WhiteboardWorkbench() {
+export function WhiteboardWorkbench({
+  whiteboardId,
+  onDirtyChange,
+  onCreateRequested,
+}: WhiteboardWorkbenchProps) {
   const { toast } = useToast();
-  const { data: boardEnvelope, isLoading, isError, refetch } = useGetUserWhiteboard();
-  const putBoard = usePutUserWhiteboard();
+  const { data: boardEnvelope, isLoading, isError, refetch } = useGetWhiteboard(whiteboardId);
+  const updateBoard = useUpdateWhiteboard();
 
   const [board, setBoard] = useState<BoardState>(emptyBoardState);
+  const [title, setTitle] = useState("Untitled Whiteboard");
   const [activeTool, setActiveTool] = useState<WhiteboardTool>("select");
   const [selection, setSelection] = useState<Selection>(null);
   const [hasLocalChanges, setHasLocalChanges] = useState(false);
@@ -55,6 +83,12 @@ export function WhiteboardWorkbench() {
     w: number;
     h: number;
   } | null>(null);
+  const [penSize, setPenSize] = useState(2.2);
+  const [highlighterSize, setHighlighterSize] = useState(14);
+  const [eraserSize, setEraserSize] = useState(18);
+  const [eraserPreview, setEraserPreview] = useState<[number, number] | null>(null);
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const [newDialogOpen, setNewDialogOpen] = useState(false);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const hydratedRef = useRef(false);
@@ -79,9 +113,27 @@ export function WhiteboardWorkbench() {
   const moveChangedRef = useRef(false);
 
   const stickyDragSnapshotRef = useRef<BoardState | null>(null);
+  const labelResizeRef = useRef<{
+    id: string;
+    startClientX: number;
+    startClientY: number;
+    startW: number;
+    startH: number;
+    snapshot: BoardState;
+    changed: boolean;
+  } | null>(null);
+  const eraseSessionRef = useRef<{
+    snapshot: BoardState;
+    lastPoint: [number, number];
+    changed: boolean;
+  } | null>(null);
 
   const boardRef = useRef(board);
   boardRef.current = board;
+  const titleRef = useRef(title);
+  titleRef.current = title;
+
+  const draftKey = `${LOCAL_DRAFT_KEY_PREFIX}${whiteboardId}`;
 
   const commitBoard = useCallback((updater: (prev: BoardState) => BoardState) => {
     setBoard((prev) => {
@@ -97,27 +149,75 @@ export function WhiteboardWorkbench() {
 
   const hydrateOnce = useCallback(() => {
     if (!boardEnvelope?.success || hydratedRef.current) return;
-    const draftRaw = window.localStorage.getItem(LOCAL_DRAFT_KEY);
-    if (draftRaw) {
-      setBoard(parseSnapshot(draftRaw));
-      setHasLocalChanges(true);
-    } else {
-      setBoard(parseSnapshot(boardEnvelope.data.snapshot));
+    try {
+      const draftRaw = window.localStorage.getItem(draftKey);
+      if (draftRaw) {
+        const parsed = JSON.parse(draftRaw) as { title?: string; snapshot?: string; version?: number };
+        const legacySnapshot =
+          parsed && typeof parsed === "object" && "version" in parsed ? draftRaw : undefined;
+        setBoard(parseSnapshot(parsed.snapshot ?? legacySnapshot ?? boardEnvelope.data.snapshot));
+        setTitle(parsed.title ?? boardEnvelope.data.title);
+        setHasLocalChanges(true);
+        hydratedRef.current = true;
+        return;
+      }
+    } catch {
+      /* ignore corrupted local draft */
     }
+    setBoard(parseSnapshot(boardEnvelope.data.snapshot));
+    setTitle(boardEnvelope.data.title);
     hydratedRef.current = true;
-  }, [boardEnvelope]);
+  }, [boardEnvelope, draftKey]);
 
   useEffect(() => {
+    hydratedRef.current = false;
+    setHasLocalChanges(false);
+    setSelection(null);
+    setUndoStack([]);
+    setRedoStack([]);
+    setBoard(emptyBoardState());
+    setTitle("Untitled Whiteboard");
     hydrateOnce();
-  }, [hydrateOnce]);
+  }, [hydrateOnce, whiteboardId]);
+
+  useEffect(() => {
+    if (!hasLocalChanges) {
+      setTitle(boardEnvelope?.data.title ?? "Untitled Whiteboard");
+    }
+  }, [boardEnvelope?.data.title, hasLocalChanges]);
+
+  useEffect(() => {
+    if (activeTool !== "erase") {
+      setEraserPreview(null);
+    }
+  }, [activeTool]);
 
   useEffect(() => {
     if (!hydratedRef.current || !hasLocalChanges) return;
-    window.localStorage.setItem(LOCAL_DRAFT_KEY, serializeBoard(board));
-  }, [board, hasLocalChanges]);
+    window.localStorage.setItem(
+      draftKey,
+      JSON.stringify({
+        title,
+        snapshot: serializeBoard(board),
+      }),
+    );
+  }, [board, draftKey, hasLocalChanges, title]);
 
-  const handleSave = useCallback(async () => {
-    const snapshot = serializeBoard(boardRef.current);
+  useEffect(() => {
+    return () => {
+      if (!hasLocalChanges) return;
+      window.localStorage.setItem(
+        draftKey,
+        JSON.stringify({
+          title: titleRef.current,
+          snapshot: serializeBoard(boardRef.current),
+        }),
+      );
+    };
+  }, [draftKey, hasLocalChanges]);
+
+  const saveBoardState = useCallback(async (nextBoard: BoardState) => {
+    const snapshot = serializeBoard(nextBoard);
     if (snapshot.length > SNAPSHOT_BYTES_WARN) {
       toast({
         title: "Snapshot very large",
@@ -125,10 +225,34 @@ export function WhiteboardWorkbench() {
         variant: "destructive",
       });
     }
-    await putBoard.mutateAsync({ data: { snapshot } });
-    window.localStorage.removeItem(LOCAL_DRAFT_KEY);
+    await updateBoard.mutateAsync({
+      whiteboardId,
+      data: {
+        title: title.trim() || "Untitled Whiteboard",
+        snapshot,
+      },
+    });
+    window.localStorage.removeItem(draftKey);
     setHasLocalChanges(false);
-  }, [putBoard, toast]);
+  }, [draftKey, title, toast, updateBoard, whiteboardId]);
+
+  const handleSave = useCallback(async () => {
+    await saveBoardState(boardRef.current);
+  }, [saveBoardState]);
+
+  useEffect(() => {
+    onDirtyChange?.(hasLocalChanges);
+  }, [hasLocalChanges, onDirtyChange]);
+
+  const deleteSelection = useCallback(
+    (target: Exclude<Selection, null>) => {
+      commitBoard((prev) => deleteSelectionFromBoard(prev, target));
+      setSelection((current) =>
+        current && current.kind === target.kind && current.id === target.id ? null : current,
+      );
+    },
+    [commitBoard],
+  );
 
   const undo = useCallback(() => {
     setUndoStack((u) => {
@@ -182,21 +306,12 @@ export function WhiteboardWorkbench() {
         const sel = selectionRef.current;
         if (!sel) return;
         event.preventDefault();
-        commitBoard((b) => {
-          if (sel.kind === "sticky") {
-            return { ...b, stickies: b.stickies.filter((s) => s.id !== sel.id) };
-          }
-          if (sel.kind === "stroke") {
-            return { ...b, strokes: b.strokes.filter((s) => s.id !== sel.id) };
-          }
-          return { ...b, shapes: b.shapes.filter((s) => s.id !== sel.id) };
-        });
-        setSelection(null);
+        deleteSelection(sel);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [commitBoard, handleSave, redo, undo]);
+  }, [deleteSelection, handleSave, redo, undo]);
 
   const clientToBoard = useCallback((clientX: number, clientY: number): [number, number] | null => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -208,12 +323,70 @@ export function WhiteboardWorkbench() {
     return [(lx - vp.panX) / s, (ly - vp.panY) / s];
   }, []);
 
+  const eraseAtBoardPoint = useCallback((bx: number, by: number) => {
+    const current = boardRef.current;
+    const next = eraseStrokeSegmentsFromBoard(current, bx, by, eraserSize / 2);
+    if (next === current) return false;
+    boardRef.current = next;
+    setBoard(next);
+    if (selectionRef.current?.kind === "stroke") {
+      setSelection((current) =>
+        current &&
+        current.kind === "stroke" &&
+        !next.strokes.some((stroke) => stroke.id === current.id)
+          ? null
+          : current,
+      );
+    }
+    if (hydratedRef.current) setHasLocalChanges(true);
+    if (eraseSessionRef.current) eraseSessionRef.current.changed = true;
+    return true;
+  }, [eraserSize]);
+
+  const eraseBetweenPoints = useCallback(
+    (from: [number, number], to: [number, number]) => {
+      const distance = Math.hypot(to[0] - from[0], to[1] - from[1]);
+      const steps = Math.max(1, Math.ceil(distance / 8));
+      let removedAny = false;
+      for (let i = 0; i <= steps; i += 1) {
+        const t = i / steps;
+        const px = from[0] + (to[0] - from[0]) * t;
+        const py = from[1] + (to[1] - from[1]) * t;
+        if (eraseAtBoardPoint(px, py)) {
+          removedAny = true;
+        }
+      }
+      return removedAny;
+    },
+    [eraseAtBoardPoint],
+  );
+
+  const beginLabelResize = (event: React.PointerEvent, labelId: string, width: number, height: number) => {
+    if (activeTool !== "select") return;
+    event.preventDefault();
+    event.stopPropagation();
+    labelResizeRef.current = {
+      id: labelId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startW: width,
+      startH: height,
+      snapshot: cloneBoard(boardRef.current),
+      changed: false,
+    };
+    setSelection({ kind: "shape", id: labelId });
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
   const endTransientPointer = useCallback(() => {
     panDragRef.current = null;
     panSnapshotRef.current = null;
     shapeCreateRef.current = null;
     moveRef.current = null;
+    labelResizeRef.current = null;
+    eraseSessionRef.current = null;
     moveChangedRef.current = false;
+    setEraserPreview(null);
     setDraftStroke(null);
     setShapePreview(null);
   }, []);
@@ -252,10 +425,22 @@ export function WhiteboardWorkbench() {
         id: uid("stroke"),
         points: [b],
         color: activeTool === "pen" ? DEFAULT_PEN_COLOR : DEFAULT_HIGHLIGHTER_COLOR,
-        width: activeTool === "pen" ? 2.2 : 14,
+        width: activeTool === "pen" ? penSize : highlighterSize,
         opacity: activeTool === "pen" ? 1 : 0.35,
       };
       setDraftStroke(stroke);
+      return;
+    }
+
+    if (activeTool === "erase") {
+      e.currentTarget.setPointerCapture(e.pointerId);
+      setEraserPreview(b);
+      eraseSessionRef.current = {
+        snapshot: cloneBoard(boardRef.current),
+        lastPoint: b,
+        changed: false,
+      };
+      eraseAtBoardPoint(b[0], b[1]);
       return;
     }
 
@@ -314,6 +499,26 @@ export function WhiteboardWorkbench() {
       return;
     }
 
+    const labelResize = labelResizeRef.current;
+    if (labelResize) {
+      const scale = boardRef.current.viewport.zoom / 100;
+      const nextW = Math.max(80, labelResize.startW + (e.clientX - labelResize.startClientX) / scale);
+      const nextH = Math.max(40, labelResize.startH + (e.clientY - labelResize.startClientY) / scale);
+      if (Math.abs(nextW - labelResize.startW) > 0.5 || Math.abs(nextH - labelResize.startH) > 0.5) {
+        labelResize.changed = true;
+      }
+      setBoard((prev) => ({
+        ...prev,
+        shapes: prev.shapes.map((shape) =>
+          shape.kind === "label" && shape.id === labelResize.id
+            ? { ...shape, w: nextW, h: nextH }
+            : shape,
+        ),
+      }));
+      if (hydratedRef.current) setHasLocalChanges(true);
+      return;
+    }
+
     if (draftStroke) {
       const pt = clientToBoard(e.clientX, e.clientY);
       if (!pt) return;
@@ -326,6 +531,23 @@ export function WhiteboardWorkbench() {
         return { ...prev, points: capped };
       });
       return;
+    }
+
+    const eraseSession = eraseSessionRef.current;
+    if (eraseSession) {
+      const pt = clientToBoard(e.clientX, e.clientY);
+      if (!pt) return;
+      setEraserPreview(pt);
+      eraseBetweenPoints(eraseSession.lastPoint, pt);
+      eraseSession.lastPoint = pt;
+      return;
+    }
+
+    if (activeTool === "erase") {
+      const pt = clientToBoard(e.clientX, e.clientY);
+      if (pt) setEraserPreview(pt);
+    } else if (eraserPreview) {
+      setEraserPreview(null);
     }
 
     const sc = shapeCreateRef.current;
@@ -432,6 +654,18 @@ export function WhiteboardWorkbench() {
       setRedoStack([]);
     }
 
+    if (labelResizeRef.current?.changed) {
+      const snap = labelResizeRef.current.snapshot;
+      setUndoStack((u) => [...u.slice(-(MAX_UNDO - 1)), snap]);
+      setRedoStack([]);
+    }
+
+    if (eraseSessionRef.current?.changed) {
+      const snap = eraseSessionRef.current.snapshot;
+      setUndoStack((u) => [...u.slice(-(MAX_UNDO - 1)), snap]);
+      setRedoStack([]);
+    }
+
     endTransientPointer();
   };
 
@@ -496,7 +730,7 @@ export function WhiteboardWorkbench() {
   };
 
   const deleteSticky = (id: string) => {
-    commitBoard((prev) => ({ ...prev, stickies: prev.stickies.filter((s) => s.id !== id) }));
+    deleteSelection({ kind: "sticky", id });
   };
 
   const updateLabel = (id: string, text: string) => {
@@ -522,6 +756,14 @@ export function WhiteboardWorkbench() {
   const resetZoom = () => {
     commitBoard((prev) => ({ ...prev, viewport: { ...prev.viewport, zoom: 100, panX: 0, panY: 0 } }));
   };
+
+  const clearBoard = useCallback(() => {
+    endTransientPointer();
+    commitBoard((prev) => clearBoardObjects(prev, { resetViewport: false }));
+    setSelection(null);
+    setDraftStroke(null);
+    setShapePreview(null);
+  }, [commitBoard, endTransientPointer]);
 
   const exportJsonFile = () => {
     downloadBlob("whiteboard.json", "application/json", JSON.stringify(boardRef.current, null, 2));
@@ -571,16 +813,45 @@ export function WhiteboardWorkbench() {
       : null;
 
   const objectCount = board.stickies.length + board.strokes.length + board.shapes.length;
+  const boardHasContent = objectCount > 0;
   const vectorShapes = board.shapes.filter((s) => s.kind !== "label") as Exclude<BoardShape, LabelShape>[];
   const labels = board.shapes.filter((s): s is LabelShape => s.kind === "label");
+  const activeToolSizeControl =
+    activeTool === "pen"
+      ? { label: "Pen", value: penSize, min: 1, max: 24, step: 0.5, onChange: setPenSize }
+      : activeTool === "highlighter"
+        ? {
+            label: "Highlighter",
+            value: highlighterSize,
+            min: 6,
+            max: 40,
+            step: 1,
+            onChange: setHighlighterSize,
+          }
+        : activeTool === "erase"
+          ? { label: "Eraser", value: eraserSize, min: 8, max: 48, step: 1, onChange: setEraserSize }
+          : null;
 
   return (
-    <div className="relative flex h-[calc(100vh-3.5rem-3rem)] -m-6 flex-col overflow-hidden rounded-xl border border-border/40 bg-background">
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
       {isLoading ? (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/70 backdrop-blur-sm">
           <Spinner className="h-8 w-8 text-primary" />
         </div>
       ) : null}
+
+      <div className="min-w-0 shrink-0 px-4 pt-3">
+        <Input
+          value={title}
+          onChange={(event) => {
+            setTitle(event.target.value);
+            setHasLocalChanges(true);
+          }}
+          className="h-auto min-w-0 border-none bg-transparent px-0 text-xl font-semibold shadow-none focus-visible:ring-0"
+          placeholder="Untitled Whiteboard"
+          data-testid="input-whiteboard-title"
+        />
+      </div>
 
       <WhiteboardToolbar
         activeTool={activeTool}
@@ -593,9 +864,25 @@ export function WhiteboardWorkbench() {
         redoDisabled={redoStack.length === 0}
         onUndo={undo}
         onRedo={redo}
+        onNew={() => setNewDialogOpen(true)}
+        onClear={() => setClearDialogOpen(true)}
         onSave={() => void handleSave()}
-        saveDisabled={!hasLocalChanges || putBoard.isPending}
-        savePending={putBoard.isPending}
+        toolSizeControl={
+          activeToolSizeControl
+            ? {
+                label: activeToolSizeControl.label,
+                value: activeToolSizeControl.value,
+                min: activeToolSizeControl.min,
+                max: activeToolSizeControl.max,
+                step: activeToolSizeControl.step,
+              }
+            : null
+        }
+        onToolSizeChange={activeToolSizeControl?.onChange}
+        clearDisabled={!boardHasContent || updateBoard.isPending}
+        newDisabled={updateBoard.isPending}
+        saveDisabled={!hasLocalChanges || updateBoard.isPending}
+        savePending={updateBoard.isPending}
         onExportJson={exportJsonFile}
         onExportSvg={exportSvgFile}
         onCopyJson={copyJsonClipboard}
@@ -606,7 +893,7 @@ export function WhiteboardWorkbench() {
 
       <div
         ref={canvasRef}
-        className="relative flex-1 overflow-hidden bg-zinc-100 dark:bg-zinc-900/40"
+        className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-zinc-100 dark:bg-zinc-900/40"
         onMouseMove={onMouseMoveSticky}
         onMouseUp={endStickyDrag}
         onWheel={(event) => {
@@ -649,12 +936,19 @@ export function WhiteboardWorkbench() {
           style={{
             backgroundImage: "radial-gradient(circle, rgba(0,0,0,0.07) 1px, transparent 1px)",
             backgroundSize: `${(24 * vp.zoom) / 100}px ${(24 * vp.zoom) / 100}px`,
+            cursor:
+              activeTool === "pan"
+                ? "grab"
+                : activeTool === "pen" || activeTool === "highlighter" || activeTool === "erase"
+                  ? "crosshair"
+                  : "default",
           }}
           onClick={handleCanvasClick}
           onPointerDown={onPaperPointerDown}
           onPointerMove={onPaperPointerMove}
           onPointerUp={onPaperPointerUp}
           onPointerCancel={onPaperPointerUp}
+          onPointerLeave={() => setEraserPreview(null)}
         >
           <div className="absolute inset-0" style={{ transform, transformOrigin: "0 0" }}>
             <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
@@ -683,6 +977,17 @@ export function WhiteboardWorkbench() {
                   strokeLinejoin="round"
                 />
               ) : null}
+              {eraserPreview && activeTool === "erase" ? (
+                <circle
+                  cx={eraserPreview[0]}
+                  cy={eraserPreview[1]}
+                  r={eraserSize / 2}
+                  fill="rgba(59,130,246,0.08)"
+                  stroke="rgba(59,130,246,0.85)"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 4"
+                />
+              ) : null}
               {vectorShapes.map((sh) => renderShapeSvg(sh, selection))}
               {shapePreview ? renderPreviewSvg(shapePreview, selection) : null}
             </svg>
@@ -695,7 +1000,7 @@ export function WhiteboardWorkbench() {
                   left: lb.x,
                   top: lb.y,
                   width: Math.max(80, Math.abs(lb.w)),
-                  minHeight: Math.max(40, Math.abs(lb.h)),
+                  height: Math.max(40, Math.abs(lb.h)),
                   color: lb.color,
                   outline:
                     selection?.kind === "shape" && selection.id === lb.id ? "2px solid rgb(59 130 246)" : undefined,
@@ -709,10 +1014,20 @@ export function WhiteboardWorkbench() {
                 <textarea
                   value={lb.text}
                   onChange={(ev) => updateLabel(lb.id, ev.target.value)}
-                  className="h-full min-h-[32px] w-full resize-none border-none bg-transparent text-xs outline-none"
+                  className="h-full min-h-[32px] w-full resize-none border-none bg-transparent pb-4 pr-4 text-xs outline-none"
                   style={{ color: lb.color }}
                   onClick={(ev) => ev.stopPropagation()}
                 />
+                <button
+                  type="button"
+                  className="absolute bottom-1 right-1 flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+                  onPointerDown={(event) =>
+                    beginLabelResize(event, lb.id, Math.max(80, Math.abs(lb.w)), Math.max(40, Math.abs(lb.h)))
+                  }
+                  title="Resize label"
+                >
+                  <MoveDiagonal2 size={12} />
+                </button>
               </div>
             ))}
 
@@ -750,14 +1065,15 @@ export function WhiteboardWorkbench() {
                   </Button>
                   <textarea
                     value={sticky.text}
-                    onChange={(ev) =>
+                    onChange={(ev) => {
                       setBoard((prev) => ({
                         ...prev,
                         stickies: prev.stickies.map((s) =>
                           s.id === sticky.id ? { ...s, text: ev.target.value } : s,
                         ),
-                      }))
-                    }
+                      }));
+                      if (hydratedRef.current) setHasLocalChanges(true);
+                    }}
                     className={`h-full w-full resize-none border-none bg-transparent text-xs font-medium leading-snug outline-none ${color.text}`}
                     onClick={(ev) => ev.stopPropagation()}
                     data-testid={`sticky-textarea-${sticky.id}`}
@@ -777,10 +1093,60 @@ export function WhiteboardWorkbench() {
         ) : null}
       </div>
 
+      <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear this whiteboard?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes all notes, strokes, and shapes from the current canvas. You can still undo
+              it until you save or refresh.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={updateBoard.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                clearBoard();
+                setClearDialogOpen(false);
+              }}
+              disabled={updateBoard.isPending || !boardHasContent}
+            >
+              Clear board
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={newDialogOpen} onOpenChange={setNewDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Create a new whiteboard?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A new untitled whiteboard will be created and your current board will stay available in
+              the sidebar. If you have unsaved changes, you may be asked to confirm first.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={updateBoard.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                onCreateRequested?.();
+                setNewDialogOpen(false);
+              }}
+              disabled={updateBoard.isPending}
+            >
+              Create whiteboard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="flex items-center gap-4 border-t border-border/60 px-4 py-1.5 text-[10px] text-muted-foreground">
         <span>Objects: {objectCount}</span>
         <span className="ml-auto tabular-nums">
-          {putBoard.isPending ? "Saving…" : hasLocalChanges ? "Unsaved changes" : serverUpdated ? `Saved · ${serverUpdated}` : "Manual save"}
+          {updateBoard.isPending ? "Saving…" : hasLocalChanges ? "Unsaved changes" : serverUpdated ? `Saved · ${serverUpdated}` : "Manual save"}
         </span>
       </div>
     </div>

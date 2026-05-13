@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { User, Bell, Palette, KeyboardIcon, Shield, Link, Save } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +19,10 @@ import {
   IntegrationsCard,
   ProfileSettingsCard,
   useProfile,
+  useUpdateProfile,
 } from "@/features/profile";
+import type { NotificationPreferences } from "@/features/profile/types";
+import { DEFAULT_NOTIFICATION_PREFERENCES, NOTIFICATION_PREFERENCE_META } from "@/features/profile/types";
 import { resolveShortcutRow, SETTINGS_SHORTCUT_HINTS } from "@/lib/platform";
 
 const sections = [
@@ -35,21 +38,42 @@ type SectionId = (typeof sections)[number]["id"];
 
 export default function Settings() {
   const [activeSection, setActiveSection] = useState<SectionId>("profile");
-  const [notifications, setNotifications] = useState({
-    studyReminders: true,
-    roomInvites: true,
-    aiSuggestions: false,
-    streakAlerts: true,
-    weeklyDigest: true,
-  });
+  const [notifications, setNotifications] = useState<NotificationPreferences>(
+    DEFAULT_NOTIFICATION_PREFERENCES,
+  );
   const { toast } = useToast();
   const profileQuery = useProfile();
+  const updateProfile = useUpdateProfile();
 
-  const save = () =>
-    toast({
-      title: "Settings saved",
-      description: "Your preferences have been updated.",
-    });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.location.hash.replace(/^#/, "");
+    if (raw === "notifications") {
+      setActiveSection("notifications");
+    }
+  }, []);
+
+  useEffect(() => {
+    const prefs = profileQuery.data?.notificationPreferences;
+    if (!prefs) return;
+    setNotifications({ ...DEFAULT_NOTIFICATION_PREFERENCES, ...prefs });
+  }, [profileQuery.data?.notificationPreferences]);
+
+  const saveNotifications = async () => {
+    try {
+      await updateProfile.mutateAsync({ notificationPreferences: notifications });
+      toast({
+        title: "Preferences saved",
+        description: "Notification settings are stored on your account.",
+      });
+    } catch {
+      toast({
+        title: "Save failed",
+        description: "Could not update notification preferences.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto flex gap-6 h-full">
@@ -86,35 +110,36 @@ export default function Settings() {
                 <CardTitle className="text-base">Notifications</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {Object.entries(notifications).map(([key, value]) => {
-                  const labels: Record<string, { title: string; desc: string }> = {
-                    studyReminders: { title: "Study Reminders", desc: "Daily reminders to keep your streak alive" },
-                    roomInvites: { title: "Room Invites", desc: "When someone invites you to a study room" },
-                    aiSuggestions: { title: "AI Suggestions", desc: "Personalized study recommendations from AI" },
-                    streakAlerts: { title: "Streak Alerts", desc: "Warnings when your streak is at risk" },
-                    weeklyDigest: { title: "Weekly Digest", desc: "Your weekly study summary every Sunday" },
-                  };
-                  const info = labels[key];
-                  return (
-                    <div key={key}>
-                      <div className="flex items-center justify-between py-2">
-                        <div>
-                          <p className="text-sm font-medium">{info.title}</p>
-                          <p className="text-xs text-muted-foreground">{info.desc}</p>
+                {(Object.keys(NOTIFICATION_PREFERENCE_META) as (keyof NotificationPreferences)[]).map(
+                  (key) => {
+                    const info = NOTIFICATION_PREFERENCE_META[key];
+                    const value = notifications[key];
+                    return (
+                      <div key={key}>
+                        <div className="flex items-center justify-between py-2">
+                          <div>
+                            <p className="text-sm font-medium">{info.title}</p>
+                            <p className="text-xs text-muted-foreground">{info.description}</p>
+                          </div>
+                          <Switch
+                            checked={value}
+                            onCheckedChange={(v) =>
+                              setNotifications((prev) => ({ ...prev, [key]: v }))
+                            }
+                            data-testid={`switch-${key}`}
+                          />
                         </div>
-                        <Switch
-                          checked={value}
-                          onCheckedChange={(v) =>
-                            setNotifications((prev) => ({ ...prev, [key]: v }))
-                          }
-                          data-testid={`switch-${key}`}
-                        />
+                        <Separator />
                       </div>
-                      <Separator />
-                    </div>
-                  );
-                })}
-                <Button onClick={save} className="gap-1.5 mt-2" data-testid="button-save-notifications">
+                    );
+                  },
+                )}
+                <Button
+                  onClick={() => void saveNotifications()}
+                  className="gap-1.5 mt-2"
+                  disabled={updateProfile.isPending || profileQuery.isLoading}
+                  data-testid="button-save-notifications"
+                >
                   <Save size={14} /> Save Preferences
                 </Button>
               </CardContent>

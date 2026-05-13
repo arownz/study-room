@@ -35,6 +35,8 @@ export const users = pgTable("users", {
   // onboarding. Until this flips to true the SPA forces the
   // role-selection screen so we never silently default users to "student".
   roleSelected: boolean("role_selected").notNull().default(false),
+  /** JSON object of boolean notification toggles; merged with defaults in API. */
+  notificationPreferences: text("notification_preferences").notNull().default("{}"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -243,6 +245,24 @@ export const userWhiteboards = pgTable("user_whiteboards", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const whiteboards = pgTable(
+  "whiteboards",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    snapshot: text("snapshot").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("whiteboards_user_id_idx").on(table.userId),
+    index("whiteboards_updated_at_idx").on(table.updatedAt),
+  ],
+);
+
 export const userPomodoroPreferences = pgTable("user_pomodoro_preferences", {
   userId: text("user_id")
     .primaryKey()
@@ -333,6 +353,7 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   aiThreads: many(aiThreads),
   flashcardDecks: many(flashcardDecks),
   flashcards: many(flashcards),
+  whiteboards: many(whiteboards),
   whiteboard: one(userWhiteboards, {
     fields: [users.id],
     references: [userWhiteboards.userId],
@@ -424,6 +445,13 @@ export const pomodoroSessionsRelations = relations(pomodoroSessions, ({ one }) =
 export const userWhiteboardsRelations = relations(userWhiteboards, ({ one }) => ({
   user: one(users, {
     fields: [userWhiteboards.userId],
+    references: [users.id],
+  }),
+}));
+
+export const whiteboardsRelations = relations(whiteboards, ({ one }) => ({
+  user: one(users, {
+    fields: [whiteboards.userId],
     references: [users.id],
   }),
 }));

@@ -26,12 +26,9 @@ import {
   Code as CodeIcon,
   CheckSquare,
   GripVertical,
+  MoveDiagonal2,
   SquarePen,
   Trash2,
-  Pencil,
-  Highlighter,
-  Eraser,
-  MousePointer2,
 } from "lucide-react";
 import { ApiError, customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -45,9 +42,8 @@ import {
   serializeCanvas,
   uid,
   type CanvasBlock,
-  type InkCanvasBlock,
 } from "./canvas/canvas-blocks";
-import { minDistanceToPolyline, pointsToPathD, simplifyRdp } from "./canvas/ink-geometry";
+import { pointsToPathD } from "./canvas/ink-geometry";
 /** Prose + marker styles so nested ordered/unordered lists stay readable (OneNote-style mixing). */
 const NESTED_LIST_PROSE =
   "[&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_li]:pl-1 [&_li>ul]:mt-1 [&_li>ol]:mt-1 [&_li>ul]:pl-6 [&_li>ol]:pl-6 [&_li]:marker:text-foreground";
@@ -149,61 +145,6 @@ function isCanvasTextStructuralEmpty(html: string): boolean {
   }
   const doc = new DOMParser().parseFromString(html, "text/html");
   return (doc.body.textContent ?? "").replace(/\s+/g, " ").trim().length === 0;
-}
-
-function findInkToErase(blocks: CanvasBlock[], canvasX: number, canvasY: number): string | null {
-  const inks = blocks
-    .filter((b): b is InkCanvasBlock => b.type === "ink")
-    .slice()
-    .sort((a, b) => b.z - a.z);
-  for (const b of inks) {
-    const pts = b.points.map(([px, py]) => [px + b.x, py + b.y] as [number, number]);
-    if (minDistanceToPolyline(canvasX, canvasY, pts) < Math.max(12, b.strokeWidth * 1.5)) {
-      return b.id;
-    }
-  }
-  return null;
-}
-
-function buildInkBlockFromDraft(
-  draft: { points: [number, number][]; color: string; strokeWidth: number; opacity: number },
-  z: number,
-): InkCanvasBlock | null {
-  if (draft.points.length < 2) return null;
-  const pad = 6;
-  const xs = draft.points.map((p) => p[0]);
-  const ys = draft.points.map((p) => p[1]);
-  const minx = Math.min(...xs) - pad;
-  const miny = Math.min(...ys) - pad;
-  const maxx = Math.max(...xs) + pad;
-  const maxy = Math.max(...ys) + pad;
-  const width = Math.max(12, maxx - minx);
-  const height = Math.max(12, maxy - miny);
-  const rel = draft.points.map(([px, py]) => [px - minx, py - miny] as [number, number]);
-  let pts = simplifyRdp(rel, 2.4);
-  if (pts.length < 2) return null;
-  if (pts.length > 480) {
-    const step = Math.ceil(pts.length / 480);
-    const thinned: [number, number][] = [];
-    for (let i = 0; i < pts.length; i += step) thinned.push(pts[i]);
-    const last = pts[pts.length - 1];
-    const oLast = thinned[thinned.length - 1];
-    if (!oLast || oLast[0] !== last[0] || oLast[1] !== last[1]) thinned.push(last);
-    pts = thinned;
-  }
-  return {
-    type: "ink",
-    id: uid("ink"),
-    x: minx,
-    y: miny,
-    width,
-    height,
-    z,
-    points: pts,
-    color: draft.color,
-    strokeWidth: draft.strokeWidth,
-    opacity: draft.opacity,
-  };
 }
 
 interface ToolbarButton {
@@ -631,9 +572,9 @@ function TextBlockEditor({
   return (
     <div
       data-block-body={blockId}
-      className="min-h-20 w-full [&_.ProseMirror]:min-h-18 [&_.ProseMirror]:outline-none"
+      className="h-full min-h-20 w-full [&_.ProseMirror]:min-h-full [&_.ProseMirror]:outline-none"
     >
-      <EditorContent editor={editor} className="block w-full" />
+      <EditorContent editor={editor} className="block h-full w-full overflow-auto" />
     </div>
   );
 }
@@ -700,15 +641,13 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     const activeDocumentKeyRef = useRef(documentKey ?? "default");
     const pinchRef = useRef<{ initialDistance: number; initialZoom: number } | null>(null);
     const clipboardBlockRef = useRef<CanvasBlock | null>(null);
-    const [canvasDrawTool, setCanvasDrawTool] = useState<"select" | "pen" | "highlighter" | "eraser">("select");
-    const [inkDraft, setInkDraft] = useState<{
-      points: [number, number][];
-      color: string;
-      strokeWidth: number;
-      opacity: number;
+    const resizeStateRef = useRef<{
+      id: string;
+      startClientX: number;
+      startClientY: number;
+      startWidth: number;
+      startHeight: number;
     } | null>(null);
-    const inkDraftRef = useRef(inkDraft);
-    inkDraftRef.current = inkDraft;
 
     const emitChange = useCallback(
       (nextBlocks: CanvasBlock[]) => {
@@ -741,11 +680,14 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       const parsed = parseCanvas(value || "");
       const serializedCurrent = serializeCanvas(blocks);
       const serializedIncoming = parsed.length ? serializeCanvas(parsed) : "";
-      if (!hydratedRef.current || serializedCurrent !== serializedIncoming) {
+      if (!hydratedRef.current) {
+        hydratedRef.current = true;
+        return;
+      }
+      if (serializedCurrent !== serializedIncoming) {
         setBlocks(parsed);
         zRef.current = Math.max(1, ...parsed.map((b) => b.z));
       }
-      hydratedRef.current = true;
     }, [value]); // keep external updates in sync
 
     useEffect(() => {
@@ -778,12 +720,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       const blockMaxH = blocks.reduce((acc, b) => {
         if (b.type === "image") return Math.max(acc, b.y + 360 + 96);
         if (b.type === "ink") return Math.max(acc, b.y + b.height + 96);
-        const textBlock = document.querySelector(`[data-note-block-wrap="${b.id}"]`);
-        if (textBlock) {
-          const contentHeight = textBlock.scrollHeight || 260;
-          return Math.max(acc, b.y + contentHeight + 96);
-        }
-        return Math.max(acc, b.y + 260 + 96);
+        return Math.max(acc, b.y + b.height + 96);
       }, 0);
       setCanvasSize({
         width: Math.max(blockMaxW, minW),
@@ -824,7 +761,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
 
     useEffect(() => {
       const onTypeToCreate = (event: KeyboardEvent) => {
-        if (readOnly || !pendingInsertPoint || canvasDrawTool !== "select") return;
+        if (readOnly || !pendingInsertPoint) return;
         if (event.ctrlKey || event.metaKey || event.altKey) return;
         const active = document.activeElement as HTMLElement | null;
         const editable = Boolean(active?.closest(".ProseMirror,[contenteditable='true'],textarea,input"));
@@ -841,7 +778,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       };
       window.addEventListener("keydown", onTypeToCreate);
       return () => window.removeEventListener("keydown", onTypeToCreate);
-    }, [pendingInsertPoint, readOnly, updateBlocks, canvasDrawTool]);
+    }, [pendingInsertPoint, readOnly, updateBlocks]);
 
     useEffect(() => {
       const el = canvasRef.current;
@@ -972,6 +909,20 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     };
 
     const onCanvasPointerMove = (event: React.PointerEvent) => {
+      const resize = resizeStateRef.current;
+      if (resize) {
+        const nextWidth = Math.max(280, resize.startWidth + (event.clientX - resize.startClientX) / zoom);
+        const nextHeight = Math.max(140, resize.startHeight + (event.clientY - resize.startClientY) / zoom);
+        updateBlocks((prev) =>
+          prev.map((block) =>
+            block.id === resize.id && block.type === "text"
+              ? { ...block, width: nextWidth, height: nextHeight }
+              : block,
+          ),
+        );
+        return;
+      }
+
       const drag = dragStateRef.current;
       if (!drag) return;
       const canvas = canvasRef.current;
@@ -985,67 +936,45 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       dragStateRef.current = null;
     };
 
+    const beginResize = (event: React.PointerEvent, block: CanvasBlock) => {
+      if (readOnly || block.type !== "text") return;
+      event.preventDefault();
+      event.stopPropagation();
+      resizeStateRef.current = {
+        id: block.id,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startWidth: block.width,
+        startHeight: block.height,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setActiveBlockId(block.id);
+    };
+
     const onCanvasDrawPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
       if (readOnly) return;
-      const t = event.target as HTMLElement;
-      if (t.closest("[data-note-block-wrap]")) return;
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const cx = (event.clientX - rect.left) / zoom;
-      const cy = (event.clientY - rect.top) / zoom;
-      if (canvasDrawTool === "eraser") {
-        const id = findInkToErase(blocks, cx, cy);
-        if (id) updateBlocks((prev) => prev.filter((b) => b.id !== id));
-        return;
-      }
-      if (canvasDrawTool === "pen" || canvasDrawTool === "highlighter") {
-        event.currentTarget.setPointerCapture(event.pointerId);
-        setInkDraft({
-          points: [[cx, cy]],
-          color: canvasDrawTool === "pen" ? "#0f172a" : "#ca8a04",
-          strokeWidth: canvasDrawTool === "pen" ? 2.2 : 14,
-          opacity: canvasDrawTool === "pen" ? 1 : 0.35,
-        });
-      }
+      const target = event.target as HTMLElement;
+      if (target.closest("[data-note-block-wrap]")) return;
     };
 
     const onCanvasDrawPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
       onCanvasPointerMove(event);
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const cx = (event.clientX - rect.left) / zoom;
-      const cy = (event.clientY - rect.top) / zoom;
-      setInkDraft((prev) => {
-        if (!prev) return prev;
-        const last = prev.points[prev.points.length - 1];
-        if (last && Math.hypot(cx - last[0], cy - last[1]) < 1.1) return prev;
-        const next = [...prev.points, [cx, cy] as [number, number]];
-        if (next.length > 1200) return prev;
-        return { ...prev, points: next };
-      });
     };
 
     const onCanvasDrawPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
       endDrag();
-      if (inkDraftRef.current) {
+      if (resizeStateRef.current) {
         try {
           event.currentTarget.releasePointerCapture(event.pointerId);
         } catch {
           /* noop */
         }
-        const draftCopy = inkDraftRef.current;
-        setInkDraft(null);
-        if (draftCopy) {
-          const built = buildInkBlockFromDraft(draftCopy, nextZ());
-          if (built) {
-            updateBlocks((prev) => [...prev, built]);
-          }
-        }
+        resizeStateRef.current = null;
       }
     };
 
     const plainHint =
-      "Select tool: place caret or double‑click for text. Pen / highlighter / eraser for ink. Ctrl/Cmd + scroll zooms.";
+      "Click to place a caret, double-click to add a block, drag handles to move or resize, and use Ctrl/Cmd + scroll to zoom.";
     const zoomOut = () => setZoom((z) => Math.max(0.5, z - 0.1));
     const zoomIn = () => setZoom((z) => Math.min(2.5, z + 0.1));
 
@@ -1089,55 +1018,6 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             {imageBusy ? <Spinner className="size-3" /> : <ImagePlus size={13} />}
           </Button>
           <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={onPickImageFiles} />
-          <Separator orientation="vertical" className="mx-1 h-5" />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className={cn("h-7 w-7", canvasDrawTool === "select" && "bg-muted text-foreground")}
-            disabled={readOnly}
-            title="Select & edit blocks"
-            onClick={() => setCanvasDrawTool("select")}
-            data-testid="rte-canvas-select"
-          >
-            <MousePointer2 size={13} />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className={cn("h-7 w-7", canvasDrawTool === "pen" && "bg-muted text-foreground")}
-            disabled={readOnly}
-            title="Pen"
-            onClick={() => setCanvasDrawTool("pen")}
-            data-testid="rte-canvas-pen"
-          >
-            <Pencil size={13} />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className={cn("h-7 w-7", canvasDrawTool === "highlighter" && "bg-muted text-foreground")}
-            disabled={readOnly}
-            title="Highlighter"
-            onClick={() => setCanvasDrawTool("highlighter")}
-            data-testid="rte-canvas-highlighter"
-          >
-            <Highlighter size={13} />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className={cn("h-7 w-7", canvasDrawTool === "eraser" && "bg-muted text-foreground")}
-            disabled={readOnly}
-            title="Eraser (click stroke)"
-            onClick={() => setCanvasDrawTool("eraser")}
-            data-testid="rte-canvas-eraser"
-          >
-            <Eraser size={13} />
-          </Button>
           <Separator orientation="vertical" className="mx-1 h-5" />
           <div className="flex items-center rounded-md border border-border/60 px-1.5 py-0.5 text-[11px]">
             <button
@@ -1203,7 +1083,6 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             onPointerCancel={onCanvasDrawPointerUp}
             onClick={(event) => {
               if (readOnly) return;
-              if (canvasDrawTool !== "select") return;
               const target = event.target as HTMLElement;
               if (target.closest("[data-note-block-wrap]")) return;
               const rect = event.currentTarget.getBoundingClientRect();
@@ -1214,7 +1093,6 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             }}
             onDoubleClick={(event) => {
               if (readOnly) return;
-              if (canvasDrawTool !== "select") return;
               const target = event.target as HTMLElement;
               if (target.closest("[data-note-block-wrap]")) return;
               event.preventDefault();
@@ -1287,26 +1165,6 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
                 </p>
               </div>
             ) : null}
-            {inkDraft ? (
-              <svg
-                className="pointer-events-none absolute left-0 top-0 z-300"
-                width={canvasSize.width * zoom}
-                height={canvasSize.height * zoom}
-                aria-hidden
-              >
-                <g transform={`scale(${zoom})`}>
-                  <path
-                    d={pointsToPathD(inkDraft.points)}
-                    fill="none"
-                    stroke={inkDraft.color}
-                    strokeWidth={inkDraft.strokeWidth}
-                    strokeOpacity={inkDraft.opacity}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </g>
-              </svg>
-            ) : null}
             {blocks.map((block) => (
               <div
                 key={block.id}
@@ -1319,7 +1177,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
                   left: block.x * zoom,
                   top: block.y * zoom,
                   width: block.width * zoom,
-                  ...(block.type === "ink" ? { height: block.height * zoom } : {}),
+                  ...(block.type === "ink" || block.type === "text" ? { height: block.height * zoom } : {}),
                   zIndex: block.z,
                 }}
                 onMouseDown={() => {
@@ -1341,7 +1199,13 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
                     </div>
                   </div>
                 ) : null}
-                <div className={cn("p-3", block.type === "ink" && "p-1 pt-0")}>
+                <div
+                  className={cn(
+                    "relative p-3",
+                    block.type === "ink" && "p-1 pt-0",
+                    block.type === "text" && "h-[calc(100%-2.25rem)]",
+                  )}
+                >
                   {block.type === "image" ? (
                     <img src={block.src} alt="" className="max-h-[520px] w-full rounded-md object-contain" />
                   ) : null}
@@ -1384,6 +1248,17 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
                         })
                       }
                     />
+                  ) : null}
+                  {block.type === "text" && !readOnly ? (
+                    <button
+                      type="button"
+                      className="absolute bottom-1 right-1 z-10 flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+                      title="Resize block"
+                      onPointerDown={(event) => beginResize(event, block)}
+                      data-testid={`note-resize-${block.id}`}
+                    >
+                      <MoveDiagonal2 size={12} />
+                    </button>
                   ) : null}
                 </div>
               </div>

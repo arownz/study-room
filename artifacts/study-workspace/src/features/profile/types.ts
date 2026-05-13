@@ -16,6 +16,48 @@ export const USER_ROLES = [
 
 export type UserRole = (typeof USER_ROLES)[number];
 
+export interface NotificationPreferences {
+  studyReminders: boolean;
+  roomInvites: boolean;
+  aiSuggestions: boolean;
+  streakAlerts: boolean;
+  weeklyDigest: boolean;
+}
+
+export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  studyReminders: true,
+  roomInvites: true,
+  aiSuggestions: false,
+  streakAlerts: true,
+  weeklyDigest: true,
+};
+
+export const NOTIFICATION_PREFERENCE_META: Record<
+  keyof NotificationPreferences,
+  { title: string; description: string }
+> = {
+  studyReminders: {
+    title: "Study reminders",
+    description: "Daily reminders to keep your streak alive.",
+  },
+  roomInvites: {
+    title: "Room invites",
+    description: "When someone invites you to a study room.",
+  },
+  aiSuggestions: {
+    title: "AI suggestions",
+    description: "Personalized study recommendations from the tutor.",
+  },
+  streakAlerts: {
+    title: "Streak alerts",
+    description: "Warnings when your streak is at risk.",
+  },
+  weeklyDigest: {
+    title: "Weekly digest",
+    description: "Your weekly study summary.",
+  },
+};
+
 export interface UserRoleOption {
   id: UserRole;
   label: string;
@@ -61,6 +103,7 @@ export interface ProfileUser {
   createdAt: string;
   updatedAt: string;
   accounts: ConnectedAccount[];
+  notificationPreferences: NotificationPreferences;
 }
 
 export interface ProfileUpdateInput {
@@ -68,6 +111,7 @@ export interface ProfileUpdateInput {
   avatar?: string | null;
   role?: UserRole;
   roleSelected?: boolean;
+  notificationPreferences?: Partial<NotificationPreferences>;
 }
 
 export interface ParsedName {

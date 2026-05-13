@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Bell, Search, Sun, Moon, Settings } from "lucide-react";
+import { Bell, Search, Sun, Moon, Settings, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,11 @@ import { shortcutModLabel } from "@/lib/platform";
 import { useAuth } from "@/contexts/auth-context";
 import { UserAvatar } from "@/components/auth/UserAvatar";
 import { useProfile } from "@/features/profile";
+import type { NotificationPreferences } from "@/features/profile/types";
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  NOTIFICATION_PREFERENCE_META,
+} from "@/features/profile/types";
 
 interface TopNavProps {
   sidebarCollapsed: boolean;
@@ -39,6 +44,17 @@ export function TopNav({ sidebarCollapsed, theme, onThemeToggle, title }: TopNav
   const userEmail = profile?.email ?? sessionUser?.email ?? "";
   const avatarUrl =
     profile?.avatar ?? sessionUser?.avatar ?? sessionUser?.image ?? null;
+
+  const notificationKeys = Object.keys(
+    NOTIFICATION_PREFERENCE_META,
+  ) as (keyof NotificationPreferences)[];
+
+  const prefs = profile?.notificationPreferences;
+  const mergedPrefs: NotificationPreferences = prefs
+    ? { ...DEFAULT_NOTIFICATION_PREFERENCES, ...prefs }
+    : DEFAULT_NOTIFICATION_PREFERENCES;
+
+  const enabledChannelCount = notificationKeys.filter((key) => mergedPrefs[key]).length;
 
   return (
     <header
@@ -73,17 +89,60 @@ export function TopNav({ sidebarCollapsed, theme, onThemeToggle, title }: TopNav
       </div>
 
       <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 relative"
-          data-testid="button-notifications"
-        >
-          <Bell size={16} />
-          <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[9px] bg-primary">
-            3
-          </Badge>
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 relative"
+              data-testid="button-notifications"
+              type="button"
+            >
+              <Bell size={16} />
+              {enabledChannelCount > 0 ? (
+                <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-0.5 flex items-center justify-center text-[9px] bg-primary">
+                  {enabledChannelCount}
+                </Badge>
+              ) : null}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-72">
+            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {profileQuery.isLoading ? (
+              <p className="px-2 py-3 text-xs text-muted-foreground">Loading preferences…</p>
+            ) : (
+              <div className="max-h-64 space-y-1 overflow-y-auto px-1 py-1">
+                {notificationKeys.map((key) => {
+                  const meta = NOTIFICATION_PREFERENCE_META[key];
+                  const on = mergedPrefs[key];
+                  return (
+                    <div
+                      key={key}
+                      className="flex items-start justify-between gap-2 rounded-md px-2 py-1.5 text-xs"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium leading-tight">{meta.title}</p>
+                        <p className="text-[10px] text-muted-foreground leading-snug">{meta.description}</p>
+                      </div>
+                      {on ? (
+                        <Check size={14} className="mt-0.5 shrink-0 text-primary" aria-label="On" />
+                      ) : (
+                        <span className="mt-0.5 shrink-0 text-[10px] text-muted-foreground">Off</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/settings#notifications" className="cursor-pointer">
+                Open notification settings
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Button
           variant="ghost"

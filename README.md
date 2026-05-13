@@ -41,7 +41,7 @@ pnpm --filter @workspace/api-server dev # run the backend
 Generate/apply DB migration:
 
 ```bash
-pnpm --filter @workspace/db generate # generate the migration
+pnpm --filter @workspace/db generate # generate the migration if reseted database
 pnpm --filter @workspace/db migrate # apply the migration to the database
 ```
 

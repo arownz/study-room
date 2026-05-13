@@ -13,11 +13,20 @@ import {
   Cell,
 } from "recharts";
 import { TrendingUp, Flame, Clock, Layers, Award, Calendar, AlertCircle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useGetUserStudyAnalytics } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 const stagger = { animate: { transition: { staggerChildren: 0.07 } } };
@@ -48,10 +57,57 @@ function formatTotalHours(h: number): string {
   return `${Math.round(h)}h`;
 }
 
+const ANALYTICS_RANGE_KEY = "studyroom.analytics.filters";
+
+const CHART_DAY_OPTIONS = [7, 14, 21, 30, 60, 90] as const;
+const HEATMAP_DAY_OPTIONS = [14, 21, 28, 35, 42, 56] as const;
+
+function readAnalyticsRanges(): { chartDays: number; heatmapDays: number } {
+  const defaults = { chartDays: 14, heatmapDays: 35 };
+  if (typeof window === "undefined") return defaults;
+  try {
+    const raw = window.localStorage.getItem(ANALYTICS_RANGE_KEY);
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw) as { chartDays?: unknown; heatmapDays?: unknown };
+    const chartDays =
+      typeof parsed.chartDays === "number" &&
+      Number.isFinite(parsed.chartDays) &&
+      parsed.chartDays >= 7 &&
+      parsed.chartDays <= 90
+        ? Math.floor(parsed.chartDays)
+        : defaults.chartDays;
+    const heatmapDays =
+      typeof parsed.heatmapDays === "number" &&
+      Number.isFinite(parsed.heatmapDays) &&
+      parsed.heatmapDays >= 14 &&
+      parsed.heatmapDays <= 56
+        ? Math.floor(parsed.heatmapDays)
+        : defaults.heatmapDays;
+    return { chartDays, heatmapDays };
+  } catch {
+    return defaults;
+  }
+}
+
 export default function Analytics() {
+  const initialRanges = useMemo(() => readAnalyticsRanges(), []);
+  const [chartDays, setChartDays] = useState(initialRanges.chartDays);
+  const [heatmapDays, setHeatmapDays] = useState(initialRanges.heatmapDays);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        ANALYTICS_RANGE_KEY,
+        JSON.stringify({ chartDays, heatmapDays }),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [chartDays, heatmapDays]);
+
   const { data: envelope, isLoading, isError, refetch } = useGetUserStudyAnalytics({
-    chartDays: 14,
-    heatmapDays: 35,
+    chartDays,
+    heatmapDays,
   });
   const a = envelope?.success ? envelope.data : null;
 
@@ -116,10 +172,52 @@ export default function Analytics() {
   return (
     <motion.div variants={stagger} initial="initial" animate="animate" className="space-y-6 max-w-6xl mx-auto">
       <motion.div variants={fadeUp}>
-        <h2 className="text-xl font-bold">Analytics</h2>
-        <p className="text-muted-foreground text-sm mt-0.5">
-          Your study performance at a glance · charts bucket by UTC calendar day
-        </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-xl font-bold">Analytics</h2>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              Your study performance at a glance · charts bucket by UTC calendar day
+            </p>
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground">Trend window</Label>
+              <Select
+                value={String(chartDays)}
+                onValueChange={(v) => setChartDays(Number(v))}
+              >
+                <SelectTrigger className="h-8 w-[140px] text-xs" data-testid="select-chart-days">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CHART_DAY_OPTIONS.map((d) => (
+                    <SelectItem key={d} value={String(d)}>
+                      Last {d} days
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground">Heatmap window</Label>
+              <Select
+                value={String(heatmapDays)}
+                onValueChange={(v) => setHeatmapDays(Number(v))}
+              >
+                <SelectTrigger className="h-8 w-[160px] text-xs" data-testid="select-heatmap-days">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {HEATMAP_DAY_OPTIONS.map((d) => (
+                    <SelectItem key={d} value={String(d)}>
+                      Last {d} days
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
       </motion.div>
 
       <motion.div variants={fadeUp} className="grid grid-cols-2 md:grid-cols-4 gap-4">

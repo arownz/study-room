@@ -82,6 +82,7 @@ export interface BoardState {
 export type WhiteboardTool =
   | "select"
   | "pan"
+  | "erase"
   | "sticky"
   | "text"
   | "rect"

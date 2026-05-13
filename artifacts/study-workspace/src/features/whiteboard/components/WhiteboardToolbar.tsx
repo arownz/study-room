@@ -2,6 +2,7 @@ import {
   Circle,
   CloudOff,
   Download,
+  Eraser,
   Hand,
   Highlighter,
   ImageDown,
@@ -10,10 +11,13 @@ import {
   Minus,
   MousePointer,
   Pencil,
+  Plus,
   Redo2,
   Save,
+  SlidersHorizontal,
   Square,
   StickyNote,
+  Trash2,
   Type,
   Undo2,
 } from "lucide-react";
@@ -25,7 +29,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
+import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import type { WhiteboardTool } from "../types";
 
@@ -34,6 +40,7 @@ const tools: { id: WhiteboardTool; icon: typeof MousePointer; label: string }[] 
   { id: "pan", icon: Hand, label: "Pan" },
   { id: "pen", icon: Pencil, label: "Pen" },
   { id: "highlighter", icon: Highlighter, label: "Highlighter" },
+  { id: "erase", icon: Eraser, label: "Erase" },
   { id: "sticky", icon: StickyNote, label: "Sticky Note" },
   { id: "text", icon: Type, label: "Text label" },
   { id: "rect", icon: Square, label: "Rectangle" },
@@ -53,7 +60,19 @@ interface WhiteboardToolbarProps {
   onUndo: () => void;
   onRedo: () => void;
   onSave: () => void;
+  onClear: () => void;
+  onNew: () => void;
+  toolSizeControl?: {
+    label: string;
+    value: number;
+    min: number;
+    max: number;
+    step: number;
+  } | null;
+  onToolSizeChange?: (next: number) => void;
   saveDisabled: boolean;
+  clearDisabled: boolean;
+  newDisabled: boolean;
   savePending: boolean;
   onExportJson: () => void;
   onExportSvg: () => void;
@@ -75,7 +94,13 @@ export function WhiteboardToolbar({
   onUndo,
   onRedo,
   onSave,
+  onClear,
+  onNew,
+  toolSizeControl,
+  onToolSizeChange,
   saveDisabled,
+  clearDisabled,
+  newDisabled,
   savePending,
   onExportJson,
   onExportSvg,
@@ -85,7 +110,7 @@ export function WhiteboardToolbar({
   onRetry,
 }: WhiteboardToolbarProps) {
   return (
-    <div className="flex items-center gap-2 border-b border-border/60 px-4 py-2">
+    <div className="flex min-w-0 items-center gap-2 overflow-x-auto border-b border-border/60 px-4 py-2">
       {isError ? (
         <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
           <CloudOff size={14} />
@@ -96,7 +121,7 @@ export function WhiteboardToolbar({
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-0.5 rounded-lg bg-muted/50 p-1">
+      <div className="flex shrink-0 flex-wrap items-center gap-0.5 rounded-lg bg-muted/50 p-1">
         {tools.map(({ id, icon: Icon, label }) => (
           <Button
             key={id}
@@ -115,6 +140,43 @@ export function WhiteboardToolbar({
           </Button>
         ))}
       </div>
+
+      {toolSizeControl && onToolSizeChange ? (
+        <>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                type="button"
+                title={`${toolSizeControl.label} size`}
+                data-testid="button-whiteboard-tool-size"
+              >
+                <SlidersHorizontal size={14} />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-60 space-y-3 p-3">
+              <div className="space-y-1">
+                <p className="text-xs font-medium">{toolSizeControl.label} size</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {Math.round(toolSizeControl.value)} px
+                </p>
+              </div>
+              <Slider
+                min={toolSizeControl.min}
+                max={toolSizeControl.max}
+                step={toolSizeControl.step}
+                value={[toolSizeControl.value]}
+                onValueChange={(value) => {
+                  const next = value[0];
+                  if (typeof next === "number") onToolSizeChange(next);
+                }}
+              />
+            </PopoverContent>
+          </Popover>
+        </>
+      ) : null}
 
       <Separator orientation="vertical" className="h-5" />
 
@@ -176,7 +238,29 @@ export function WhiteboardToolbar({
         <Redo2 size={14} />
       </Button>
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-xs"
+          type="button"
+          onClick={onNew}
+          disabled={newDisabled}
+          data-testid="button-new-whiteboard"
+        >
+          <Plus size={12} /> New
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-xs"
+          type="button"
+          onClick={onClear}
+          disabled={clearDisabled}
+          data-testid="button-clear-whiteboard"
+        >
+          <Trash2 size={12} /> Clear
+        </Button>
         <Button
           variant="outline"
           size="sm"
