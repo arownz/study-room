@@ -102,9 +102,12 @@ const soundIcons = {
 const POMODORO_SESSION_KEY = "studyroom.pomodoro.session.v1";
 
 type PomodoroSessionSnapshot = {
-  v: 1;
+  v: 2;
   modeIdx: number;
   timeLeft: number;
+  running: boolean;
+  runEndsAtMs: number | null;
+  segmentStartedAt: string | null;
   tasks: { id: string; text: string; done: boolean }[];
   newTask: string;
   sounds: typeof AMBIENT_SOUNDS;
@@ -129,8 +132,11 @@ export default function Pomodoro() {
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const segmentStartRef = useRef<Date | null>(null);
+  const runEndsAtRef = useRef<number | null>(null);
   const modeIdxRef = useRef(modeIdx);
   const modesRef = useRef(modes);
+  const timeLeftRef = useRef(timeLeft);
+  const runningRef = useRef(running);
   const completionFiredRef = useRef(false);
   const prefsSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prefsHydratedRef = useRef(false);
@@ -160,6 +166,33 @@ export default function Pomodoro() {
   }, [modes]);
 
   useEffect(() => {
+    timeLeftRef.current = timeLeft;
+  }, [timeLeft]);
+
+  useEffect(() => {
+    runningRef.current = running;
+  }, [running]);
+
+  const persistSessionSnapshot = useCallback(() => {
+    try {
+      const payload: PomodoroSessionSnapshot = {
+        v: 2,
+        modeIdx: modeIdxRef.current,
+        timeLeft: timeLeftRef.current,
+        running: runningRef.current,
+        runEndsAtMs: runEndsAtRef.current,
+        segmentStartedAt: segmentStartRef.current?.toISOString() ?? null,
+        tasks,
+        newTask,
+        sounds,
+      };
+      localStorage.setItem(POMODORO_SESSION_KEY, JSON.stringify(payload));
+    } catch {
+      /* ignore quota */
+    }
+  }, [newTask, sounds, tasks]);
+
+  useEffect(() => {
     if (!prefsEnvelope?.success || prefsHydratedRef.current) return;
     const p = prefsEnvelope.data;
     let nextSec = loadModeSeconds();
@@ -185,32 +218,65 @@ export default function Pomodoro() {
       const raw = localStorage.getItem(POMODORO_SESSION_KEY);
       if (raw) {
         const snap = JSON.parse(raw) as Partial<PomodoroSessionSnapshot>;
-        if (snap.v === 1) {
-          const idx = Math.min(2, Math.max(0, Math.floor(snap.modeIdx ?? 0)));
-          setModeIdx(idx);
-          const cap = nextModes[idx]?.duration ?? snap.timeLeft ?? 0;
-          const tl =
-            typeof snap.timeLeft === "number" && Number.isFinite(snap.timeLeft)
-              ? Math.floor(snap.timeLeft)
-              : cap;
-          setTimeLeft(Math.min(cap, Math.max(0, tl)));
-          if (Array.isArray(snap.tasks)) {
-            setTasks(
-              snap.tasks.filter(
-                (t) =>
-                  t &&
-                  typeof t.id === "string" &&
-                  typeof t.text === "string" &&
-                  typeof t.done === "boolean",
-              ),
-            );
+        const idx = Math.min(2, Math.max(0, Math.floor(snap.modeIdx ?? 0)));
+        const cap = nextModes[idx]?.duration ?? snap.timeLeft ?? 0;
+        const tl =
+          typeof snap.timeLeft === "number" && Number.isFinite(snap.timeLeft)
+            ? Math.floor(snap.timeLeft)
+            : cap;
+        setModeIdx(idx);
+        modeIdxRef.current = idx;
+        if (snap.v === 2) {
+          segmentStartRef.current =
+            typeof snap.segmentStartedAt === "string" ? new Date(snap.segmentStartedAt) : null;
+          const savedEndsAt =
+            typeof snap.runEndsAtMs === "number" && Number.isFinite(snap.runEndsAtMs)
+              ? snap.runEndsAtMs
+              : null;
+          if (snap.running && savedEndsAt !== null) {
+            const remaining = Math.max(0, Math.ceil((savedEndsAt - Date.now()) / 1000));
+            setTimeLeft(Math.min(cap, remaining));
+            timeLeftRef.current = Math.min(cap, remaining);
+            const shouldContinue = remaining > 0;
+            setRunning(shouldContinue);
+            runningRef.current = shouldContinue;
+            runEndsAtRef.current = shouldContinue ? savedEndsAt : null;
+            completionFiredRef.current = !shouldContinue;
+          } else {
+            const pausedTime = Math.min(cap, Math.max(0, tl));
+            setTimeLeft(pausedTime);
+            timeLeftRef.current = pausedTime;
+            setRunning(false);
+            runningRef.current = false;
+            runEndsAtRef.current = null;
+            completionFiredRef.current = pausedTime === 0;
           }
-          if (typeof snap.newTask === "string") {
-            setNewTask(snap.newTask);
-          }
-          if (Array.isArray(snap.sounds) && snap.sounds.length === AMBIENT_SOUNDS.length) {
-            setSounds(snap.sounds as typeof AMBIENT_SOUNDS);
-          }
+        } else {
+          const legacyTime = Math.min(cap, Math.max(0, tl));
+          setTimeLeft(legacyTime);
+          timeLeftRef.current = legacyTime;
+          setRunning(false);
+          runningRef.current = false;
+          runEndsAtRef.current = null;
+          segmentStartRef.current = null;
+          completionFiredRef.current = legacyTime === 0;
+        }
+        if (Array.isArray(snap.tasks)) {
+          setTasks(
+            snap.tasks.filter(
+              (t) =>
+                t &&
+                typeof t.id === "string" &&
+                typeof t.text === "string" &&
+                typeof t.done === "boolean",
+            ),
+          );
+        }
+        if (typeof snap.newTask === "string") {
+          setNewTask(snap.newTask);
+        }
+        if (Array.isArray(snap.sounds) && snap.sounds.length === AMBIENT_SOUNDS.length) {
+          setSounds(snap.sounds as typeof AMBIENT_SOUNDS);
         }
       }
     } catch {
@@ -231,7 +297,11 @@ export default function Pomodoro() {
 
   useEffect(() => {
     const cap = modes[modeIdx].duration;
-    setTimeLeft((t) => Math.min(t, cap));
+    setTimeLeft((t) => {
+      const next = Math.min(t, cap);
+      timeLeftRef.current = next;
+      return next;
+    });
   }, [modes, modeIdx]);
 
   const todayStats = useMemo(() => {
@@ -272,8 +342,13 @@ export default function Pomodoro() {
   const switchMode = useCallback(
     (idx: number) => {
       setModeIdx(idx);
-      setTimeLeft(modesRef.current[idx].duration);
+      modeIdxRef.current = idx;
+      const nextTime = modesRef.current[idx].duration;
+      setTimeLeft(nextTime);
+      timeLeftRef.current = nextTime;
       setRunning(false);
+      runningRef.current = false;
+      runEndsAtRef.current = null;
       segmentStartRef.current = null;
       completionFiredRef.current = false;
     },
@@ -281,8 +356,12 @@ export default function Pomodoro() {
   );
 
   const reset = useCallback(() => {
-    setTimeLeft(modesRef.current[modeIdxRef.current].duration);
+    const nextTime = modesRef.current[modeIdxRef.current].duration;
+    setTimeLeft(nextTime);
+    timeLeftRef.current = nextTime;
     setRunning(false);
+    runningRef.current = false;
+    runEndsAtRef.current = null;
     segmentStartRef.current = null;
     completionFiredRef.current = false;
   }, []);
@@ -293,7 +372,11 @@ export default function Pomodoro() {
     const planned = m.duration;
     const started = segmentStartRef.current ?? new Date();
     segmentStartRef.current = null;
+    runEndsAtRef.current = null;
     setRunning(false);
+    runningRef.current = false;
+    setTimeLeft(0);
+    timeLeftRef.current = 0;
     createSession.mutate({
       data: {
         mode: m.key,
@@ -305,27 +388,39 @@ export default function Pomodoro() {
     });
   }, [createSession]);
 
+  const syncRunningTimer = useCallback(() => {
+    const endsAt = runEndsAtRef.current;
+    if (endsAt === null) return;
+    const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+    if (remaining <= 0) {
+      if (!completionFiredRef.current) {
+        completionFiredRef.current = true;
+        completeSegment();
+      }
+      return;
+    }
+    setTimeLeft((current) => {
+      if (current === remaining) return current;
+      timeLeftRef.current = remaining;
+      return remaining;
+    });
+  }, [completeSegment]);
+
   useEffect(() => {
     if (running) {
-      intervalRef.current = setInterval(() => {
-        setTimeLeft((t) => {
-          if (t <= 1) {
-            if (!completionFiredRef.current) {
-              completionFiredRef.current = true;
-              completeSegment();
-            }
-            return 0;
-          }
-          return t - 1;
-        });
-      }, 1000);
+      syncRunningTimer();
+      intervalRef.current = setInterval(syncRunningTimer, 250);
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
-  }, [running, completeSegment]);
+  }, [running, syncRunningTimer]);
 
   useEffect(() => {
     return () => {
@@ -337,42 +432,47 @@ export default function Pomodoro() {
     if (!prefsHydratedRef.current) return;
     if (sessionPersistTimerRef.current) clearTimeout(sessionPersistTimerRef.current);
     sessionPersistTimerRef.current = setTimeout(() => {
-      try {
-        const payload: PomodoroSessionSnapshot = {
-          v: 1,
-          modeIdx,
-          timeLeft,
-          tasks,
-          newTask,
-          sounds,
-        };
-        localStorage.setItem(POMODORO_SESSION_KEY, JSON.stringify(payload));
-      } catch {
-        /* ignore quota */
-      }
+      persistSessionSnapshot();
     }, 600);
     return () => {
       if (sessionPersistTimerRef.current) clearTimeout(sessionPersistTimerRef.current);
     };
-  }, [modeIdx, timeLeft, tasks, newTask, sounds]);
+  }, [modeIdx, newTask, persistSessionSnapshot, running, sounds, tasks, timeLeft]);
+
+  useEffect(() => {
+    return () => {
+      if (sessionPersistTimerRef.current) clearTimeout(sessionPersistTimerRef.current);
+      persistSessionSnapshot();
+    };
+  }, [persistSessionSnapshot]);
 
   const toggleRunning = () => {
-    if (timeLeft === 0) {
-      setTimeLeft(mode.duration);
+    if (runningRef.current) {
+      const remaining = runEndsAtRef.current === null
+        ? timeLeftRef.current
+        : Math.max(0, Math.ceil((runEndsAtRef.current - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      timeLeftRef.current = remaining;
+      setRunning(false);
+      runningRef.current = false;
+      runEndsAtRef.current = null;
+      return;
+    }
+
+    const nextTime = timeLeftRef.current === 0 ? mode.duration : timeLeftRef.current;
+    const freshSegment =
+      timeLeftRef.current === 0 || timeLeftRef.current === mode.duration || segmentStartRef.current === null;
+    if (freshSegment) {
+      segmentStartRef.current = new Date();
       completionFiredRef.current = false;
     }
-    setRunning((r) => {
-      const next = !r;
-      if (!r && next) {
-        if (segmentStartRef.current === null) {
-          segmentStartRef.current = new Date();
-        }
-        if (timeLeft === mode.duration) {
-          completionFiredRef.current = false;
-        }
-      }
-      return next;
-    });
+    if (timeLeftRef.current === 0) {
+      setTimeLeft(nextTime);
+      timeLeftRef.current = nextTime;
+    }
+    runEndsAtRef.current = Date.now() + nextTime * 1000;
+    setRunning(true);
+    runningRef.current = true;
   };
 
   const addTask = () => {

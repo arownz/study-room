@@ -3,6 +3,7 @@ import { useLocation, useRoute } from "wouter";
 import { ChevronLeft, Plus } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { FlashcardCardGrid } from "@/features/flashcards/components/FlashcardCardGrid";
 import { FlashcardCreateDialog } from "@/features/flashcards/components/FlashcardCreateDialog";
@@ -11,6 +12,7 @@ import { FlashcardDeckCreateDialog } from "@/features/flashcards/components/Flas
 import { FlashcardEditor } from "@/features/flashcards/components/FlashcardEditor";
 import { FlashcardStudySession } from "@/features/flashcards/components/FlashcardStudySession";
 import { useFlashcardDecks } from "@/features/flashcards/hooks/use-flashcard-decks";
+import { HoverTooltip } from "@/components/ui/hover-tooltip";
 import {
   useFlashcards,
   type FlashcardViewModel,
@@ -87,6 +89,7 @@ export default function Flashcards() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<FlashcardViewModel | null>(null);
   const [studyState, setStudyState] = useState<{ startId: string } | null>(null);
+  const [confirmDeleteDeckId, setConfirmDeleteDeckId] = useState<string | null>(null);
   const [deletingDeckId, setDeletingDeckId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -110,9 +113,10 @@ export default function Flashcards() {
   };
 
   const handleDeleteDeck = async (deck: { id: string; title: string }) => {
-    if (!window.confirm(`Delete "${deck.title}" and all of its flashcards?`)) {
-      return;
-    }
+    setConfirmDeleteDeckId(deck.id);
+  };
+
+  const deleteDeckNow = async (deck: { id: string; title: string }) => {
     setDeletingDeckId(deck.id);
     try {
       await deleteDeck(deck.id);
@@ -126,6 +130,8 @@ export default function Flashcards() {
       setDeletingDeckId(null);
     }
   };
+
+  const deleteDeckTarget = decks.find((deck) => deck.id === confirmDeleteDeckId) ?? null;
 
   const handleCreateCard = async (values: { question: string; answer: string }) => {
     if (!routeDeckId) return;
@@ -307,6 +313,25 @@ export default function Flashcards() {
         onDelete={handleDelete}
         isSaving={isUpdating}
         isDeleting={isDeleting}
+      />
+
+      <ConfirmDialog
+        open={confirmDeleteDeckId !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmDeleteDeckId(null);
+        }}
+        title="Delete this deck?"
+        description={`Delete "${deleteDeckTarget?.title ?? "Untitled Deck"}" and all of its flashcards?`}
+        confirmLabel={deckDeleting ? "Deleting…" : "Delete deck"}
+        confirmDisabled={deckDeleting}
+        cancelDisabled={deckDeleting}
+        confirmVariant="destructive"
+        onConfirm={async (event) => {
+          event.preventDefault();
+          if (!deleteDeckTarget) return;
+          setConfirmDeleteDeckId(null);
+          await deleteDeckNow(deleteDeckTarget);
+        }}
       />
     </div>
   );

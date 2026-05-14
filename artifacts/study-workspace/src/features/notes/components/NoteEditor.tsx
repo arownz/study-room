@@ -10,15 +10,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  ConfirmDialog,
+} from "@/components/ui/confirm-dialog";
+import { HoverTooltip } from "@/components/ui/hover-tooltip";
 import { RichTextEditor, htmlToPlainText } from "@/components/rich-editor/RichTextEditor";
 import { useToast } from "@/hooks/use-toast";
 import { NoteEditorBreadcrumb } from "./NoteEditorBreadcrumb";
@@ -40,6 +34,8 @@ interface NoteEditorProps {
   isDuplicating?: boolean;
 }
 
+const NOTE_AUTOSAVE_MS = 1200;
+
 export function NoteEditor({
   note,
   onSave,
@@ -55,9 +51,10 @@ export function NoteEditor({
   const { toast } = useToast();
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
+  const [savedSnapshot, setSavedSnapshot] = useState({ title: note.title, content: note.content });
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [hasPendingLocalChanges, setHasPendingLocalChanges] = useState(false);
   const latestDraftRef = useRef({ title: note.title, content: note.content, dirty: false });
+  const lastAutoSavedKeyRef = useRef<string | null>(null);
 
   const setLatestDraftRef = useCallback(
     (next: { title?: string; content?: string; dirty?: boolean }) => {
@@ -97,8 +94,9 @@ export function NoteEditor({
         const nextContent = parsed.content ?? note.content;
         setTitle(nextTitle);
         setContent(nextContent);
-        setHasPendingLocalChanges(true);
+        setSavedSnapshot({ title: note.title, content: note.content });
         setLatestDraftRef({ title: nextTitle, content: nextContent, dirty: true });
+        lastAutoSavedKeyRef.current = null;
         return;
       }
     } catch {
@@ -106,27 +104,29 @@ export function NoteEditor({
     }
     setTitle(note.title);
     setContent(note.content);
-    setHasPendingLocalChanges(false);
+    setSavedSnapshot({ title: note.title, content: note.content });
     setLatestDraftRef({ title: note.title, content: note.content, dirty: false });
+    lastAutoSavedKeyRef.current = JSON.stringify([note.title, note.content]);
   }, [note.id, note.title, note.content, setLatestDraftRef]);
 
-  useEffect(() => {
-    if (hasPendingLocalChanges) return;
-    setTitle(note.title);
-    setContent(note.content);
-  }, [note.title, note.content, hasPendingLocalChanges]);
-
-  useEffect(() => {
-    if (!hasPendingLocalChanges) return;
-    persistDraft(title, content);
-  }, [title, content, hasPendingLocalChanges, persistDraft]);
-
-  const isDirty = hasPendingLocalChanges || title !== note.title || content !== note.content;
+  const isDirty = title !== savedSnapshot.title || content !== savedSnapshot.content;
   latestDraftRef.current = { title, content, dirty: isDirty };
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (isDirty) {
+      persistDraft(title, content);
+      return;
+    }
+    try {
+      window.localStorage.removeItem(`${DRAFT_KEY_PREFIX}${note.id}`);
+    } catch {
+      /* ignore */
+    }
+  }, [DRAFT_KEY_PREFIX, content, isDirty, note.id, persistDraft, title]);
 
   useEffect(() => {
     return () => {
@@ -135,12 +135,20 @@ export function NoteEditor({
     };
   }, [persistDraft]);
 
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (options?: { silent?: boolean }) => {
     if (!isDirty) return;
-    await onSave({ title, content }, { silent: false });
-    window.localStorage.removeItem(`${DRAFT_KEY_PREFIX}${note.id}`);
-    setHasPendingLocalChanges(false);
-    setLatestDraftRef({ title, content, dirty: false });
+    const saveKey = JSON.stringify([title, content]);
+    lastAutoSavedKeyRef.current = saveKey;
+    try {
+      await onSave({ title, content }, { silent: options?.silent ?? false });
+      window.localStorage.removeItem(`${DRAFT_KEY_PREFIX}${note.id}`);
+      setSavedSnapshot({ title, content });
+      setLatestDraftRef({ title, content, dirty: false });
+    } catch {
+      if (lastAutoSavedKeyRef.current === saveKey) {
+        lastAutoSavedKeyRef.current = null;
+      }
+    }
   }, [content, isDirty, note.id, onSave, setLatestDraftRef, title]);
 
   useEffect(() => {
@@ -153,6 +161,16 @@ export function NoteEditor({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handleSave]);
+
+  useEffect(() => {
+    if (!isDirty || isSaving) return;
+    const saveKey = JSON.stringify([title, content]);
+    if (lastAutoSavedKeyRef.current === saveKey) return;
+    const timer = window.setTimeout(() => {
+      void handleSave({ silent: true });
+    }, NOTE_AUTOSAVE_MS);
+    return () => window.clearTimeout(timer);
+  }, [content, handleSave, isDirty, isSaving, title]);
 
   const openPrintPreview = (): boolean => {
     const preview = window.open("", "_blank");
@@ -198,9 +216,9 @@ export function NoteEditor({
           onChange={(event) => {
             const nextTitle = event.target.value;
             setTitle(nextTitle);
-            setHasPendingLocalChanges(true);
             setLatestDraftRef({ title: nextTitle, content, dirty: true });
             persistDraft(nextTitle, content);
+            lastAutoSavedKeyRef.current = null;
           }}
           className="w-full border-none bg-transparent text-2xl font-bold text-foreground outline-none placeholder:text-muted-foreground"
           placeholder="Untitled"
@@ -214,52 +232,66 @@ export function NoteEditor({
           documentKey={note.id}
           layoutMode="canvas"
           value={content}
+          onDraftSnapshot={(next) => {
+            const nextDirty = latestDraftRef.current.dirty;
+            setLatestDraftRef({
+              title: latestDraftRef.current.title,
+              content: next,
+              dirty: nextDirty,
+            });
+            if (nextDirty) {
+              persistDraft(latestDraftRef.current.title, next);
+            }
+          }}
           onChange={(next) => {
             setContent(next);
-            setHasPendingLocalChanges(true);
             setLatestDraftRef({ title, content: next, dirty: true });
             persistDraft(title, next);
+            lastAutoSavedKeyRef.current = null;
           }}
           placeholder="Click the canvas to place the caret and type to add a text block."
           enableRichMedia
           showMediaHint
           toolbarRight={
             <>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={onToggleFavorite}
-                title={note.isFavorite ? "Remove from favorites" : "Add to favorites"}
-                data-testid="button-toggle-favorite"
-              >
-                {note.isFavorite ? (
-                  <Star size={13} className="fill-amber-400 text-amber-400" />
-                ) : (
-                  <StarOff size={13} />
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={handleSave}
-                disabled={!isDirty || isSaving}
-                title="Save"
-                data-testid="button-save-note"
-              >
-                {isSaving ? <Spinner className="size-3" /> : <Save size={13} />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-destructive/70 hover:text-destructive"
-                onClick={() => setConfirmDelete(true)}
-                title="Delete"
-                data-testid="button-delete-note"
-              >
-                <Trash2 size={13} />
-              </Button>
+              <HoverTooltip content={note.isFavorite ? "Remove from favorites" : "Add to favorites"}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={onToggleFavorite}
+                  data-testid="button-toggle-favorite"
+                >
+                  {note.isFavorite ? (
+                    <Star size={13} className="fill-amber-400 text-amber-400" />
+                  ) : (
+                    <StarOff size={13} />
+                  )}
+                </Button>
+              </HoverTooltip>
+              <HoverTooltip content="Save" disabled={!isDirty || isSaving}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => void handleSave()}
+                  disabled={!isDirty || isSaving}
+                  data-testid="button-save-note"
+                >
+                  {isSaving ? <Spinner className="size-3" /> : <Save size={13} />}
+                </Button>
+              </HoverTooltip>
+              <HoverTooltip content="Delete">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-destructive/70 hover:text-destructive"
+                  onClick={() => setConfirmDelete(true)}
+                  data-testid="button-delete-note"
+                >
+                  <Trash2 size={13} />
+                </Button>
+              </HoverTooltip>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -332,31 +364,21 @@ export function NoteEditor({
         isDirty={isDirty}
       />
 
-      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this note?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action moves the note to deleted state. You can restore it later from the trash
-              when that feature is available.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={async (event) => {
-                event.preventDefault();
-                await onDelete();
-                setConfirmDelete(false);
-              }}
-              disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isDeleting ? "Deleting…" : "Delete note"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title="Delete this note?"
+        description="This action moves the note to deleted state. You can restore it later from the trash when that feature is available."
+        confirmLabel={isDeleting ? "Deleting…" : "Delete note"}
+        confirmDisabled={isDeleting}
+        cancelDisabled={isDeleting}
+        confirmVariant="destructive"
+        onConfirm={async (event) => {
+          event.preventDefault();
+          await onDelete();
+          setConfirmDelete(false);
+        }}
+      />
     </div>
   );
 }

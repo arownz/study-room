@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useRoute } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/hooks/use-toast";
 import { NoteEditor } from "@/features/notes/components/NoteEditor";
@@ -56,6 +57,7 @@ export default function Notes() {
   const [selectedId, setSelectedId] = useState<string>(() => routeNoteId ?? readLastNoteId() ?? "");
   const [duplicateBusy, setDuplicateBusy] = useState(false);
   const [selectedNoteDirty, setSelectedNoteDirty] = useState(false);
+  const [createConfirmOpen, setCreateConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (routeNoteId) {
@@ -118,15 +120,7 @@ export default function Notes() {
     setLocation(`/notes/${id}`);
   };
 
-  const handleCreate = async () => {
-    if (
-      selectedNoteDirty &&
-      !window.confirm(
-        "This note has unsaved changes. A local draft will be kept, but create a new note anyway?",
-      )
-    ) {
-      return;
-    }
+  const createNoteNow = async () => {
     try {
       const created = await createNote();
       setSelectedId(created.id);
@@ -137,6 +131,14 @@ export default function Notes() {
     } catch {
       toast({ title: "Failed to create note", variant: "destructive" });
     }
+  };
+
+  const handleCreate = async () => {
+    if (selectedNoteDirty) {
+      setCreateConfirmOpen(true);
+      return;
+    }
+    await createNoteNow();
   };
 
   const handleSave = async (
@@ -154,6 +156,7 @@ export default function Notes() {
         title: options?.silent ? "Auto-save failed" : "Failed to save note",
         variant: "destructive",
       });
+      throw new Error("note-save-failed");
     }
   };
 
@@ -229,6 +232,18 @@ export default function Notes() {
           </Card>
         </div>
       )}
+      <ConfirmDialog
+        open={createConfirmOpen}
+        onOpenChange={setCreateConfirmOpen}
+        title="Create a new note?"
+        description="This note still has unsaved changes. Your local draft will be kept, but you will switch to a new note."
+        confirmLabel="Create note"
+        onConfirm={async (event) => {
+          event.preventDefault();
+          setCreateConfirmOpen(false);
+          await createNoteNow();
+        }}
+      />
     </div>
   );
 }

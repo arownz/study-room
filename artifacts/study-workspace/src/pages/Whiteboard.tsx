@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { WhiteboardList } from "@/features/whiteboard/components/WhiteboardList";
 import { WhiteboardWorkbench } from "@/features/whiteboard/components/WhiteboardWorkbench";
 import { useWhiteboards } from "@/features/whiteboard/hooks/use-whiteboards";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const LAST_WHITEBOARD_ID_KEY = "studyroom.whiteboards.lastId";
 
@@ -21,6 +22,8 @@ export default function Whiteboard() {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string>(routeWhiteboardId ?? "");
   const [selectedBoardDirty, setSelectedBoardDirty] = useState(false);
+  const [createConfirmOpen, setCreateConfirmOpen] = useState(false);
+  const [confirmDeleteBoardId, setConfirmDeleteBoardId] = useState<string | null>(null);
   const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null);
   const attemptedLastRestore = useRef(false);
 
@@ -78,16 +81,7 @@ export default function Whiteboard() {
     setLocation(`/whiteboard/${whiteboardId}`);
   };
 
-  const handleCreate = async () => {
-    if (
-      selectedBoardDirty &&
-      !window.confirm(
-        "This whiteboard has unsaved changes. A local draft will be kept, but create a new board anyway?",
-      )
-    ) {
-      return;
-    }
-
+  const createBoardNow = async () => {
     try {
       const created = await createBoard();
       setSelectedBoardDirty(false);
@@ -99,19 +93,16 @@ export default function Whiteboard() {
     }
   };
 
-  const handleDelete = async (whiteboardId: string) => {
-    const target = boards.find((board) => board.id === whiteboardId);
-    if (!target) return;
+  const handleCreate = async () => {
+    if (selectedBoardDirty) {
+      setCreateConfirmOpen(true);
+      return;
+    }
+    await createBoardNow();
+  };
 
+  const deleteBoardNow = async (whiteboardId: string) => {
     const deletingSelectedBoard = selected?.id === whiteboardId;
-    const needsUnsavedConfirm = deletingSelectedBoard && selectedBoardDirty;
-    const confirmed = window.confirm(
-      needsUnsavedConfirm
-        ? `Delete "${target.title.trim() || "Untitled Whiteboard"}"? Unsaved local changes for this board will be lost.`
-        : `Delete "${target.title.trim() || "Untitled Whiteboard"}"?`,
-    );
-    if (!confirmed) return;
-
     setDeletingBoardId(whiteboardId);
     try {
       await deleteBoard(whiteboardId);
@@ -141,6 +132,16 @@ export default function Whiteboard() {
       setDeletingBoardId(null);
     }
   };
+
+  const handleDelete = async (whiteboardId: string) => {
+    setConfirmDeleteBoardId(whiteboardId);
+  };
+
+  const deleteTarget = boards.find((board) => board.id === confirmDeleteBoardId) ?? null;
+  const deleteDialogDescription =
+    deleteTarget && deleteTarget.id === selected?.id && selectedBoardDirty
+      ? `Delete "${deleteTarget.title.trim() || "Untitled Whiteboard"}"? Unsaved local changes for this board will be lost.`
+      : `Delete "${deleteTarget?.title.trim() || "Untitled Whiteboard"}"?`;
 
   return (
     <div className="-m-6 flex h-[calc(100vh-3.5rem-3rem)] min-h-0 min-w-0 overflow-hidden rounded-xl border border-border/40">
@@ -181,6 +182,39 @@ export default function Whiteboard() {
           </Card>
         </div>
       )}
+
+      <ConfirmDialog
+        open={createConfirmOpen}
+        onOpenChange={setCreateConfirmOpen}
+        title="Create a new whiteboard?"
+        description="This whiteboard still has unsaved changes. Your local draft will be kept, but you will switch to a new whiteboard."
+        confirmLabel="Create whiteboard"
+        onConfirm={async (event) => {
+          event.preventDefault();
+          setCreateConfirmOpen(false);
+          await createBoardNow();
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmDeleteBoardId !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmDeleteBoardId(null);
+        }}
+        title="Delete this whiteboard?"
+        description={deleteDialogDescription}
+        confirmLabel={isDeleting ? "Deleting…" : "Delete whiteboard"}
+        confirmDisabled={isDeleting}
+        cancelDisabled={isDeleting}
+        confirmVariant="destructive"
+        onConfirm={async (event) => {
+          event.preventDefault();
+          if (!confirmDeleteBoardId) return;
+          const targetId = confirmDeleteBoardId;
+          setConfirmDeleteBoardId(null);
+          await deleteBoardNow(targetId);
+        }}
+      />
     </div>
   );
 }

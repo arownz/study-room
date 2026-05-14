@@ -2,17 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { MoveDiagonal2, Trash2 } from "lucide-react";
 import { useGetWhiteboard, useUpdateWhiteboard } from "@workspace/api-client-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { HoverTooltip } from "@/components/ui/hover-tooltip";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/hooks/use-toast";
@@ -21,7 +13,7 @@ import {
   clearBoardObjects,
   cloneBoard,
   deleteSelectionFromBoard,
-  eraseStrokeSegmentsFromBoard,
+  eraseBoardObjectsAtPoint,
 } from "../board-mutations";
 import { boardToSvgString, downloadBlob } from "../export-whiteboard";
 import { hitTestBoard } from "../hit-test-board";
@@ -44,6 +36,7 @@ const LOCAL_DRAFT_KEY_PREFIX = "studyroom.whiteboard.draft:";
 const MAX_UNDO = 80;
 const STICKY_W = 176;
 const STICKY_H = 100;
+const WHITEBOARD_AUTOSAVE_MS = 1500;
 
 interface WhiteboardWorkbenchProps {
   whiteboardId: string;
@@ -132,6 +125,7 @@ export function WhiteboardWorkbench({
   boardRef.current = board;
   const titleRef = useRef(title);
   titleRef.current = title;
+  const lastSavedKeyRef = useRef<string | null>(null);
 
   const draftKey = `${LOCAL_DRAFT_KEY_PREFIX}${whiteboardId}`;
 
@@ -155,17 +149,23 @@ export function WhiteboardWorkbench({
         const parsed = JSON.parse(draftRaw) as { title?: string; snapshot?: string; version?: number };
         const legacySnapshot =
           parsed && typeof parsed === "object" && "version" in parsed ? draftRaw : undefined;
-        setBoard(parseSnapshot(parsed.snapshot ?? legacySnapshot ?? boardEnvelope.data.snapshot));
-        setTitle(parsed.title ?? boardEnvelope.data.title);
+        const nextBoard = parseSnapshot(parsed.snapshot ?? legacySnapshot ?? boardEnvelope.data.snapshot);
+        const nextTitle = parsed.title ?? boardEnvelope.data.title;
+        setBoard(nextBoard);
+        setTitle(nextTitle);
         setHasLocalChanges(true);
+        lastSavedKeyRef.current = null;
         hydratedRef.current = true;
         return;
       }
     } catch {
       /* ignore corrupted local draft */
     }
-    setBoard(parseSnapshot(boardEnvelope.data.snapshot));
-    setTitle(boardEnvelope.data.title);
+    const nextBoard = parseSnapshot(boardEnvelope.data.snapshot);
+    const nextTitle = boardEnvelope.data.title;
+    setBoard(nextBoard);
+    setTitle(nextTitle);
+    lastSavedKeyRef.current = JSON.stringify([nextTitle.trim() || "Untitled Whiteboard", boardEnvelope.data.snapshot]);
     hydratedRef.current = true;
   }, [boardEnvelope, draftKey]);
 
@@ -216,8 +216,15 @@ export function WhiteboardWorkbench({
     };
   }, [draftKey, hasLocalChanges]);
 
-  const saveBoardState = useCallback(async (nextBoard: BoardState) => {
+  const saveBoardState = useCallback(async (
+    nextBoard: BoardState,
+    options?: { silent?: boolean; titleOverride?: string },
+  ) => {
+    const nextTitle = options?.titleOverride ?? titleRef.current;
     const snapshot = serializeBoard(nextBoard);
+    const normalizedTitle = nextTitle.trim() || "Untitled Whiteboard";
+    const saveKey = JSON.stringify([normalizedTitle, snapshot]);
+    lastSavedKeyRef.current = saveKey;
     if (snapshot.length > SNAPSHOT_BYTES_WARN) {
       toast({
         title: "Snapshot very large",
@@ -225,24 +232,50 @@ export function WhiteboardWorkbench({
         variant: "destructive",
       });
     }
-    await updateBoard.mutateAsync({
-      whiteboardId,
-      data: {
-        title: title.trim() || "Untitled Whiteboard",
-        snapshot,
-      },
-    });
-    window.localStorage.removeItem(draftKey);
-    setHasLocalChanges(false);
-  }, [draftKey, title, toast, updateBoard, whiteboardId]);
+    try {
+      await updateBoard.mutateAsync({
+        whiteboardId,
+        data: {
+          title: normalizedTitle,
+          snapshot,
+        },
+      });
+      window.localStorage.removeItem(draftKey);
+      setHasLocalChanges(false);
+    } catch (error) {
+      if (lastSavedKeyRef.current === saveKey) {
+        lastSavedKeyRef.current = null;
+      }
+      toast({
+        title: options?.silent ? "Auto-save failed" : "Failed to save whiteboard",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }, [draftKey, toast, updateBoard, whiteboardId]);
 
-  const handleSave = useCallback(async () => {
-    await saveBoardState(boardRef.current);
+  const handleSave = useCallback(async (options?: { silent?: boolean }) => {
+    try {
+      await saveBoardState(boardRef.current, { silent: options?.silent, titleOverride: titleRef.current });
+    } catch {
+      /* toast already shown in saveBoardState */
+    }
   }, [saveBoardState]);
 
   useEffect(() => {
     onDirtyChange?.(hasLocalChanges);
   }, [hasLocalChanges, onDirtyChange]);
+
+  useEffect(() => {
+    if (!hydratedRef.current || !hasLocalChanges || updateBoard.isPending) return;
+    const normalizedTitle = title.trim() || "Untitled Whiteboard";
+    const saveKey = JSON.stringify([normalizedTitle, serializeBoard(board)]);
+    if (lastSavedKeyRef.current === saveKey) return;
+    const timer = window.setTimeout(() => {
+      void handleSave({ silent: true });
+    }, WHITEBOARD_AUTOSAVE_MS);
+    return () => window.clearTimeout(timer);
+  }, [board, handleSave, hasLocalChanges, title, updateBoard.isPending]);
 
   const deleteSelection = useCallback(
     (target: Exclude<Selection, null>) => {
@@ -325,18 +358,21 @@ export function WhiteboardWorkbench({
 
   const eraseAtBoardPoint = useCallback((bx: number, by: number) => {
     const current = boardRef.current;
-    const next = eraseStrokeSegmentsFromBoard(current, bx, by, eraserSize / 2);
+    const next = eraseBoardObjectsAtPoint(current, bx, by, eraserSize / 2);
     if (next === current) return false;
     boardRef.current = next;
     setBoard(next);
-    if (selectionRef.current?.kind === "stroke") {
-      setSelection((current) =>
-        current &&
-        current.kind === "stroke" &&
-        !next.strokes.some((stroke) => stroke.id === current.id)
-          ? null
-          : current,
-      );
+    const selected = selectionRef.current;
+    if (selected) {
+      const stillExists =
+        selected.kind === "stroke"
+          ? next.strokes.some((stroke) => stroke.id === selected.id)
+          : selected.kind === "shape"
+            ? next.shapes.some((shape) => shape.id === selected.id)
+            : next.stickies.some((sticky) => sticky.id === selected.id);
+      if (!stillExists) {
+        setSelection(null);
+      }
     }
     if (hydratedRef.current) setHasLocalChanges(true);
     if (eraseSessionRef.current) eraseSessionRef.current.changed = true;
@@ -1018,16 +1054,17 @@ export function WhiteboardWorkbench({
                   style={{ color: lb.color }}
                   onClick={(ev) => ev.stopPropagation()}
                 />
-                <button
-                  type="button"
-                  className="absolute bottom-1 right-1 flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
-                  onPointerDown={(event) =>
-                    beginLabelResize(event, lb.id, Math.max(80, Math.abs(lb.w)), Math.max(40, Math.abs(lb.h)))
-                  }
-                  title="Resize label"
-                >
-                  <MoveDiagonal2 size={12} />
-                </button>
+                <HoverTooltip content="Resize label">
+                  <button
+                    type="button"
+                    className="absolute bottom-1 right-1 flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+                    onPointerDown={(event) =>
+                      beginLabelResize(event, lb.id, Math.max(80, Math.abs(lb.w)), Math.max(40, Math.abs(lb.h)))
+                    }
+                  >
+                    <MoveDiagonal2 size={12} />
+                  </button>
+                </HoverTooltip>
               </div>
             ))}
 
@@ -1093,55 +1130,35 @@ export function WhiteboardWorkbench({
         ) : null}
       </div>
 
-      <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Clear this whiteboard?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This removes all notes, strokes, and shapes from the current canvas. You can still undo
-              it until you save or refresh.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={updateBoard.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                clearBoard();
-                setClearDialogOpen(false);
-              }}
-              disabled={updateBoard.isPending || !boardHasContent}
-            >
-              Clear board
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={clearDialogOpen}
+        onOpenChange={setClearDialogOpen}
+        title="Clear this whiteboard?"
+        description="This removes all notes, strokes, and shapes from the current canvas. You can still undo it until you save or refresh."
+        confirmLabel="Clear board"
+        confirmDisabled={updateBoard.isPending || !boardHasContent}
+        cancelDisabled={updateBoard.isPending}
+        onConfirm={(event) => {
+          event.preventDefault();
+          clearBoard();
+          setClearDialogOpen(false);
+        }}
+      />
 
-      <AlertDialog open={newDialogOpen} onOpenChange={setNewDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Create a new whiteboard?</AlertDialogTitle>
-            <AlertDialogDescription>
-              A new untitled whiteboard will be created and your current board will stay available in
-              the sidebar. If you have unsaved changes, you may be asked to confirm first.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={updateBoard.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                onCreateRequested?.();
-                setNewDialogOpen(false);
-              }}
-              disabled={updateBoard.isPending}
-            >
-              Create whiteboard
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={newDialogOpen}
+        onOpenChange={setNewDialogOpen}
+        title="Create a new whiteboard?"
+        description="A new untitled whiteboard will be created and your current board will stay available in the sidebar. If you have unsaved changes, you may be asked to confirm first."
+        confirmLabel="Create whiteboard"
+        confirmDisabled={updateBoard.isPending}
+        cancelDisabled={updateBoard.isPending}
+        onConfirm={(event) => {
+          event.preventDefault();
+          onCreateRequested?.();
+          setNewDialogOpen(false);
+        }}
+      />
 
       <div className="flex items-center gap-4 border-t border-border/60 px-4 py-1.5 text-[10px] text-muted-foreground">
         <span>Objects: {objectCount}</span>

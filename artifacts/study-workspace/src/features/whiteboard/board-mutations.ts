@@ -1,6 +1,9 @@
 import { emptyBoardState } from "./snapshot";
 import { minDistanceToPolyline } from "./stroke-utils";
-import type { BoardState, Selection, StrokeItem } from "./types";
+import type { BoardShape, BoardState, Selection, StrokeItem } from "./types";
+
+const STICKY_W = 176;
+const STICKY_H = 100;
 
 export function cloneBoard(b: BoardState): BoardState {
   return structuredClone(b);
@@ -135,5 +138,94 @@ export function eraseStrokeSegmentsFromBoard(
   return {
     ...state,
     strokes,
+  };
+}
+
+function normalizeRect(x: number, y: number, w: number, h: number) {
+  const x2 = x + w;
+  const y2 = y + h;
+  return {
+    minx: Math.min(x, x2),
+    maxx: Math.max(x, x2),
+    miny: Math.min(y, y2),
+    maxy: Math.max(y, y2),
+  };
+}
+
+function pointInExpandedRect(
+  bx: number,
+  by: number,
+  minx: number,
+  maxx: number,
+  miny: number,
+  maxy: number,
+  radius: number,
+): boolean {
+  return (
+    bx >= minx - radius &&
+    bx <= maxx + radius &&
+    by >= miny - radius &&
+    by <= maxy + radius
+  );
+}
+
+function pointInExpandedEllipse(
+  bx: number,
+  by: number,
+  minx: number,
+  maxx: number,
+  miny: number,
+  maxy: number,
+  radius: number,
+): boolean {
+  const cx = (minx + maxx) / 2;
+  const cy = (miny + maxy) / 2;
+  const rx = Math.max(1, (maxx - minx) / 2 + radius);
+  const ry = Math.max(1, (maxy - miny) / 2 + radius);
+  const u = (bx - cx) / rx;
+  const v = (by - cy) / ry;
+  return u * u + v * v <= 1;
+}
+
+function shapeTouchedByEraser(shape: BoardShape, bx: number, by: number, radius: number): boolean {
+  if (shape.kind === "line") {
+    return (
+      minDistanceToPolyline(bx, by, [
+        [shape.x, shape.y],
+        [shape.x + shape.w, shape.y + shape.h],
+      ]) <= Math.max(radius, shape.strokeWidth + 2)
+    );
+  }
+
+  const { minx, maxx, miny, maxy } = normalizeRect(shape.x, shape.y, shape.w, shape.h);
+  if (shape.kind === "ellipse") {
+    return pointInExpandedEllipse(bx, by, minx, maxx, miny, maxy, radius);
+  }
+  return pointInExpandedRect(bx, by, minx, maxx, miny, maxy, radius);
+}
+
+export function eraseBoardObjectsAtPoint(
+  state: BoardState,
+  bx: number,
+  by: number,
+  radius: number,
+): BoardState {
+  const afterStrokes = eraseStrokeSegmentsFromBoard(state, bx, by, radius);
+  const stickies = afterStrokes.stickies.filter(
+    (sticky) => !pointInExpandedRect(bx, by, sticky.x, sticky.x + STICKY_W, sticky.y, sticky.y + STICKY_H, radius),
+  );
+  const shapes = afterStrokes.shapes.filter((shape) => !shapeTouchedByEraser(shape, bx, by, radius));
+
+  const stickiesChanged = stickies.length !== afterStrokes.stickies.length;
+  const shapesChanged = shapes.length !== afterStrokes.shapes.length;
+
+  if (!stickiesChanged && !shapesChanged) {
+    return afterStrokes;
+  }
+
+  return {
+    ...afterStrokes,
+    stickies,
+    shapes,
   };
 }

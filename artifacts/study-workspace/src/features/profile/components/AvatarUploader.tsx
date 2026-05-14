@@ -8,7 +8,7 @@ import {
   useUploadAvatar,
 } from "../hooks/use-profile";
 
-const MAX_BYTES = 2 * 1024 * 1024;
+const MAX_BYTES = 10 * 1024 * 1024;
 const ACCEPT = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
 interface AvatarUploaderProps {
@@ -47,7 +47,7 @@ export function AvatarUploader({
     if (file.size > MAX_BYTES) {
       toast({
         title: "Image too large",
-        description: "Maximum upload size is 2 MB.",
+        description: "Maximum upload size is 10 MB.",
       });
       return;
     }
@@ -142,7 +142,7 @@ export function AvatarUploader({
           ) : null}
         </div>
         <p className="text-xs text-muted-foreground">
-          PNG, JPG, WEBP or GIF · max 2 MB
+          PNG, JPG, WEBP or GIF · max 10 MB
         </p>
       </div>
       <input

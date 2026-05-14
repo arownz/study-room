@@ -40,17 +40,52 @@ export type InkCanvasBlock = {
 export type CanvasBlock = TextCanvasBlock | ImageCanvasBlock | InkCanvasBlock;
 
 export const CANVAS_MARKER = "data-note-canvas";
+export const DEFAULT_TEXT_BLOCK_WIDTH = 420;
+export const DEFAULT_TEXT_BLOCK_HEIGHT = 132;
+export const DEFAULT_IMAGE_TEXT_BLOCK_WIDTH = 640;
+export const DEFAULT_IMAGE_TEXT_BLOCK_HEIGHT = 360;
 
 export function uid(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function createDeterministicTextBlock(id: string, x: number, y: number, html = ""): TextCanvasBlock {
-  return { id, type: "text", x, y, width: 680, height: 260, z: 1, html };
+  return {
+    id,
+    type: "text",
+    x,
+    y,
+    width: DEFAULT_TEXT_BLOCK_WIDTH,
+    height: DEFAULT_TEXT_BLOCK_HEIGHT,
+    z: 1,
+    html,
+  };
 }
 
 export function createTextBlock(x: number, y: number, html = ""): TextCanvasBlock {
-  return { id: uid("text"), type: "text", x, y, width: 680, height: 260, z: 1, html };
+  return {
+    id: uid("text"),
+    type: "text",
+    x,
+    y,
+    width: DEFAULT_TEXT_BLOCK_WIDTH,
+    height: DEFAULT_TEXT_BLOCK_HEIGHT,
+    z: 1,
+    html,
+  };
+}
+
+export function createImageTextBlock(x: number, y: number, html = ""): TextCanvasBlock {
+  return {
+    id: uid("text"),
+    type: "text",
+    x,
+    y,
+    width: DEFAULT_IMAGE_TEXT_BLOCK_WIDTH,
+    height: DEFAULT_IMAGE_TEXT_BLOCK_HEIGHT,
+    z: 1,
+    html,
+  };
 }
 
 function escapeHtml(s: string): string {

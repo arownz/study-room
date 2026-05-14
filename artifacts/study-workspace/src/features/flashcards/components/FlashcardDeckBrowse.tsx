@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 import type { FlashcardDeckViewModel } from "../hooks/use-flashcard-decks";
+import { HoverTooltip } from "@/components/ui/hover-tooltip";
 
 interface FlashcardDeckBrowseProps {
   decks: FlashcardDeckViewModel[];
@@ -86,21 +87,23 @@ export function FlashcardDeckBrowse({
                     <Layers size={10} className="mr-0.5" />
                     Deck
                   </Badge>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 shrink-0 text-destructive/70 hover:text-destructive"
-                    onClick={() => onDeleteDeck(deck)}
-                    disabled={deletingDeckId === deck.id}
-                    data-testid={`button-delete-deck-${deck.id}`}
-                  >
-                    {deletingDeckId === deck.id ? (
-                      <Spinner className="size-3" />
-                    ) : (
-                      <Trash2 size={13} />
-                    )}
-                  </Button>
+                  <HoverTooltip content="Delete deck">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 text-destructive/70 hover:text-destructive"
+                      onClick={() => onDeleteDeck(deck)}
+                      disabled={deletingDeckId === deck.id}
+                      data-testid={`button-delete-deck-${deck.id}`}
+                    >
+                      {deletingDeckId === deck.id ? (
+                        <Spinner className="size-3" />
+                      ) : (
+                        <Trash2 size={13} />
+                      )}
+                    </Button>
+                  </HoverTooltip>
                 </div>
               </div>
             </CardHeader>

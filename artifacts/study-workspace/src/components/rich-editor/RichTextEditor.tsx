@@ -32,11 +32,13 @@ import {
 } from "lucide-react";
 import { ApiError, customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
+import { HoverTooltip } from "@/components/ui/hover-tooltip";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { shortcutModLabel } from "@/lib/platform";
 import {
+  createImageTextBlock,
   createTextBlock,
   parseCanvas,
   serializeCanvas,
@@ -105,6 +107,7 @@ interface RichTextEditorProps {
   layoutMode?: "linear" | "canvas";
   value: string;
   onChange: (value: string) => void;
+  onDraftSnapshot?: (value: string) => void;
   placeholder?: string;
   className?: string;
   toolbarRight?: React.ReactNode;
@@ -327,6 +330,7 @@ interface LinearEditorProps extends RichTextEditorProps {
 function LinearRichTextEditor({
   value,
   onChange,
+  onDraftSnapshot,
   placeholder,
   className,
   toolbarRight,
@@ -412,7 +416,9 @@ function LinearRichTextEditor({
     },
     onUpdate: ({ editor }) => {
       const next = editor.getHTML();
-      onChange(next === "<p></p>" ? "" : next);
+      const normalized = next === "<p></p>" ? "" : next;
+      onChange(normalized);
+      onDraftSnapshot?.(normalized);
     },
   });
 
@@ -433,6 +439,14 @@ function LinearRichTextEditor({
     editor?.setEditable(!readOnly);
   }, [editor, readOnly]);
 
+  useEffect(() => {
+    return () => {
+      if (!editor) return;
+      const next = editor.getHTML();
+      onDraftSnapshot?.(next === "<p></p>" ? "" : next);
+    };
+  }, [editor, onDraftSnapshot]);
+
   return (
     <div className={cn("flex h-full min-h-0 flex-col", className)}>
       <div className="flex flex-wrap items-center gap-1 border-b border-border/60 px-3 py-1.5">
@@ -444,20 +458,20 @@ function LinearRichTextEditor({
               const isDisabled = readOnly || !editor || (button.isDisabled?.(editor) ?? false);
               const Icon = button.icon;
               return (
-                <Button
-                  key={button.id}
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className={cn("h-7 w-7", isActive && "bg-muted text-foreground")}
-                  title={button.label}
-                  disabled={isDisabled}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => editor && button.command(editor)}
-                  data-testid={`rte-${button.id}`}
-                >
-                  <Icon size={13} />
-                </Button>
+                <HoverTooltip key={button.id} content={button.label} disabled={isDisabled}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={cn("h-7 w-7", isActive && "bg-muted text-foreground")}
+                    disabled={isDisabled}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => editor && button.command(editor)}
+                    data-testid={`rte-${button.id}`}
+                  >
+                    <Icon size={13} />
+                  </Button>
+                </HoverTooltip>
               );
             })}
           </div>
@@ -465,19 +479,20 @@ function LinearRichTextEditor({
         {enableRichMedia ? (
           <div className="flex items-center gap-0.5">
             <Separator orientation="vertical" className="mx-1 h-5" />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              title="Upload image"
-              disabled={readOnly || imageBusy}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => imageInputRef.current?.click()}
-              data-testid="rte-image-upload"
-            >
-              {imageBusy ? <Spinner className="size-3" /> : <ImagePlus size={13} />}
-            </Button>
+            <HoverTooltip content="Upload image" disabled={readOnly || imageBusy}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                disabled={readOnly || imageBusy}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => imageInputRef.current?.click()}
+                data-testid="rte-image-upload"
+              >
+                {imageBusy ? <Spinner className="size-3" /> : <ImagePlus size={13} />}
+              </Button>
+            </HoverTooltip>
             <input
               ref={imageInputRef}
               type="file"
@@ -594,6 +609,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       layoutMode = "linear",
       value,
       onChange,
+      onDraftSnapshot,
       placeholder,
       className,
       toolbarRight,
@@ -616,6 +632,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         <LinearRichTextEditor
           value={value}
           onChange={onChange}
+          onDraftSnapshot={onDraftSnapshot}
           placeholder={placeholder}
           className={className}
           toolbarRight={toolbarRight}
@@ -644,6 +661,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     });
     const dragStateRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
     const activeEditorRef = useRef<Editor | null>(null);
+    const blocksRef = useRef(blocks);
     const hydratedRef = useRef(false);
     const zRef = useRef(Math.max(1, ...blocks.map((b) => b.z)));
     const activeDocumentKeyRef = useRef(documentKey ?? "default");
@@ -660,10 +678,34 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     const emitChange = useCallback(
       (nextBlocks: CanvasBlock[]) => {
         const html = nextBlocks.length === 0 ? "" : serializeCanvas(nextBlocks);
+        onDraftSnapshot?.(html);
         if (html !== value) onChange(html);
       },
-      [onChange, value],
+      [onChange, onDraftSnapshot, value],
     );
+
+    useEffect(() => {
+      blocksRef.current = blocks;
+    }, [blocks]);
+
+    useEffect(() => {
+      return () => {
+        const next = blocksRef.current.length === 0 ? "" : serializeCanvas(blocksRef.current);
+        onDraftSnapshot?.(next);
+      };
+    }, [onDraftSnapshot]);
+    const ensureImageBlockCapacity = useCallback(
+      (block: CanvasBlock, nextHtml: string): CanvasBlock => {
+        if (block.type !== "text" || !/<img\b/i.test(nextHtml)) return block;
+        return {
+          ...block,
+          width: Math.max(block.width, 640),
+          height: Math.max(block.height, 360),
+        };
+      },
+      [],
+    );
+
 
     const updateBlocks = useCallback(
       (fn: (prev: CanvasBlock[]) => CanvasBlock[]) => {
@@ -837,7 +879,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       const z = zRef.current;
       const safe = escapeHtmlAttr(src);
       const html = `<p><img src="${safe}" alt="" /></p><p></p>`;
-      const block: CanvasBlock = { ...createTextBlock(x, y, html), z };
+      const block: CanvasBlock = { ...createImageTextBlock(x, y, html), z };
       updateBlocks((prev) => [...prev, block]);
       setActiveBlockId(block.id);
       requestAnimationFrame(() => {
@@ -998,13 +1040,12 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
                 const isDisabled = readOnly || !editor || (button.isDisabled?.(editor) ?? false);
                 const Icon = button.icon;
                 return (
+                <HoverTooltip key={button.id} content={button.label} disabled={isDisabled}>
                   <Button
-                    key={button.id}
                     type="button"
                     variant="ghost"
                     size="icon"
                     className={cn("h-7 w-7", isActive && "bg-muted text-foreground")}
-                    title={button.label}
                     disabled={isDisabled}
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => {
@@ -1015,28 +1056,34 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
                   >
                     <Icon size={13} />
                   </Button>
+                </HoverTooltip>
                 );
               })}
             </div>
           ))}
           <Separator orientation="vertical" className="mx-1 h-5" />
-          <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={readOnly} title="Add text block" onClick={() => appendTextAt(56, 120)} data-testid="rte-add-text"><SquarePen size={13} /></Button>
+          <HoverTooltip content="Add text block" disabled={readOnly}>
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={readOnly} onClick={() => appendTextAt(56, 120)} data-testid="rte-add-text"><SquarePen size={13} /></Button>
+          </HoverTooltip>
           <Separator orientation="vertical" className="mx-1 h-5" />
-          <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={readOnly || imageBusy || !enableRichMedia} title="Upload image block" onClick={() => imageInputRef.current?.click()} data-testid="rte-image-upload">
-            {imageBusy ? <Spinner className="size-3" /> : <ImagePlus size={13} />}
-          </Button>
+          <HoverTooltip content="Upload image block" disabled={readOnly || imageBusy || !enableRichMedia}>
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={readOnly || imageBusy || !enableRichMedia} onClick={() => imageInputRef.current?.click()} data-testid="rte-image-upload">
+              {imageBusy ? <Spinner className="size-3" /> : <ImagePlus size={13} />}
+            </Button>
+          </HoverTooltip>
           <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={onPickImageFiles} />
           <Separator orientation="vertical" className="mx-1 h-5" />
           <div className="flex items-center rounded-md border border-border/60 px-1.5 py-0.5 text-[11px]">
-            <button
-              type="button"
-              className="h-5 w-5 rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-              onClick={zoomOut}
-              title="Zoom out"
-              data-testid="rte-zoom-out"
-            >
-              -
-            </button>
+            <HoverTooltip content="Zoom out">
+              <button
+                type="button"
+                className="h-5 w-5 rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={zoomOut}
+                data-testid="rte-zoom-out"
+              >
+                -
+              </button>
+            </HoverTooltip>
             <input
               type="number"
               min={50}
@@ -1051,15 +1098,16 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
               className="h-5 w-12 bg-transparent text-center font-mono text-muted-foreground outline-none [-moz-appearance:textfield] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               aria-label="Canvas zoom percent"
             />
-            <button
-              type="button"
-              className="h-5 w-5 rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-              onClick={zoomIn}
-              title="Zoom in"
-              data-testid="rte-zoom-in"
-            >
-              +
-            </button>
+            <HoverTooltip content="Zoom in">
+              <button
+                type="button"
+                className="h-5 w-5 rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={zoomIn}
+                data-testid="rte-zoom-in"
+              >
+                +
+              </button>
+            </HoverTooltip>
           </div>
           {toolbarRight ? (
             <div className="ml-auto flex items-center gap-0.5">{toolbarRight}</div>
@@ -1203,7 +1251,16 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
                       <GripVertical size={13} />
                     </button>
                     <div className="flex items-center gap-1">
-                      <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive/80 hover:text-destructive" title="Delete block" onClick={() => updateBlocks((prev) => prev.filter((b) => b.id !== block.id))}><Trash2 size={12} /></Button>
+                      <HoverTooltip content="Delete block">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6 text-destructive/80 hover:text-destructive"
+                          onClick={() => updateBlocks((prev) => prev.filter((b) => b.id !== block.id))}
+                        >
+                          <Trash2 size={12} />
+                        </Button>
+                      </HoverTooltip>
                     </div>
                   </div>
                 ) : null}
@@ -1252,21 +1309,24 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
                           if (isCanvasTextStructuralEmpty(nextHtml)) {
                             return prev.filter((b) => b.id !== block.id);
                           }
-                          return prev.map((b) => (b.id === block.id ? { ...b, html: nextHtml } : b));
+                          return prev.map((b) =>
+                            b.id === block.id
+                              ? { ...ensureImageBlockCapacity(b, nextHtml), html: nextHtml }
+                              : b,
+                          );
                         })
                       }
                     />
                   ) : null}
                   {block.type === "text" && !readOnly ? (
-                    <button
-                      type="button"
-                      className="absolute bottom-1 right-1 z-10 flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
-                      title="Resize block"
-                      onPointerDown={(event) => beginResize(event, block)}
-                      data-testid={`note-resize-${block.id}`}
-                    >
-                      <MoveDiagonal2 size={12} />
-                    </button>
+                      <button
+                        type="button"
+                        className="absolute bottom-1 right-1 z-10 flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+                        onPointerDown={(event) => beginResize(event, block)}
+                        data-testid={`note-resize-${block.id}`}
+                      >
+                        <MoveDiagonal2 size={12} />
+                      </button>
                   ) : null}
                 </div>
               </div>

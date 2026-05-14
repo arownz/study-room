@@ -22,6 +22,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HoverTooltip } from "@/components/ui/hover-tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -123,39 +124,40 @@ export function WhiteboardToolbar({
 
       <div className="flex shrink-0 flex-wrap items-center gap-0.5 rounded-lg bg-muted/50 p-1">
         {tools.map(({ id, icon: Icon, label }) => (
-          <Button
-            key={id}
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "h-7 w-7 transition-colors",
-              activeTool === id && "bg-background text-primary shadow-sm",
-            )}
-            title={label}
-            type="button"
-            onClick={() => onToolChange(id)}
-            data-testid={`tool-${id}`}
-          >
-            <Icon size={14} />
-          </Button>
+          <HoverTooltip key={id} content={label}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-7 w-7 transition-colors",
+                activeTool === id && "bg-background text-primary shadow-sm",
+              )}
+              type="button"
+              onClick={() => onToolChange(id)}
+              data-testid={`tool-${id}`}
+            >
+              <Icon size={14} />
+            </Button>
+          </HoverTooltip>
         ))}
       </div>
 
       {toolSizeControl && onToolSizeChange ? (
         <>
           <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                type="button"
-                title={`${toolSizeControl.label} size`}
-                data-testid="button-whiteboard-tool-size"
-              >
-                <SlidersHorizontal size={14} />
-              </Button>
-            </PopoverTrigger>
+            <HoverTooltip content={`${toolSizeControl.label} size`}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  type="button"
+                  data-testid="button-whiteboard-tool-size"
+                >
+                  <SlidersHorizontal size={14} />
+                </Button>
+              </PopoverTrigger>
+            </HoverTooltip>
             <PopoverContent align="start" className="w-60 space-y-3 p-3">
               <div className="space-y-1">
                 <p className="text-xs font-medium">{toolSizeControl.label} size</p>
@@ -181,62 +183,69 @@ export function WhiteboardToolbar({
       <Separator orientation="vertical" className="h-5" />
 
       <div className="flex items-center gap-1 rounded-md border border-border/60 px-1.5 py-0.5 text-[11px]">
-        <button
-          type="button"
-          className="h-5 w-5 rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-          onClick={onZoomOut}
-          title="Zoom out"
-          data-testid="button-zoom-out"
-        >
-          -
-        </button>
+        <HoverTooltip content="Zoom out">
+          <button
+            type="button"
+            className="h-5 w-5 rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={onZoomOut}
+            data-testid="button-zoom-out"
+          >
+            -
+          </button>
+        </HoverTooltip>
         <span className="w-11 text-center font-mono text-muted-foreground">{zoom}%</span>
-        <button
-          type="button"
-          className="h-5 w-5 rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-          onClick={onZoomIn}
-          title="Zoom in"
-          data-testid="button-zoom-in"
-        >
-          +
-        </button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-5 w-5"
-          title="Reset zoom & pan"
-          type="button"
-          onClick={onResetZoom}
-          data-testid="button-fit-screen"
-        >
-          <Maximize2 size={11} />
-        </Button>
+        <HoverTooltip content="Zoom in">
+          <button
+            type="button"
+            className="h-5 w-5 rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={onZoomIn}
+            data-testid="button-zoom-in"
+          >
+            +
+          </button>
+        </HoverTooltip>
+        <HoverTooltip content="Reset zoom & pan">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5"
+            type="button"
+            onClick={onResetZoom}
+            data-testid="button-fit-screen"
+          >
+            <Maximize2 size={11} />
+          </Button>
+        </HoverTooltip>
       </div>
 
       <Separator orientation="vertical" className="h-5" />
 
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7"
-        disabled={undoDisabled}
-        type="button"
-        onClick={onUndo}
-        data-testid="button-undo"
-      >
-        <Undo2 size={14} />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7"
-        disabled={redoDisabled}
-        type="button"
-        onClick={onRedo}
-        data-testid="button-redo"
-      >
-        <Redo2 size={14} />
-      </Button>
+      <HoverTooltip content="Undo" disabled={undoDisabled}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          disabled={undoDisabled}
+          type="button"
+          onClick={onUndo}
+          data-testid="button-undo"
+        >
+          <Undo2 size={14} />
+        </Button>
+      </HoverTooltip>
+      <HoverTooltip content="Redo" disabled={redoDisabled}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          disabled={redoDisabled}
+          type="button"
+          onClick={onRedo}
+          data-testid="button-redo"
+        >
+          <Redo2 size={14} />
+        </Button>
+      </HoverTooltip>
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
         <Button
