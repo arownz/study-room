@@ -17,6 +17,8 @@ const userColumns = {
   name: users.name,
   email: users.email,
   avatar: users.avatar,
+  avatarData: users.avatarData,
+  avatarMime: users.avatarMime,
   role: users.role,
   roleSelected: users.roleSelected,
   emailVerified: users.emailVerified,
@@ -64,7 +66,11 @@ export class UsersRepository {
   async updateUser(id: string, patch: UpdateMeRequest) {
     const updates: Record<string, unknown> = {};
     if (patch.name !== undefined) updates.name = patch.name;
-    if (patch.avatar !== undefined) updates.avatar = patch.avatar;
+    if (patch.avatar !== undefined) {
+      updates.avatar = patch.avatar;
+      updates.avatarData = null;
+      updates.avatarMime = null;
+    }
     if (patch.role !== undefined) updates.role = patch.role;
     if (patch.roleSelected !== undefined) updates.roleSelected = patch.roleSelected;
     if (patch.notificationPreferences !== undefined) {
@@ -85,12 +91,44 @@ export class UsersRepository {
     return row ?? null;
   }
 
-  async setAvatar(id: string, avatar: string | null) {
+  async setAvatarInline(id: string, input: { data: Buffer; mimeType: string; publicUrl: string }) {
     const [row] = await db
       .update(users)
-      .set({ avatar, updatedAt: new Date() })
+      .set({
+        avatar: input.publicUrl,
+        avatarData: input.data,
+        avatarMime: input.mimeType,
+        updatedAt: new Date(),
+      })
       .where(eq(users.id, id))
       .returning(userColumns);
+    return row ?? null;
+  }
+
+  async clearAvatar(id: string) {
+    const [row] = await db
+      .update(users)
+      .set({
+        avatar: null,
+        avatarData: null,
+        avatarMime: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, id))
+      .returning(userColumns);
+    return row ?? null;
+  }
+
+  async getAvatarPayload(userId: string) {
+    const [row] = await db
+      .select({
+        avatar: users.avatar,
+        avatarMime: users.avatarMime,
+        avatarData: users.avatarData,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
     return row ?? null;
   }
 

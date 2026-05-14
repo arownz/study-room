@@ -2,7 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRe
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
-import { EditorContent, useEditor, type Editor } from "@tiptap/react";
+import { EditorContent, Node as TiptapNode, mergeAttributes, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import TaskList from "@tiptap/extension-task-list";
@@ -26,6 +26,7 @@ import {
   Code as CodeIcon,
   CheckSquare,
   GripVertical,
+  Minus,
   MoveDiagonal2,
   SquarePen,
   Trash2,
@@ -49,6 +50,102 @@ import { pointsToPathD } from "./canvas/ink-geometry";
 /** Prose + marker styles so nested ordered/unordered lists stay readable (OneNote-style mixing). */
 const NESTED_LIST_PROSE =
   "[&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_li]:pl-1 [&_li>ul]:mt-1 [&_li>ol]:mt-1 [&_li>ul]:pl-6 [&_li>ol]:pl-6 [&_li]:marker:text-foreground";
+const TABLE_PROSE =
+  "[&_table]:w-max [&_table]:min-w-full [&_table]:border-collapse [&_table]:text-sm [&_th]:border [&_th]:border-border/70 [&_th]:bg-muted/70 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_td]:border [&_td]:border-border/70 [&_td]:px-3 [&_td]:py-2 [&_td]:align-top [&_td]:break-words [&_th]:break-words";
+const EDITABLE_TARGET_SELECTOR = ".ProseMirror,[contenteditable='true'],textarea,input";
+const CANVAS_BLOCK_PADDING = 96;
+const DEFAULT_CANVAS_INSERT_POINT = { x: 56, y: 120 } as const;
+const DEFAULT_TABLE_BLOCK_WIDTH = 760;
+const DEFAULT_TABLE_BLOCK_HEIGHT = 240;
+const MIN_TEXT_BLOCK_WIDTH = 280;
+const MIN_TEXT_BLOCK_HEIGHT = 140;
+
+function parseSpanAttribute(element: HTMLElement, attribute: "colspan" | "rowspan"): number {
+  const raw = element.getAttribute(attribute);
+  const parsed = raw ? Number.parseInt(raw, 10) : 1;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
+const CANVAS_TABLE = TiptapNode.create({
+  name: "table",
+  group: "block",
+  content: "tableRow+",
+  isolating: true,
+  selectable: true,
+  parseHTML() {
+    return [{ tag: "table" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["table", mergeAttributes(HTMLAttributes), 0];
+  },
+});
+
+const CANVAS_TABLE_ROW = TiptapNode.create({
+  name: "tableRow",
+  content: "(tableHeader|tableCell)*",
+  parseHTML() {
+    return [{ tag: "tr" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["tr", mergeAttributes(HTMLAttributes), 0];
+  },
+});
+
+const CANVAS_TABLE_CELL = TiptapNode.create({
+  name: "tableCell",
+  content: "block+",
+  isolating: true,
+  addAttributes() {
+    return {
+      colspan: {
+        default: 1,
+        parseHTML: (element: HTMLElement) => parseSpanAttribute(element, "colspan"),
+        renderHTML: (attributes: { colspan?: number }) =>
+          attributes.colspan && attributes.colspan > 1 ? { colspan: attributes.colspan } : {},
+      },
+      rowspan: {
+        default: 1,
+        parseHTML: (element: HTMLElement) => parseSpanAttribute(element, "rowspan"),
+        renderHTML: (attributes: { rowspan?: number }) =>
+          attributes.rowspan && attributes.rowspan > 1 ? { rowspan: attributes.rowspan } : {},
+      },
+    };
+  },
+  parseHTML() {
+    return [{ tag: "td" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["td", mergeAttributes(HTMLAttributes), 0];
+  },
+});
+
+const CANVAS_TABLE_HEADER = TiptapNode.create({
+  name: "tableHeader",
+  content: "block+",
+  isolating: true,
+  addAttributes() {
+    return {
+      colspan: {
+        default: 1,
+        parseHTML: (element: HTMLElement) => parseSpanAttribute(element, "colspan"),
+        renderHTML: (attributes: { colspan?: number }) =>
+          attributes.colspan && attributes.colspan > 1 ? { colspan: attributes.colspan } : {},
+      },
+      rowspan: {
+        default: 1,
+        parseHTML: (element: HTMLElement) => parseSpanAttribute(element, "rowspan"),
+        renderHTML: (attributes: { rowspan?: number }) =>
+          attributes.rowspan && attributes.rowspan > 1 ? { rowspan: attributes.rowspan } : {},
+      },
+    };
+  },
+  parseHTML() {
+    return [{ tag: "th" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["th", mergeAttributes(HTMLAttributes), 0];
+  },
+});
 
 function handleListTab(editor: Editor | null, event: KeyboardEvent): boolean {
   if (!editor || event.key !== "Tab") return false;
@@ -136,6 +233,42 @@ function escapeHtmlAttr(s: string): string {
 function insertUploadedImageIntoEditor(editor: Editor, url: string): void {
   const safe = escapeHtmlAttr(url);
   editor.chain().focus().insertContent(`<p><img src="${safe}" alt="" /></p><p></p>`).focus("end").run();
+}
+
+function normalizeClipboardHtml(html: string): string {
+  const trimmed = html.trim();
+  if (!trimmed || typeof window === "undefined") return trimmed;
+  const doc = new DOMParser().parseFromString(trimmed, "text/html");
+  return doc.body.innerHTML
+    .replaceAll("<!--StartFragment-->", "")
+    .replaceAll("<!--EndFragment-->", "")
+    .trim();
+}
+
+function plainTextToHtml(text: string): string {
+  const normalized = text.replace(/\r\n?/g, "\n").trim();
+  if (!normalized) return "";
+  return normalized
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br />")}</p>`)
+    .join("");
+}
+
+function clipboardToRichHtml(clipboard: DataTransfer | null): string {
+  if (!clipboard) return "";
+  const richHtml = normalizeClipboardHtml(clipboard.getData("text/html"));
+  if (richHtml) return richHtml;
+  return plainTextToHtml(clipboard.getData("text/plain"));
+}
+
+function isStructuredTableHtml(html: string): boolean {
+  return /<table\b/i.test(html);
+}
+
+type ResizeAxis = "x" | "y" | "both";
+
+function isEditableTarget(target: HTMLElement | null): boolean {
+  return Boolean(target?.closest(EDITABLE_TARGET_SELECTOR));
 }
 
 /** Drop canvas text blocks only when there is no text and no images. */
@@ -540,6 +673,10 @@ function TextBlockEditor({
       Underline,
       TaskList,
       TaskItem.configure({ nested: true }),
+      CANVAS_TABLE,
+      CANVAS_TABLE_ROW,
+      CANVAS_TABLE_HEADER,
+      CANVAS_TABLE_CELL,
       Placeholder.configure({ placeholder }),
       Link.configure({
         openOnClick: false,
@@ -555,6 +692,7 @@ function TextBlockEditor({
         class: cn(
           "tiptap prose prose-sm max-w-none text-sm leading-relaxed text-foreground focus:outline-none dark:prose-invert",
           NESTED_LIST_PROSE,
+          TABLE_PROSE,
           "[&_li[data-checked]]:list-none",
           "[&_.ProseMirror_img]:inline-block [&_.ProseMirror_img]:align-text-bottom",
           "[&_.ProseMirror]:pb-16",
@@ -673,6 +811,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       startClientY: number;
       startWidth: number;
       startHeight: number;
+      axis: ResizeAxis;
     } | null>(null);
 
     const emitChange = useCallback(
@@ -694,14 +833,24 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         onDraftSnapshot?.(next);
       };
     }, [onDraftSnapshot]);
-    const ensureImageBlockCapacity = useCallback(
+    const ensureStructuredBlockCapacity = useCallback(
       (block: CanvasBlock, nextHtml: string): CanvasBlock => {
-        if (block.type !== "text" || !/<img\b/i.test(nextHtml)) return block;
-        return {
-          ...block,
-          width: Math.max(block.width, 640),
-          height: Math.max(block.height, 360),
-        };
+        if (block.type !== "text") return block;
+        if (/<img\b/i.test(nextHtml)) {
+          return {
+            ...block,
+            width: Math.max(block.width, 640),
+            height: Math.max(block.height, 360),
+          };
+        }
+        if (isStructuredTableHtml(nextHtml)) {
+          return {
+            ...block,
+            width: Math.max(block.width, DEFAULT_TABLE_BLOCK_WIDTH),
+            height: Math.max(block.height, DEFAULT_TABLE_BLOCK_HEIGHT),
+          };
+        }
+        return block;
       },
       [],
     );
@@ -764,19 +913,19 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     useEffect(() => {
       const vw = viewportSize.width;
       const vh = viewportSize.height;
-      const minW = vw > 0 ? vw : 400;
-      const minH = vh > 0 ? vh : 360;
-      const blockMaxW = blocks.reduce((acc, b) => Math.max(acc, b.x + b.width + 96), 0);
+      const minW = vw > 0 ? vw / zoom : 400;
+      const minH = vh > 0 ? vh / zoom : 360;
+      const blockMaxW = blocks.reduce((acc, b) => Math.max(acc, b.x + b.width + CANVAS_BLOCK_PADDING), 0);
       const blockMaxH = blocks.reduce((acc, b) => {
-        if (b.type === "image") return Math.max(acc, b.y + 360 + 96);
-        if (b.type === "ink") return Math.max(acc, b.y + b.height + 96);
-        return Math.max(acc, b.y + b.height + 96);
+        if (b.type === "image") return Math.max(acc, b.y + 360 + CANVAS_BLOCK_PADDING);
+        if (b.type === "ink") return Math.max(acc, b.y + b.height + CANVAS_BLOCK_PADDING);
+        return Math.max(acc, b.y + b.height + CANVAS_BLOCK_PADDING);
       }, 0);
       setCanvasSize({
         width: Math.max(blockMaxW, minW),
         height: Math.max(blockMaxH, minH),
       });
-    }, [blocks, viewportSize.height, viewportSize.width]);
+    }, [blocks, viewportSize.height, viewportSize.width, zoom]);
 
     useEffect(() => {
       const onKey = (event: KeyboardEvent) => {
@@ -814,7 +963,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         if (readOnly || !pendingInsertPoint) return;
         if (event.ctrlKey || event.metaKey || event.altKey) return;
         const active = document.activeElement as HTMLElement | null;
-        const editable = Boolean(active?.closest(".ProseMirror,[contenteditable='true'],textarea,input"));
+        const editable = isEditableTarget(active);
         if (editable) return;
         const printable = event.key.length === 1 && !event.isComposing;
         const shouldCreate = printable || event.key === "Enter";
@@ -863,16 +1012,52 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       return zRef.current;
     };
 
+    const getInsertionPoint = useCallback(
+      () => pendingInsertPoint ?? DEFAULT_CANVAS_INSERT_POINT,
+      [pendingInsertPoint],
+    );
+
+    const focusTextBlock = useCallback((blockId: string) => {
+      requestAnimationFrame(() => {
+        document
+          .querySelector<HTMLElement>(`[data-block-body="${blockId}"] .ProseMirror`)
+          ?.focus();
+      });
+    }, []);
+
+    const createClipboardTextBlock = useCallback(
+      (clipboard: DataTransfer | null) => {
+        const html = clipboardToRichHtml(clipboard);
+        if (!html) return false;
+        const point = getInsertionPoint();
+        const block = ensureStructuredBlockCapacity(
+          { ...createTextBlock(point.x, point.y, html), z: nextZ() },
+          html,
+        );
+        updateBlocks((prev) => [...prev, block]);
+        setActiveBlockId(block.id);
+        setPendingInsertPoint(null);
+        focusTextBlock(block.id);
+        return true;
+      },
+      [ensureStructuredBlockCapacity, focusTextBlock, getInsertionPoint, updateBlocks],
+    );
+
+    const insertClipboardIntoActiveTextBlock = useCallback((clipboard: DataTransfer | null) => {
+      const editor = activeEditorRef.current;
+      const html = clipboardToRichHtml(clipboard);
+      if (!editor || !html) return false;
+      editor.chain().focus("end").insertContent(html).run();
+      setPendingInsertPoint(null);
+      return true;
+    }, []);
+
     const appendTextAt = useCallback((x: number, y: number) => {
       const block = { ...createTextBlock(x, y), z: nextZ() };
       updateBlocks((prev) => [...prev, block]);
       setActiveBlockId(block.id);
-      requestAnimationFrame(() => {
-        document
-          .querySelector<HTMLElement>(`[data-block-body="${block.id}"] .ProseMirror`)
-          ?.focus();
-      });
-    }, [updateBlocks]);
+      focusTextBlock(block.id);
+    }, [focusTextBlock, updateBlocks]);
 
     const appendTextBlockWithImageAt = useCallback((x: number, y: number, src: string) => {
       zRef.current += 1;
@@ -882,12 +1067,8 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       const block: CanvasBlock = { ...createImageTextBlock(x, y, html), z };
       updateBlocks((prev) => [...prev, block]);
       setActiveBlockId(block.id);
-      requestAnimationFrame(() => {
-        document
-          .querySelector<HTMLElement>(`[data-block-body="${block.id}"] .ProseMirror`)
-          ?.focus();
-      });
-    }, [updateBlocks]);
+      focusTextBlock(block.id);
+    }, [focusTextBlock, updateBlocks]);
 
     const uploadAndPlaceImage = useCallback((file: File, x: number, y: number) => {
       if (!enableRichMedia) return;
@@ -938,31 +1119,36 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
           void uploadImageIntoActiveTextBlock(file);
           return;
         }
-        uploadAndPlaceImage(file, 56, 120);
+        const point = getInsertionPoint();
+        uploadAndPlaceImage(file, point.x, point.y);
       },
-      [activeBlockId, blocks, uploadAndPlaceImage, uploadImageIntoActiveTextBlock],
+      [activeBlockId, blocks, getInsertionPoint, uploadAndPlaceImage, uploadImageIntoActiveTextBlock],
     );
 
-    const beginDrag = (event: React.PointerEvent, block: CanvasBlock) => {
+    const beginDrag = useCallback((event: React.PointerEvent, block: CanvasBlock) => {
       if (readOnly) return;
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
       dragStateRef.current = {
         id: block.id,
-        offsetX: event.clientX - rect.left - block.x,
-        offsetY: event.clientY - rect.top - block.y,
+        offsetX: (event.clientX - rect.left) / zoom - block.x,
+        offsetY: (event.clientY - rect.top) / zoom - block.y,
       };
       event.currentTarget.setPointerCapture(event.pointerId);
       setActiveBlockId(block.id);
       updateBlocks((prev) => prev.map((b) => (b.id === block.id ? { ...b, z: nextZ() } : b)));
-    };
+    }, [readOnly, updateBlocks, zoom]);
 
-    const onCanvasPointerMove = (event: React.PointerEvent) => {
+    const onCanvasPointerMove = useCallback((event: React.PointerEvent) => {
       const resize = resizeStateRef.current;
       if (resize) {
-        const nextWidth = Math.max(280, resize.startWidth + (event.clientX - resize.startClientX) / zoom);
-        const nextHeight = Math.max(140, resize.startHeight + (event.clientY - resize.startClientY) / zoom);
+        const deltaX = (event.clientX - resize.startClientX) / zoom;
+        const deltaY = (event.clientY - resize.startClientY) / zoom;
+        const nextWidth =
+          resize.axis === "y" ? resize.startWidth : Math.max(MIN_TEXT_BLOCK_WIDTH, resize.startWidth + deltaX);
+        const nextHeight =
+          resize.axis === "x" ? resize.startHeight : Math.max(MIN_TEXT_BLOCK_HEIGHT, resize.startHeight + deltaY);
         updateBlocks((prev) =>
           prev.map((block) =>
             block.id === resize.id && block.type === "text"
@@ -978,15 +1164,15 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
-      const x = Math.max(8, event.clientX - rect.left - drag.offsetX);
-      const y = Math.max(8, event.clientY - rect.top - drag.offsetY);
+      const x = Math.max(8, (event.clientX - rect.left) / zoom - drag.offsetX);
+      const y = Math.max(8, (event.clientY - rect.top) / zoom - drag.offsetY);
       updateBlocks((prev) => prev.map((b) => (b.id === drag.id ? { ...b, x, y } : b)));
-    };
+    }, [updateBlocks, zoom]);
     const endDrag = () => {
       dragStateRef.current = null;
     };
 
-    const beginResize = (event: React.PointerEvent, block: CanvasBlock) => {
+    const beginResize = (event: React.PointerEvent, block: CanvasBlock, axis: ResizeAxis = "both") => {
       if (readOnly || block.type !== "text") return;
       event.preventDefault();
       event.stopPropagation();
@@ -996,6 +1182,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         startClientY: event.clientY,
         startWidth: block.width,
         startHeight: block.height,
+        axis,
       };
       event.currentTarget.setPointerCapture(event.pointerId);
       setActiveBlockId(block.id);
@@ -1005,6 +1192,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       if (readOnly) return;
       const target = event.target as HTMLElement;
       if (target.closest("[data-note-block-wrap]")) return;
+      event.currentTarget.focus({ preventScroll: true });
     };
 
     const onCanvasDrawPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -1115,7 +1303,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         </div>
         {showMediaHint ? (
           <p className="px-3 pt-2 text-[11px] text-muted-foreground sm:px-4">
-            {enableRichMedia ? "Paste or drop images into the canvas. " : ""}{plainHint}
+            {enableRichMedia ? "Paste rich text, tables, or images into the canvas. " : "Paste rich text into the canvas. "}{plainHint}
           </p>
         ) : null}
         <div
@@ -1124,7 +1312,8 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         >
           <div
             ref={canvasRef}
-            className="relative mt-0 w-full min-w-0 rounded-lg border border-border bg-card text-card-foreground shadow-sm"
+            tabIndex={readOnly ? -1 : 0}
+            className="relative mt-0 w-full min-w-0 rounded-lg border border-border bg-card text-card-foreground shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
             style={{
               width: canvasSize.width * zoom,
               minWidth: canvasSize.width * zoom,
@@ -1141,6 +1330,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
               if (readOnly) return;
               const target = event.target as HTMLElement;
               if (target.closest("[data-note-block-wrap]")) return;
+              event.currentTarget.focus({ preventScroll: true });
               const rect = event.currentTarget.getBoundingClientRect();
               setPendingInsertPoint({
                 x: (event.clientX - rect.left) / zoom,
@@ -1152,6 +1342,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
               const target = event.target as HTMLElement;
               if (target.closest("[data-note-block-wrap]")) return;
               event.preventDefault();
+              event.currentTarget.focus({ preventScroll: true });
               const rect = event.currentTarget.getBoundingClientRect();
               const x = Math.max(8, (event.clientX - rect.left) / zoom - 4);
               const y = Math.max(8, (event.clientY - rect.top) / zoom - 4);
@@ -1159,11 +1350,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
               updateBlocks((prev) => [...prev, block]);
               setActiveBlockId(block.id);
               setPendingInsertPoint(null);
-              requestAnimationFrame(() => {
-                document
-                  .querySelector<HTMLElement>(`[data-block-body="${block.id}"] .ProseMirror`)
-                  ?.focus();
-              });
+              focusTextBlock(block.id);
             }}
             onDrop={(event) => {
               if (readOnly || !enableRichMedia) return;
@@ -1198,19 +1385,33 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
               pinchRef.current = null;
             }}
             onPaste={(event) => {
-              if (readOnly || !enableRichMedia) return;
+              if (readOnly) return;
               const target = event.target as HTMLElement;
-              if (target.closest(".ProseMirror,[contenteditable='true']")) return;
-              const fileItem = Array.from(event.clipboardData.items).find(clipboardItemIsImage);
-              const file = fileItem?.getAsFile();
-              if (!file) return;
-              event.preventDefault();
+              if (isEditableTarget(target)) return;
               const activeText = blocks.find((b) => b.id === activeBlockId && b.type === "text");
-              if (activeText && activeEditorRef.current) {
-                void uploadImageIntoActiveTextBlock(file);
+              const fileItem = enableRichMedia
+                ? Array.from(event.clipboardData.items).find(clipboardItemIsImage)
+                : undefined;
+              const file = fileItem?.getAsFile();
+              if (file) {
+                event.preventDefault();
+                if (activeText && activeEditorRef.current && !pendingInsertPoint) {
+                  void uploadImageIntoActiveTextBlock(file);
+                  return;
+                }
+                const point = getInsertionPoint();
+                uploadAndPlaceImage(file, point.x, point.y);
                 return;
               }
-              uploadAndPlaceImage(file, 56, 120);
+              if (activeText && activeEditorRef.current && !pendingInsertPoint) {
+                if (insertClipboardIntoActiveTextBlock(event.clipboardData)) {
+                  event.preventDefault();
+                }
+                return;
+              }
+              if (createClipboardTextBlock(event.clipboardData)) {
+                event.preventDefault();
+              }
             }}
           >
             {blocks.length === 0 && !readOnly ? (
@@ -1222,6 +1423,9 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
               </div>
             ) : null}
             {blocks.map((block) => (
+              (() => {
+                const blockHasTable = block.type === "text" && isStructuredTableHtml(block.html ?? "");
+                return (
               <div
                 key={block.id}
                 data-note-block-wrap={block.id}
@@ -1311,7 +1515,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
                           }
                           return prev.map((b) =>
                             b.id === block.id
-                              ? { ...ensureImageBlockCapacity(b, nextHtml), html: nextHtml }
+                              ? { ...ensureStructuredBlockCapacity(b, nextHtml), html: nextHtml }
                               : b,
                           );
                         })
@@ -1319,21 +1523,48 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
                     />
                   ) : null}
                   {block.type === "text" && !readOnly ? (
+                    <>
+                      {blockHasTable ? (
+                        <>
+                          <button
+                            type="button"
+                            className="absolute right-0 top-1/2 z-10 flex h-10 w-4 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border border-border/70 bg-background/95 text-muted-foreground/80 shadow-sm transition-colors hover:text-foreground"
+                            onPointerDown={(event) => beginResize(event, block, "x")}
+                            data-testid={`note-resize-x-${block.id}`}
+                            aria-label="Resize table width"
+                          >
+                            <Minus size={12} className="rotate-90" />
+                          </button>
+                          <button
+                            type="button"
+                            className="absolute bottom-0 left-1/2 z-10 flex h-4 w-10 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-full border border-border/70 bg-background/95 text-muted-foreground/80 shadow-sm transition-colors hover:text-foreground"
+                            onPointerDown={(event) => beginResize(event, block, "y")}
+                            data-testid={`note-resize-y-${block.id}`}
+                            aria-label="Resize table height"
+                          >
+                            <Minus size={12} />
+                          </button>
+                        </>
+                      ) : null}
                       <button
                         type="button"
                         className="absolute bottom-1 right-1 z-10 flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
                         onPointerDown={(event) => beginResize(event, block)}
                         data-testid={`note-resize-${block.id}`}
+                        aria-label={blockHasTable ? "Resize table block" : "Resize note block"}
                       >
                         <MoveDiagonal2 size={12} />
                       </button>
+                    </>
                   ) : null}
                 </div>
               </div>
+                );
+              })()
             ))}
             {pendingInsertPoint && !readOnly ? (
               <div
-                className="pointer-events-none absolute h-5 w-[2px] animate-pulse bg-primary/80"
+                className="pointer-events-none absolute h-5 w-[2px] rounded-full bg-foreground/35 animate-pulse dark:bg-foreground/45"
                 style={{ left: pendingInsertPoint.x * zoom + 1, top: pendingInsertPoint.y * zoom + 2 }}
               />
             ) : null}

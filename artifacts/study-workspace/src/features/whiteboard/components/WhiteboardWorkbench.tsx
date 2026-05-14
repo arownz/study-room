@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { MoveDiagonal2, Trash2 } from "lucide-react";
+import { Minus, MoveDiagonal2, Trash2 } from "lucide-react";
 import { useGetWhiteboard, useUpdateWhiteboard } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -37,6 +37,7 @@ const MAX_UNDO = 80;
 const STICKY_W = 176;
 const STICKY_H = 100;
 const WHITEBOARD_AUTOSAVE_MS = 1500;
+type LabelResizeAxis = "x" | "y" | "both";
 
 interface WhiteboardWorkbenchProps {
   whiteboardId: string;
@@ -112,6 +113,7 @@ export function WhiteboardWorkbench({
     startClientY: number;
     startW: number;
     startH: number;
+    axis: LabelResizeAxis;
     snapshot: BoardState;
     changed: boolean;
   } | null>(null);
@@ -397,7 +399,13 @@ export function WhiteboardWorkbench({
     [eraseAtBoardPoint],
   );
 
-  const beginLabelResize = (event: React.PointerEvent, labelId: string, width: number, height: number) => {
+  const beginLabelResize = (
+    event: React.PointerEvent,
+    labelId: string,
+    width: number,
+    height: number,
+    axis: LabelResizeAxis = "both",
+  ) => {
     if (activeTool !== "select") return;
     event.preventDefault();
     event.stopPropagation();
@@ -407,6 +415,7 @@ export function WhiteboardWorkbench({
       startClientY: event.clientY,
       startW: width,
       startH: height,
+      axis,
       snapshot: cloneBoard(boardRef.current),
       changed: false,
     };
@@ -538,8 +547,10 @@ export function WhiteboardWorkbench({
     const labelResize = labelResizeRef.current;
     if (labelResize) {
       const scale = boardRef.current.viewport.zoom / 100;
-      const nextW = Math.max(80, labelResize.startW + (e.clientX - labelResize.startClientX) / scale);
-      const nextH = Math.max(40, labelResize.startH + (e.clientY - labelResize.startClientY) / scale);
+      const deltaX = (e.clientX - labelResize.startClientX) / scale;
+      const deltaY = (e.clientY - labelResize.startClientY) / scale;
+      const nextW = labelResize.axis === "y" ? labelResize.startW : Math.max(80, labelResize.startW + deltaX);
+      const nextH = labelResize.axis === "x" ? labelResize.startH : Math.max(40, labelResize.startH + deltaY);
       if (Math.abs(nextW - labelResize.startW) > 0.5 || Math.abs(nextH - labelResize.startH) > 0.5) {
         labelResize.changed = true;
       }
@@ -1055,15 +1066,38 @@ export function WhiteboardWorkbench({
                   onClick={(ev) => ev.stopPropagation()}
                 />
                 <HoverTooltip content="Resize label">
-                  <button
-                    type="button"
-                    className="absolute bottom-1 right-1 flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
-                    onPointerDown={(event) =>
-                      beginLabelResize(event, lb.id, Math.max(80, Math.abs(lb.w)), Math.max(40, Math.abs(lb.h)))
-                    }
-                  >
-                    <MoveDiagonal2 size={12} />
-                  </button>
+                  <div className="contents">
+                    <button
+                      type="button"
+                      className="absolute right-0 top-1/2 flex h-8 w-4 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border border-border/70 bg-background/95 text-muted-foreground/80 shadow-sm transition-colors hover:text-foreground"
+                      onPointerDown={(event) =>
+                        beginLabelResize(event, lb.id, Math.max(80, Math.abs(lb.w)), Math.max(40, Math.abs(lb.h)), "x")
+                      }
+                      aria-label="Resize label width"
+                    >
+                      <Minus size={11} className="rotate-90" />
+                    </button>
+                    <button
+                      type="button"
+                      className="absolute bottom-0 left-1/2 flex h-4 w-8 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-full border border-border/70 bg-background/95 text-muted-foreground/80 shadow-sm transition-colors hover:text-foreground"
+                      onPointerDown={(event) =>
+                        beginLabelResize(event, lb.id, Math.max(80, Math.abs(lb.w)), Math.max(40, Math.abs(lb.h)), "y")
+                      }
+                      aria-label="Resize label height"
+                    >
+                      <Minus size={11} />
+                    </button>
+                    <button
+                      type="button"
+                      className="absolute bottom-1 right-1 flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+                      onPointerDown={(event) =>
+                        beginLabelResize(event, lb.id, Math.max(80, Math.abs(lb.w)), Math.max(40, Math.abs(lb.h)))
+                      }
+                      aria-label="Resize label"
+                    >
+                      <MoveDiagonal2 size={12} />
+                    </button>
+                  </div>
                 </HoverTooltip>
               </div>
             ))}

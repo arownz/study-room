@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { AppError } from "../../lib/app-error";
+import { env } from "../../config/env";
 import {
   dashboardSummarySchema,
   parseStoredNotificationPreferences,
@@ -13,12 +14,25 @@ import { UsersRepository } from "./repository";
 
 type DbUser = NonNullable<Awaited<ReturnType<UsersRepository["getUserById"]>>>;
 
+function resolveAvatarPublicUrl(user: {
+  id: string;
+  avatar: string | null;
+  avatarData: Buffer | null;
+  updatedAt: Date;
+}): string | null {
+  if (user.avatarData && user.avatarData.length > 0) {
+    const base = env.API_ORIGIN.replace(/\/$/, "");
+    return `${base}/api/v1/users/${user.id}/avatar?v=${user.updatedAt.getTime()}`;
+  }
+  return user.avatar ?? null;
+}
+
 function serializeUser(user: DbUser) {
   return {
     id: user.id,
     name: user.name,
     email: user.email,
-    avatar: user.avatar ?? null,
+    avatar: resolveAvatarPublicUrl(user),
     role: user.role,
     roleSelected: user.roleSelected,
     emailVerified: user.emailVerified,
@@ -26,6 +40,11 @@ function serializeUser(user: DbUser) {
     updatedAt: user.updatedAt.toISOString(),
   };
 }
+
+export type UserAvatarStreamResult =
+  | { kind: "bytes"; mimeType: string; data: Buffer }
+  | { kind: "redirect"; url: string }
+  | { kind: "not_found" };
 
 export class UsersService {
   constructor(private readonly repository: UsersRepository) {}
@@ -86,12 +105,44 @@ export class UsersService {
     return this.getMe(userId);
   }
 
-  async setAvatar(userId: string, avatar: string | null): Promise<MeDto> {
-    const updated = await this.repository.setAvatar(userId, avatar);
+  async uploadAvatarFromBuffer(userId: string, buffer: Buffer, mimeType: string): Promise<MeDto> {
+    const existing = await this.repository.getUserById(userId);
+    if (!existing) {
+      throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    }
+    const base = env.API_ORIGIN.replace(/\/$/, "");
+    const publicUrl = `${base}/api/v1/users/${userId}/avatar`;
+    const updated = await this.repository.setAvatarInline(userId, {
+      data: buffer,
+      mimeType,
+      publicUrl,
+    });
     if (!updated) {
       throw new AppError("User not found", 404, "USER_NOT_FOUND");
     }
     return this.getMe(userId);
+  }
+
+  async deleteAvatar(userId: string): Promise<MeDto> {
+    const updated = await this.repository.clearAvatar(userId);
+    if (!updated) {
+      throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    }
+    return this.getMe(userId);
+  }
+
+  async resolveAvatarStream(userId: string): Promise<UserAvatarStreamResult> {
+    const row = await this.repository.getAvatarPayload(userId);
+    if (!row) {
+      return { kind: "not_found" };
+    }
+    if (row.avatarData && row.avatarData.length > 0 && row.avatarMime) {
+      return { kind: "bytes", mimeType: row.avatarMime, data: row.avatarData };
+    }
+    if (row.avatar && /^https?:\/\//i.test(row.avatar)) {
+      return { kind: "redirect", url: row.avatar };
+    }
+    return { kind: "not_found" };
   }
 
   async getDashboardSummary(userId: string): Promise<DashboardSummary> {

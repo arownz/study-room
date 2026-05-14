@@ -15,6 +15,9 @@ import {
   ChevronRight,
   ChevronDown,
   Trash2,
+  ExternalLink,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -32,63 +35,23 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-
-const MODE_ORDER: PomodoroSessionMode[] = ["focus", "short_break", "long_break"];
-
-const DEFAULT_SECONDS: Record<PomodoroSessionMode, number> = {
-  focus: 25 * 60,
-  short_break: 5 * 60,
-  long_break: 15 * 60,
-};
-
-const MODE_LABEL: Record<PomodoroSessionMode, string> = {
-  focus: "Focus",
-  short_break: "Short Break",
-  long_break: "Long Break",
-};
-
-const MODE_COLOR: Record<PomodoroSessionMode, string> = {
-  focus: "hsl(248,87%,66%)",
-  short_break: "hsl(160,80%,45%)",
-  long_break: "hsl(190,90%,50%)",
-};
-
-function clampSec(n: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, Math.floor(n)));
-}
-
-function loadModeSeconds(): Record<PomodoroSessionMode, number> {
-  try {
-    const raw = localStorage.getItem("studyroom.pomodoro.modeSeconds");
-    if (!raw) return { ...DEFAULT_SECONDS };
-    const parsed = JSON.parse(raw) as Partial<Record<PomodoroSessionMode, number>>;
-    return {
-      focus: clampSec(parsed.focus ?? DEFAULT_SECONDS.focus, 60, 3 * 60 * 60),
-      short_break: clampSec(parsed.short_break ?? DEFAULT_SECONDS.short_break, 60, 60 * 60),
-      long_break: clampSec(parsed.long_break ?? DEFAULT_SECONDS.long_break, 60, 3 * 60 * 60),
-    };
-  } catch {
-    return { ...DEFAULT_SECONDS };
-  }
-}
-
-function buildModes(sec: Record<PomodoroSessionMode, number>) {
-  return MODE_ORDER.map((key) => ({
-    key,
-    label: MODE_LABEL[key],
-    duration: sec[key],
-    color: MODE_COLOR[key],
-  }));
-}
-
-const AMBIENT_SOUNDS = [
-  { id: "1", name: "Rain on Window", icon: "CloudRain" as const, active: false },
-  { id: "2", name: "Coffee Shop", icon: "Coffee" as const, active: true },
-  { id: "3", name: "Deep Focus", icon: "Waves" as const, active: false },
-  { id: "4", name: "Forest", icon: "TreePine" as const, active: false },
-  { id: "5", name: "White Noise", icon: "Wind" as const, active: false },
-  { id: "6", name: "Lo-Fi Beats", icon: "Music" as const, active: false },
-];
+import {
+  AMBIENT_SOUNDS,
+  buildModes,
+  clampSec,
+  deriveAmbientOutputFromSnapshot,
+  loadModeSeconds,
+  MODE_COLOR,
+  MODE_LABEL,
+  MODE_ORDER,
+  persistModeSeconds,
+  readSessionSnapshot,
+  subscribePomodoroSync,
+  writeSessionSnapshot,
+  type PomodoroAmbientOutput,
+  type PomodoroSessionSnapshot,
+} from "@/features/pomodoro/persistence";
+import { usePomodoroSpotifySlot } from "@/features/pomodoro/pomodoro-spotify-slot-context";
 
 const soundIcons = {
   Coffee,
@@ -99,20 +62,6 @@ const soundIcons = {
   TreePine,
 } as const;
 
-const POMODORO_SESSION_KEY = "studyroom.pomodoro.session.v1";
-
-type PomodoroSessionSnapshot = {
-  v: 2;
-  modeIdx: number;
-  timeLeft: number;
-  running: boolean;
-  runEndsAtMs: number | null;
-  segmentStartedAt: string | null;
-  tasks: { id: string; text: string; done: boolean }[];
-  newTask: string;
-  sounds: typeof AMBIENT_SOUNDS;
-};
-
 function startOfLocalDay(now: Date): Date {
   const d = new Date(now);
   d.setHours(0, 0, 0, 0);
@@ -121,6 +70,10 @@ function startOfLocalDay(now: Date): Date {
 
 export default function Pomodoro() {
   const queryClient = useQueryClient();
+  const { setSpotifySlotEl } = usePomodoroSpotifySlot();
+  const spotifySlotCallback = useCallback((node: HTMLDivElement | null) => {
+    setSpotifySlotEl(node);
+  }, [setSpotifySlotEl]);
   const [modes, setModes] = useState(() => buildModes(loadModeSeconds()));
   const [modeIdx, setModeIdx] = useState(0);
   const [timeLeft, setTimeLeft] = useState(() => modes[0].duration);
@@ -128,6 +81,12 @@ export default function Pomodoro() {
   const [tasks, setTasks] = useState<{ id: string; text: string; done: boolean }[]>([]);
   const [newTask, setNewTask] = useState("");
   const [sounds, setSounds] = useState(AMBIENT_SOUNDS);
+  const [ambientPlaying, setAmbientPlaying] = useState(false);
+  const [ambientVolume, setAmbientVolume] = useState(0.45);
+  const [ambientOutput, setAmbientOutput] = useState<PomodoroAmbientOutput>(() => {
+    const s = readSessionSnapshot();
+    return s ? deriveAmbientOutputFromSnapshot(s) : "off";
+  });
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -141,6 +100,12 @@ export default function Pomodoro() {
   const prefsSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prefsHydratedRef = useRef(false);
   const sessionPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tasksRef = useRef(tasks);
+  const newTaskRef = useRef(newTask);
+  const soundsRef = useRef(sounds);
+  const ambientPlayingRef = useRef(ambientPlaying);
+  const ambientVolumeRef = useRef(ambientVolume);
+  const ambientOutputRef = useRef(ambientOutput);
 
   const mode = modes[modeIdx];
   const progress = 1 - timeLeft / mode.duration;
@@ -148,6 +113,7 @@ export default function Pomodoro() {
   const seconds = (timeLeft % 60).toString().padStart(2, "0");
   const circumference = 2 * Math.PI * 90;
   const strokeDashoffset = circumference * (1 - progress);
+  const activeAmbientSound = sounds.find((sound) => sound.active) ?? null;
 
   const { data: sessionsEnvelope } = useListPomodoroSessions({ limit: 80, offset: 0 });
   const sessions = sessionsEnvelope?.data?.items ?? [];
@@ -173,24 +139,119 @@ export default function Pomodoro() {
     runningRef.current = running;
   }, [running]);
 
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
+
+  useEffect(() => {
+    newTaskRef.current = newTask;
+  }, [newTask]);
+
+  useEffect(() => {
+    soundsRef.current = sounds;
+  }, [sounds]);
+
+  useEffect(() => {
+    ambientPlayingRef.current = ambientPlaying;
+  }, [ambientPlaying]);
+
+  useEffect(() => {
+    ambientVolumeRef.current = ambientVolume;
+  }, [ambientVolume]);
+
+  useEffect(() => {
+    ambientOutputRef.current = ambientOutput;
+  }, [ambientOutput]);
+
+  const applyIncomingSnapshot = useCallback(
+    (snap: PomodoroSessionSnapshot | null, nextModes = modesRef.current) => {
+      if (!snap) return;
+      const idx = Math.min(2, Math.max(0, Math.floor(snap.modeIdx ?? 0)));
+      const cap = nextModes[idx]?.duration ?? snap.timeLeft ?? 0;
+      const savedTime =
+        typeof snap.timeLeft === "number" && Number.isFinite(snap.timeLeft)
+          ? Math.floor(snap.timeLeft)
+          : cap;
+
+      modeIdxRef.current = idx;
+      setModeIdx((prev) => (prev === idx ? prev : idx));
+      segmentStartRef.current =
+        typeof snap.segmentStartedAt === "string" ? new Date(snap.segmentStartedAt) : null;
+
+      const savedEndsAt =
+        typeof snap.runEndsAtMs === "number" && Number.isFinite(snap.runEndsAtMs) ? snap.runEndsAtMs : null;
+
+      if (snap.running && savedEndsAt !== null) {
+        const remaining = Math.max(0, Math.ceil((savedEndsAt - Date.now()) / 1000));
+        const clamped = Math.min(cap, remaining);
+        timeLeftRef.current = clamped;
+        setTimeLeft((prev) => (prev === clamped ? prev : clamped));
+        const shouldContinue = remaining > 0;
+        runningRef.current = shouldContinue;
+        setRunning((prev) => (prev === shouldContinue ? prev : shouldContinue));
+        runEndsAtRef.current = shouldContinue ? savedEndsAt : null;
+        completionFiredRef.current = !shouldContinue;
+      } else {
+        const pausedTime = Math.min(cap, Math.max(0, savedTime));
+        timeLeftRef.current = pausedTime;
+        setTimeLeft((prev) => (prev === pausedTime ? prev : pausedTime));
+        runningRef.current = false;
+        setRunning((prev) => (prev ? false : prev));
+        runEndsAtRef.current = null;
+        completionFiredRef.current = pausedTime === 0;
+      }
+
+      if (Array.isArray(snap.tasks)) {
+        const cleaned = snap.tasks.filter(
+          (task) =>
+            task &&
+            typeof task.id === "string" &&
+            typeof task.text === "string" &&
+            typeof task.done === "boolean",
+        );
+        setTasks((prev) => (JSON.stringify(prev) === JSON.stringify(cleaned) ? prev : cleaned));
+      }
+      if (typeof snap.newTask === "string") {
+        setNewTask((prev) => (prev === snap.newTask ? prev : snap.newTask));
+      }
+      if (Array.isArray(snap.sounds) && snap.sounds.length === AMBIENT_SOUNDS.length) {
+        setSounds((prev) => (JSON.stringify(prev) === JSON.stringify(snap.sounds) ? prev : snap.sounds));
+      }
+      if (typeof snap.ambientPlaying === "boolean") {
+        setAmbientPlaying((prev) => (prev === snap.ambientPlaying ? prev : snap.ambientPlaying));
+      }
+      if (typeof snap.ambientVolume === "number" && Number.isFinite(snap.ambientVolume)) {
+        const v = Math.max(0, Math.min(1, snap.ambientVolume));
+        setAmbientVolume((prev) => (prev === v ? prev : v));
+      }
+      const nextOut =
+        snap.ambientOutput === "off" || snap.ambientOutput === "local" || snap.ambientOutput === "spotify"
+          ? snap.ambientOutput
+          : deriveAmbientOutputFromSnapshot(snap);
+      setAmbientOutput((prev) => (prev === nextOut ? prev : nextOut));
+    },
+    [],
+  );
+
   const persistSessionSnapshot = useCallback(() => {
-    try {
-      const payload: PomodoroSessionSnapshot = {
-        v: 2,
-        modeIdx: modeIdxRef.current,
-        timeLeft: timeLeftRef.current,
-        running: runningRef.current,
-        runEndsAtMs: runEndsAtRef.current,
-        segmentStartedAt: segmentStartRef.current?.toISOString() ?? null,
-        tasks,
-        newTask,
-        sounds,
-      };
-      localStorage.setItem(POMODORO_SESSION_KEY, JSON.stringify(payload));
-    } catch {
-      /* ignore quota */
-    }
-  }, [newTask, sounds, tasks]);
+    writeSessionSnapshot({
+      v: 3,
+      modeIdx: modeIdxRef.current,
+      timeLeft: timeLeftRef.current,
+      running: runningRef.current,
+      runEndsAtMs: runEndsAtRef.current,
+      segmentStartedAt: segmentStartRef.current?.toISOString() ?? null,
+      tasks: tasksRef.current,
+      newTask: newTaskRef.current,
+      sounds: soundsRef.current,
+      ambientPlaying: ambientPlayingRef.current,
+      ambientVolume: ambientVolumeRef.current,
+      ambientOutput: ambientOutputRef.current,
+    });
+  }, []);
+
+  const persistSessionSnapshotRef = useRef(persistSessionSnapshot);
+  persistSessionSnapshotRef.current = persistSessionSnapshot;
 
   useEffect(() => {
     if (!prefsEnvelope?.success || prefsHydratedRef.current) return;
@@ -202,89 +263,17 @@ export default function Pomodoro() {
         short_break: p.shortBreakSec,
         long_break: p.longBreakSec,
       };
-      localStorage.setItem(
-        "studyroom.pomodoro.modeSeconds",
-        JSON.stringify({
-          focus: p.focusSec,
-          short_break: p.shortBreakSec,
-          long_break: p.longBreakSec,
-        }),
-      );
+      persistModeSeconds(nextSec);
     }
     const nextModes = buildModes(nextSec);
     setModes(nextModes);
-
-    try {
-      const raw = localStorage.getItem(POMODORO_SESSION_KEY);
-      if (raw) {
-        const snap = JSON.parse(raw) as Partial<PomodoroSessionSnapshot>;
-        const idx = Math.min(2, Math.max(0, Math.floor(snap.modeIdx ?? 0)));
-        const cap = nextModes[idx]?.duration ?? snap.timeLeft ?? 0;
-        const tl =
-          typeof snap.timeLeft === "number" && Number.isFinite(snap.timeLeft)
-            ? Math.floor(snap.timeLeft)
-            : cap;
-        setModeIdx(idx);
-        modeIdxRef.current = idx;
-        if (snap.v === 2) {
-          segmentStartRef.current =
-            typeof snap.segmentStartedAt === "string" ? new Date(snap.segmentStartedAt) : null;
-          const savedEndsAt =
-            typeof snap.runEndsAtMs === "number" && Number.isFinite(snap.runEndsAtMs)
-              ? snap.runEndsAtMs
-              : null;
-          if (snap.running && savedEndsAt !== null) {
-            const remaining = Math.max(0, Math.ceil((savedEndsAt - Date.now()) / 1000));
-            setTimeLeft(Math.min(cap, remaining));
-            timeLeftRef.current = Math.min(cap, remaining);
-            const shouldContinue = remaining > 0;
-            setRunning(shouldContinue);
-            runningRef.current = shouldContinue;
-            runEndsAtRef.current = shouldContinue ? savedEndsAt : null;
-            completionFiredRef.current = !shouldContinue;
-          } else {
-            const pausedTime = Math.min(cap, Math.max(0, tl));
-            setTimeLeft(pausedTime);
-            timeLeftRef.current = pausedTime;
-            setRunning(false);
-            runningRef.current = false;
-            runEndsAtRef.current = null;
-            completionFiredRef.current = pausedTime === 0;
-          }
-        } else {
-          const legacyTime = Math.min(cap, Math.max(0, tl));
-          setTimeLeft(legacyTime);
-          timeLeftRef.current = legacyTime;
-          setRunning(false);
-          runningRef.current = false;
-          runEndsAtRef.current = null;
-          segmentStartRef.current = null;
-          completionFiredRef.current = legacyTime === 0;
-        }
-        if (Array.isArray(snap.tasks)) {
-          setTasks(
-            snap.tasks.filter(
-              (t) =>
-                t &&
-                typeof t.id === "string" &&
-                typeof t.text === "string" &&
-                typeof t.done === "boolean",
-            ),
-          );
-        }
-        if (typeof snap.newTask === "string") {
-          setNewTask(snap.newTask);
-        }
-        if (Array.isArray(snap.sounds) && snap.sounds.length === AMBIENT_SOUNDS.length) {
-          setSounds(snap.sounds as typeof AMBIENT_SOUNDS);
-        }
-      }
-    } catch {
-      /* ignore corrupted snapshot */
+    const stored = readSessionSnapshot();
+    if (stored) {
+      applyIncomingSnapshot(stored, nextModes);
     }
 
     prefsHydratedRef.current = true;
-  }, [prefsEnvelope]);
+  }, [applyIncomingSnapshot, prefsEnvelope]);
 
   useEffect(() => {
     const sec: Record<PomodoroSessionMode, number> = {
@@ -292,7 +281,7 @@ export default function Pomodoro() {
       short_break: modes[1].duration,
       long_break: modes[2].duration,
     };
-    localStorage.setItem("studyroom.pomodoro.modeSeconds", JSON.stringify(sec));
+    persistModeSeconds(sec);
   }, [modes]);
 
   useEffect(() => {
@@ -371,6 +360,8 @@ export default function Pomodoro() {
     const m = modesRef.current[idx];
     const planned = m.duration;
     const started = segmentStartRef.current ?? new Date();
+    const completedAt = new Date();
+    const actual = Math.max(1, Math.round((completedAt.getTime() - started.getTime()) / 1000));
     segmentStartRef.current = null;
     runEndsAtRef.current = null;
     setRunning(false);
@@ -381,9 +372,9 @@ export default function Pomodoro() {
       data: {
         mode: m.key,
         durationPlannedSec: planned,
-        durationActualSec: planned,
+        durationActualSec: actual,
         startedAt: started.toISOString(),
-        completedAt: new Date().toISOString(),
+        completedAt: completedAt.toISOString(),
       },
     });
   }, [createSession]);
@@ -437,14 +428,33 @@ export default function Pomodoro() {
     return () => {
       if (sessionPersistTimerRef.current) clearTimeout(sessionPersistTimerRef.current);
     };
-  }, [modeIdx, newTask, persistSessionSnapshot, running, sounds, tasks, timeLeft]);
+  }, [ambientOutput, ambientPlaying, ambientVolume, modeIdx, newTask, persistSessionSnapshot, running, sounds, tasks, timeLeft]);
 
   useEffect(() => {
     return () => {
       if (sessionPersistTimerRef.current) clearTimeout(sessionPersistTimerRef.current);
-      persistSessionSnapshot();
+      persistSessionSnapshotRef.current();
     };
-  }, [persistSessionSnapshot]);
+  }, []);
+
+  useEffect(() => {
+    if (!prefsHydratedRef.current) return;
+    return subscribePomodoroSync((incoming) => {
+      if (incoming) {
+        applyIncomingSnapshot(incoming);
+      }
+      setModes((prev) => {
+        const next = buildModes(loadModeSeconds());
+        if (
+          prev.length === next.length &&
+          prev.every((m, i) => m.duration === next[i]?.duration && m.key === next[i]?.key)
+        ) {
+          return prev;
+        }
+        return next;
+      });
+    });
+  }, [applyIncomingSnapshot]);
 
   const toggleRunning = () => {
     if (runningRef.current) {
@@ -490,7 +500,27 @@ export default function Pomodoro() {
   };
 
   const toggleSound = (id: string) => {
-    setSounds((prev) => prev.map((s) => (s.id === id ? { ...s, active: !s.active } : s)));
+    const nextSounds = sounds.map((sound) => ({
+      ...sound,
+      active: sound.id === id ? !sound.active : false,
+    }));
+    const activeS = nextSounds.find((s) => s.active);
+    setSounds(nextSounds);
+    if (!activeS) {
+      setAmbientOutput("off");
+      setAmbientPlaying(false);
+    } else if (activeS.sourceType === "spotify") {
+      setAmbientOutput("spotify");
+      setAmbientPlaying(false);
+    } else {
+      setAmbientOutput("local");
+    }
+  };
+
+  const toggleAmbientPlayback = () => {
+    if (!activeAmbientSound || activeAmbientSound.sourceType !== "audio") return;
+    setAmbientOutput("local");
+    setAmbientPlaying((prev) => !prev);
   };
 
   const refetchSessions = () => {
@@ -643,8 +673,8 @@ export default function Pomodoro() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold">Ambient Sounds</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-2">
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {sounds.map((sound) => {
                   const Icon = soundIcons[sound.icon] || Wind;
                   return (
@@ -665,6 +695,89 @@ export default function Pomodoro() {
                     </button>
                   );
                 })}
+              </div>
+              <div className="rounded-2xl border border-border/60 bg-muted/20 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold">
+                      {activeAmbientSound?.name ?? "No background sound selected"}
+                    </p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                      {activeAmbientSound?.sourceType === "spotify"
+                        ? "Use the Spotify player below for Lo-Fi playback."
+                        : activeAmbientSound
+                          ? "Royalty-free ambient source linked below."
+                          : "Pick a scene above to keep the workspace sounding steady while you study."}
+                    </p>
+                  </div>
+                  {activeAmbientSound?.sourceType === "audio" ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 rounded-xl shrink-0"
+                      onClick={toggleAmbientPlayback}
+                      disabled={!activeAmbientSound}
+                      data-testid="button-toggle-ambient"
+                    >
+                      {ambientPlaying ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                    </Button>
+                  ) : null}
+                </div>
+                {activeAmbientSound?.sourceType === "audio" ? (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="h-8 rounded-xl"
+                        onClick={toggleAmbientPlayback}
+                        data-testid="button-play-ambient"
+                      >
+                        {ambientPlaying ? <Pause size={14} /> : <Play size={14} />}
+                        <span className="ml-1.5">{ambientPlaying ? "Pause" : "Play"}</span>
+                      </Button>
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={Math.round(ambientVolume * 100)}
+                        onChange={(event) => setAmbientVolume(Number(event.target.value) / 100)}
+                        className="h-2 flex-1 accent-primary"
+                        aria-label="Ambient volume"
+                        data-testid="input-ambient-volume"
+                      />
+                    </div>
+                    <a
+                      href={activeAmbientSound.sourceUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      Source: {activeAmbientSound.sourceLabel}
+                      <ExternalLink size={12} />
+                    </a>
+                  </div>
+                ) : activeAmbientSound ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <a
+                      href="#pomodoro-spotify-player"
+                      className="inline-flex h-8 items-center rounded-xl border border-border/60 px-3 text-xs font-medium hover:bg-muted"
+                    >
+                      Open player
+                    </a>
+                    <a
+                      href={activeAmbientSound.sourceUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      Source: {activeAmbientSound.sourceLabel}
+                      <ExternalLink size={12} />
+                    </a>
+                  </div>
+                ) : null}
               </div>
             </CardContent>
           </Card>
@@ -804,6 +917,21 @@ export default function Pomodoro() {
                   </ul>
                 </ScrollArea>
               </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/60" id="pomodoro-spotify-player">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">Spotify Focus Playlist</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                The player stays mounted while you navigate so playback continues. Choose &ldquo;Lo-Fi Beats&rdquo;
+                in Ambient Sounds, then use the controls in the slot below (or the floating panel on other pages).
+              </p>
+              <div
+                ref={spotifySlotCallback}
+                className="relative min-h-[360px] w-full overflow-hidden rounded-xl border border-border/60 bg-muted/10"
+              />
             </CardContent>
           </Card>
         </div>

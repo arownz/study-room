@@ -106,11 +106,6 @@ export default defineConfig(({ command, mode }) => {
           changeOrigin: true,
           secure: false,
         },
-        "/uploads": {
-          target: `http://localhost:${apiPort}`,
-          changeOrigin: true,
-          secure: false,
-        },
       },
     },
     preview: {

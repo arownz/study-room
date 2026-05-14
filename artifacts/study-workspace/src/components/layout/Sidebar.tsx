@@ -46,15 +46,15 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <div className="flex h-14 items-center justify-between px-4 border-b">
         {!collapsed && (
           <div className="flex items-center gap-2 font-bold text-lg text-primary">
-            <div className="w-6 h-6 rounded bg-primary text-primary-foreground flex items-center justify-center">
-              <img src="/logo1.png" alt="StudyRoom" className="w-8 h-8" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/12 ring-1 ring-primary/20">
+              <img src="/logo1.png" alt="StudyRoom" className="h-8 w-8 object-contain" />
             </div>
             StudyRoom
           </div>
         )}
         {collapsed && (
-          <div className="w-8 h-8 rounded bg-primary text-primary-foreground flex items-center justify-center font-bold">
-            <img src="/logo1.png" alt="StudyRoom" className="w-8 h-8" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/12 ring-1 ring-primary/20">
+            <img src="/logo1.png" alt="StudyRoom" className="h-8 w-8 object-contain" />
           </div>
         )}
         <Button

@@ -1,7 +1,5 @@
 import express, { type Express } from "express";
 import cors from "cors";
-import path from "node:path";
-import { mkdirSync } from "node:fs";
 import { toNodeHandler } from "better-auth/node";
 import "./modules/auth/types";
 import router from "./routes";
@@ -11,9 +9,6 @@ import { errorHandler } from "./middleware/error-handler";
 import { requestLogger } from "./middleware/request-logger";
 
 const app: Express = express();
-
-const uploadsDir = path.resolve(process.cwd(), "uploads");
-mkdirSync(path.join(uploadsDir, "avatars"), { recursive: true });
 
 app.use(requestLogger);
 app.use(
@@ -39,16 +34,6 @@ app.get("/", (_req, res) => {
 app.all("/api/auth/*splat", toNodeHandler(auth));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// User-uploaded assets (avatars). Served from the API origin so cookies
-// aren't required and so URLs can be consumed from <img src=...>.
-app.use(
-  "/uploads",
-  express.static(uploadsDir, {
-    fallthrough: false,
-    maxAge: "1h",
-  }),
-);
 
 app.use("/api", router);
 app.use(errorHandler);

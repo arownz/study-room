@@ -85,6 +85,13 @@
       "when": 11,
       "tag": "0011_whiteboards_collection",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 12,
+      "tag": "0012_user_avatar_bytea",
+      "breakpoints": true
     }
   ]
 }

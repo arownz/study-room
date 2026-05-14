@@ -271,12 +271,12 @@ export default function Flashcards() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-6xl space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold">Flashcard decks</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Flashcard Decks</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {decks.length} deck{decks.length === 1 ? "" : "s"}
+            {decks.length} deck{decks.length === 1 ? "" : "s"} ready for quick review
           </p>
         </div>
         <Button

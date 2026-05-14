@@ -30,6 +30,9 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   avatar: text("avatar"),
+  /** Raw bytes for user-uploaded avatars (OAuth avatars stay as remote URLs in `avatar` only). */
+  avatarData: noteImageBytes("avatar_data"),
+  avatarMime: text("avatar_mime"),
   role: text("role").notNull().default("student"),
   // Tracks whether the user has explicitly chosen their role during
   // onboarding. Until this flips to true the SPA forces the

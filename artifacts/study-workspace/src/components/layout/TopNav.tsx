@@ -65,7 +65,7 @@ export function TopNav({ sidebarCollapsed, theme, onThemeToggle, title }: TopNav
     >
       <div className="flex-1 flex items-center gap-3">
         <h1 className="text-sm font-semibold text-foreground hidden md:block">{title}</h1>
-        <div className={cn(
+        {/* <div className={cn(
           "relative flex items-center rounded-lg border bg-muted/50 transition-all duration-200",
           searchFocused ? "w-64 border-primary/50 shadow-sm shadow-primary/10" : "w-48 border-border"
         )}>
@@ -85,7 +85,7 @@ export function TopNav({ sidebarCollapsed, theme, onThemeToggle, title }: TopNav
               K
             </kbd>
           </div>
-        </div>
+        </div> */}
       </div>
 
       <div className="flex items-center gap-2">

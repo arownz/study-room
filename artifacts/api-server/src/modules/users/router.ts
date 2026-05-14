@@ -60,6 +60,17 @@ router.delete(
   asyncHandler(controller.deleteAvatar),
 );
 
+const userAvatarParamsSchema = z.object({
+  userId: z.string().min(1).max(191),
+});
+
+router.get(
+  "/users/:userId/avatar",
+  requireAuth,
+  validateRequest({ params: userAvatarParamsSchema }),
+  asyncHandler(controller.getUserAvatar),
+);
+
 const noteImageAssetParamsSchema = z.object({
   assetId: z.string().uuid(),
 });

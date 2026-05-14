@@ -7,12 +7,7 @@ import {
   meDtoSchema,
   type UpdateMeRequest,
 } from "./contracts";
-import {
-  avatarFilenameFromUrl,
-  buildAvatarPublicUrl,
-  deleteAvatarFile,
-  type AvatarRequest,
-} from "./avatar-storage";
+import type { AvatarRequest } from "./avatar-storage";
 import {
   detectImageFormat,
   mimeFromFormat,
@@ -66,21 +61,24 @@ export class UsersController {
     }
 
     const file = req.file;
-    if (!file) {
+    if (!file?.buffer?.length) {
       throw new AppError("No file uploaded", 400, "NO_FILE");
     }
 
-    // Best-effort cleanup of the previous self-hosted avatar so we
-    // don't leak storage between successive uploads.
-    const previous = await this.service.getMe(req.authUser.id);
-    const previousFilename = avatarFilenameFromUrl(previous.avatar);
-
-    const url = buildAvatarPublicUrl(file.filename);
-    const updated = await this.service.setAvatar(req.authUser.id, url);
-
-    if (previousFilename && previousFilename !== file.filename) {
-      void deleteAvatarFile(previousFilename).catch(() => undefined);
+    const format = detectImageFormat(file.buffer);
+    if (!format) {
+      throw new AppError(
+        "Unsupported image format. Use PNG, JPEG, WebP, or GIF.",
+        400,
+        "INVALID_IMAGE",
+      );
     }
+
+    const updated = await this.service.uploadAvatarFromBuffer(
+      req.authUser.id,
+      file.buffer,
+      mimeFromFormat(format),
+    );
 
     return sendSuccess(res, meDtoSchema.parse(updated));
   };
@@ -91,16 +89,29 @@ export class UsersController {
       return;
     }
 
-    const previous = await this.service.getMe(req.authUser.id);
-    const filename = avatarFilenameFromUrl(previous.avatar);
-
-    const updated = await this.service.setAvatar(req.authUser.id, null);
-
-    if (filename) {
-      void deleteAvatarFile(filename).catch(() => undefined);
-    }
+    const updated = await this.service.deleteAvatar(req.authUser.id);
 
     return sendSuccess(res, meDtoSchema.parse(updated));
+  };
+
+  getUserAvatar = async (req: Request, res: Response) => {
+    if (!req.authUser) {
+      sendError(res, "Unauthorized", 401, "UNAUTHORIZED");
+      return;
+    }
+    const { userId } = req.params as { userId: string };
+    const resolved = await this.service.resolveAvatarStream(userId);
+    if (resolved.kind === "not_found") {
+      sendError(res, "Not found", 404, "NOT_FOUND");
+      return;
+    }
+    if (resolved.kind === "redirect") {
+      res.redirect(302, resolved.url);
+      return;
+    }
+    res.setHeader("Content-Type", resolved.mimeType);
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    res.send(resolved.data);
   };
 
   /** Authenticated inline image upload for note HTML (stored in PostgreSQL, not disk). */
