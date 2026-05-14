@@ -62,6 +62,7 @@ pnpm --filter @workspace/api-server typecheck # check for type errors in the bac
 ```
 
 ## Early Look of the app
+
 ![1778326517958](image/README/1778326517958.png)
 ![1778247850889](image/README/1778247850889.png)
 ![1778247976880](image/README/1778247976880.png)
@@ -74,4 +75,5 @@ pnpm --filter @workspace/api-server typecheck # check for type errors in the bac
 ![1778248218157](image/README/1778248218157.png)
 
 ## ERD Diagram
+
 ![1778317679270](image/README/1778317679270.png)

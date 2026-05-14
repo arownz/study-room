@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { useLocation } from "wouter";
-import { ExternalLink, Maximize2, X } from "lucide-react";
+import { ExternalLink, Maximize2, Minimize } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usePomodoroSpotifySlot } from "../pomodoro-spotify-slot-context";
@@ -10,7 +10,6 @@ import {
   subscribePomodoroSync,
   type PomodoroSessionSnapshot,
 } from "../persistence";
-import { useCallback } from "react";
 
 const SPOTIFY_EMBED_SRC =
   "https://open.spotify.com/embed/playlist/37i9dQZF1DWWQRwui0ExPn?utm_source=generator";
@@ -55,19 +54,43 @@ export function PomodoroSpotifyPortal() {
   const ambientOut = snap ? deriveAmbientOutputFromSnapshot(snap) : "off";
   const spotifyActive = ambientOut === "spotify";
 
+  useEffect(() => {
+    if (!spotifyActive && spotifyFloatDismissed) {
+      setSpotifyFloatDismissed(false);
+      saveSpotifyFloatDismissed(false);
+    }
+  }, [spotifyActive, spotifyFloatDismissed]);
+
   const layoutWrap = useCallback(() => {
     const el = wrapRef.current;
     const slot = spotifySlotEl;
     if (!el) return;
+
+    if (!spotifyActive) {
+      el.style.left = "-9999px";
+      el.style.top = "0";
+      el.style.right = "auto";
+      el.style.bottom = "auto";
+      el.style.width = "380px";
+      el.style.height = "220px";
+      el.style.maxHeight = "none";
+      el.style.opacity = "0";
+      el.style.pointerEvents = "none";
+      return;
+    }
+
     const dockFloat = !onPomodoro && spotifyActive && !spotifyFloatDismissed;
     if (onPomodoro && slot) {
       const r = slot.getBoundingClientRect();
+      const width = Math.max(220, r.width);
+      const height = Math.max(180, r.height);
       el.style.left = `${r.left}px`;
       el.style.top = `${r.top}px`;
       el.style.right = "auto";
       el.style.bottom = "auto";
-      el.style.width = `${r.width}px`;
-      el.style.height = `${Math.max(360, r.height)}px`;
+      el.style.width = `${width}px`;
+      el.style.height = `${height}px`;
+      el.style.maxHeight = "none";
       el.style.opacity = "1";
       el.style.pointerEvents = "auto";
     } else if (onPomodoro && !slot) {
@@ -77,6 +100,7 @@ export function PomodoroSpotifyPortal() {
       el.style.bottom = "auto";
       el.style.width = "380px";
       el.style.height = "352px";
+      el.style.maxHeight = "none";
       el.style.opacity = "0";
       el.style.pointerEvents = "none";
     } else if (spotifyFloatDismissed && spotifyActive) {
@@ -86,6 +110,7 @@ export function PomodoroSpotifyPortal() {
       el.style.bottom = "auto";
       el.style.width = "380px";
       el.style.height = "352px";
+      el.style.maxHeight = "none";
       el.style.opacity = "0";
       el.style.pointerEvents = "none";
     } else {
@@ -94,7 +119,8 @@ export function PomodoroSpotifyPortal() {
       el.style.bottom = "1.5rem";
       el.style.top = "auto";
       el.style.width = "min(calc(100vw - 3rem), 380px)";
-      el.style.height = dockFloat ? "200px" : "152px";
+      el.style.height = dockFloat ? "228px" : "152px";
+      el.style.maxHeight = "min(260px, calc(100vh - 6rem))";
       el.style.opacity = "1";
       el.style.pointerEvents = "auto";
     }
@@ -106,11 +132,15 @@ export function PomodoroSpotifyPortal() {
       typeof ResizeObserver !== "undefined" && spotifySlotEl
         ? new ResizeObserver(() => layoutWrap())
         : null;
-    ro?.observe(spotifySlotEl);
+    if (spotifySlotEl) {
+      ro?.observe(spotifySlotEl);
+    }
     window.addEventListener("resize", layoutWrap);
+    window.addEventListener("scroll", layoutWrap, true);
     return () => {
       ro?.disconnect();
       window.removeEventListener("resize", layoutWrap);
+      window.removeEventListener("scroll", layoutWrap, true);
     };
   }, [layoutWrap, spotifySlotEl]);
 
@@ -121,7 +151,7 @@ export function PomodoroSpotifyPortal() {
       <div
         ref={wrapRef}
         className={cn(
-          "pointer-events-auto fixed z-[45] flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-background/95 shadow-xl backdrop-blur-xl transition-[opacity,transform] duration-200",
+          "pointer-events-auto fixed z-45 flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-background/95 shadow-xl backdrop-blur-xl transition-[opacity,transform] duration-200",
           !spotifyActive && "pointer-events-none opacity-0",
           onPomodoro && "shadow-none md:rounded-xl",
         )}
@@ -153,7 +183,7 @@ export function PomodoroSpotifyPortal() {
                   saveSpotifyFloatDismissed(true);
                 }}
               >
-                <X size={14} />
+                <Minimize size={14} />
               </Button>
             </div>
           </div>
@@ -173,7 +203,7 @@ export function PomodoroSpotifyPortal() {
           type="button"
           size="sm"
           variant="secondary"
-          className="fixed bottom-6 right-6 z-[46] h-9 gap-2 rounded-full px-3 shadow-md"
+          className="fixed bottom-6 right-6 z-46 h-9 gap-2 rounded-full px-3 shadow-md"
           title="Show Spotify player"
           onClick={() => {
             setSpotifyFloatDismissed(false);

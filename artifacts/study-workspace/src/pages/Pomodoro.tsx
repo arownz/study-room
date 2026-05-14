@@ -514,6 +514,7 @@ export default function Pomodoro() {
       setAmbientPlaying(false);
     } else {
       setAmbientOutput("local");
+      setAmbientPlaying(true);
     }
   };
 
@@ -919,21 +920,23 @@ export default function Pomodoro() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-border/60" id="pomodoro-spotify-player">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">Spotify Focus Playlist</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                The player stays mounted while you navigate so playback continues. Choose &ldquo;Lo-Fi Beats&rdquo;
-                in Ambient Sounds, then use the controls in the slot below (or the floating panel on other pages).
-              </p>
-              <div
-                ref={spotifySlotCallback}
-                className="relative min-h-[360px] w-full overflow-hidden rounded-xl border border-border/60 bg-muted/10"
-              />
-            </CardContent>
-          </Card>
+          {ambientOutput === "spotify" ? (
+            <Card className="border-border/60" id="pomodoro-spotify-player">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold">Spotify Focus Playlist</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  The player stays mounted while you navigate so playback continues. Choose &ldquo;Lo-Fi Beats&rdquo;
+                  in Ambient Sounds, then use the controls in the slot below (or the floating panel on other pages).
+                </p>
+                <div
+                  ref={spotifySlotCallback}
+                  className="relative min-h-90 w-full overflow-hidden rounded-xl border border-border bg-muted/10 sm:min-h-90"
+                />
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
       </div>
     </div>

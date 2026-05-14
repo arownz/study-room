@@ -175,7 +175,7 @@ export function FlashcardStudySession({
                   className="text-lg font-medium leading-relaxed"
                 />
                 <p className="mt-6 text-center text-xs text-muted-foreground">
-                  Click the card · Space flips · {modLabel}+click opens links · ← → Navigate (→ wraps from last)
+                  Click the card to flip | {modLabel}+click opens links | ← → Navigate
                 </p>
               </div>
             </Card>

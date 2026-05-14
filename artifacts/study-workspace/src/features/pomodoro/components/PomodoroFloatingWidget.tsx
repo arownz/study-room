@@ -197,7 +197,7 @@ export function PomodoroFloatingWidget() {
 
   return (
     <div className="pointer-events-none fixed right-6 top-20 z-40">
-      <div className="pointer-events-auto w-[248px] rounded-2xl border border-border/70 bg-background/92 p-3 shadow-[0_18px_45px_-24px_rgba(0,0,0,0.55)] backdrop-blur-xl">
+      <div className="pointer-events-auto w-62 rounded-2xl border border-border/70 bg-background/92 p-3 shadow-[0_18px_45px_-24px_rgba(0,0,0,0.55)] backdrop-blur-xl">
         <div className="mb-2 flex items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Pomodoro</p>
