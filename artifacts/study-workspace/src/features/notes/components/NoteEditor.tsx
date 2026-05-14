@@ -59,6 +59,17 @@ export function NoteEditor({
   const [hasPendingLocalChanges, setHasPendingLocalChanges] = useState(false);
   const latestDraftRef = useRef({ title: note.title, content: note.content, dirty: false });
 
+  const setLatestDraftRef = useCallback(
+    (next: { title?: string; content?: string; dirty?: boolean }) => {
+      latestDraftRef.current = {
+        title: next.title ?? latestDraftRef.current.title,
+        content: next.content ?? latestDraftRef.current.content,
+        dirty: next.dirty ?? latestDraftRef.current.dirty,
+      };
+    },
+    [],
+  );
+
   const persistDraft = useCallback(
     (draftTitle: string, draftContent: string) => {
       try {
@@ -82,9 +93,12 @@ export function NoteEditor({
       const raw = window.localStorage.getItem(draftKey);
       if (raw) {
         const parsed = JSON.parse(raw) as { title?: string; content?: string };
-        setTitle(parsed.title ?? note.title);
-        setContent(parsed.content ?? note.content);
+        const nextTitle = parsed.title ?? note.title;
+        const nextContent = parsed.content ?? note.content;
+        setTitle(nextTitle);
+        setContent(nextContent);
         setHasPendingLocalChanges(true);
+        setLatestDraftRef({ title: nextTitle, content: nextContent, dirty: true });
         return;
       }
     } catch {
@@ -93,7 +107,8 @@ export function NoteEditor({
     setTitle(note.title);
     setContent(note.content);
     setHasPendingLocalChanges(false);
-  }, [note.id]);
+    setLatestDraftRef({ title: note.title, content: note.content, dirty: false });
+  }, [note.id, note.title, note.content, setLatestDraftRef]);
 
   useEffect(() => {
     if (hasPendingLocalChanges) return;
@@ -125,7 +140,8 @@ export function NoteEditor({
     await onSave({ title, content }, { silent: false });
     window.localStorage.removeItem(`${DRAFT_KEY_PREFIX}${note.id}`);
     setHasPendingLocalChanges(false);
-  }, [content, isDirty, note.id, onSave, title]);
+    setLatestDraftRef({ title, content, dirty: false });
+  }, [content, isDirty, note.id, onSave, setLatestDraftRef, title]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -183,6 +199,7 @@ export function NoteEditor({
             const nextTitle = event.target.value;
             setTitle(nextTitle);
             setHasPendingLocalChanges(true);
+            setLatestDraftRef({ title: nextTitle, content, dirty: true });
             persistDraft(nextTitle, content);
           }}
           className="w-full border-none bg-transparent text-2xl font-bold text-foreground outline-none placeholder:text-muted-foreground"
@@ -200,6 +217,7 @@ export function NoteEditor({
           onChange={(next) => {
             setContent(next);
             setHasPendingLocalChanges(true);
+            setLatestDraftRef({ title, content: next, dirty: true });
             persistDraft(title, next);
           }}
           placeholder="Click the canvas to place the caret and type to add a text block."

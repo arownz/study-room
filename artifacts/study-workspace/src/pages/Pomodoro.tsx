@@ -14,6 +14,7 @@ import {
   TreePine,
   ChevronRight,
   ChevronDown,
+  Trash2,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -384,6 +385,10 @@ export default function Pomodoro() {
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
   };
 
+  const deleteTask = (id: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+  };
+
   const toggleSound = (id: string) => {
     setSounds((prev) => prev.map((s) => (s.id === id ? { ...s, active: !s.active } : s)));
   };
@@ -577,33 +582,47 @@ export default function Pomodoro() {
             </CardHeader>
             <CardContent className="space-y-2">
               {tasks.map((task) => (
-                <motion.button
+                <motion.div
                   key={task.id}
-                  type="button"
-                  onClick={() => toggleTask(task.id)}
-                  className="flex items-start gap-2.5 w-full text-left group"
+                  className="flex items-start gap-2.5 group"
                   whileHover={{ x: 2 }}
-                  data-testid={`pomodoro-task-${task.id}`}
                 >
-                  <div
-                    className={cn(
-                      "w-4 h-4 rounded border shrink-0 flex items-center justify-center mt-0.5 transition-all",
-                      task.done
-                        ? "bg-primary border-primary"
-                        : "border-border group-hover:border-primary/50",
-                    )}
+                  <button
+                    type="button"
+                    onClick={() => toggleTask(task.id)}
+                    className="flex min-w-0 flex-1 items-start gap-2.5 text-left"
+                    data-testid={`pomodoro-task-${task.id}`}
                   >
-                    {task.done && <Check size={10} className="text-primary-foreground" />}
-                  </div>
-                  <span
-                    className={cn(
-                      "text-sm leading-snug",
-                      task.done && "line-through text-muted-foreground",
-                    )}
+                    <div
+                      className={cn(
+                        "w-4 h-4 rounded border shrink-0 flex items-center justify-center mt-0.5 transition-all",
+                        task.done
+                          ? "bg-primary border-primary"
+                          : "border-border group-hover:border-primary/50",
+                      )}
+                    >
+                      {task.done && <Check size={10} className="text-primary-foreground" />}
+                    </div>
+                    <span
+                      className={cn(
+                        "text-sm leading-snug",
+                        task.done && "line-through text-muted-foreground",
+                      )}
+                    >
+                      {task.text}
+                    </span>
+                  </button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="mt-[-2px] h-7 w-7 shrink-0 text-destructive/70 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                    onClick={() => deleteTask(task.id)}
+                    data-testid={`button-delete-task-${task.id}`}
                   >
-                    {task.text}
-                  </span>
-                </motion.button>
+                    <Trash2 size={13} />
+                  </Button>
+                </motion.div>
               ))}
 
               <div className="flex gap-2 pt-2">

@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Layers, Plus } from "lucide-react";
+import { Layers, Plus, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ interface FlashcardDeckBrowseProps {
   isLoading: boolean;
   isError: boolean;
   onCreateDeck: () => void;
+  onDeleteDeck: (deck: FlashcardDeckViewModel) => void;
+  deletingDeckId?: string | null;
 }
 
 export function FlashcardDeckBrowse({
@@ -20,6 +22,8 @@ export function FlashcardDeckBrowse({
   isLoading,
   isError,
   onCreateDeck,
+  onDeleteDeck,
+  deletingDeckId,
 }: FlashcardDeckBrowseProps) {
   if (isLoading && decks.length === 0) {
     return (
@@ -65,31 +69,52 @@ export function FlashcardDeckBrowse({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25 }}
         >
-          <Link href={`/flashcards/deck/${deck.id}`}>
-            <Card
-              className="h-full cursor-pointer border-border/60 transition-colors hover:border-primary/30"
-              data-testid={`flashcard-deck-card-${deck.id}`}
-            >
-              <div className="h-1 bg-gradient-to-r from-violet-500/70 to-primary" />
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="line-clamp-2 text-sm font-semibold leading-snug">{deck.title}</h3>
+          <Card
+            className="h-full border-border/60 transition-colors hover:border-primary/30"
+            data-testid={`flashcard-deck-card-${deck.id}`}
+          >
+            <div className="h-1 bg-linear-to-r from-violet-500/70 to-primary" />
+            <CardHeader className="pb-2">
+              <div className="flex items-start justify-between gap-2">
+                <Link href={`/flashcards/deck/${deck.id}`} className="min-w-0 flex-1">
+                  <h3 className="line-clamp-2 cursor-pointer text-sm font-semibold leading-snug hover:text-primary">
+                    {deck.title}
+                  </h3>
+                </Link>
+                <div className="flex items-center gap-1">
                   <Badge variant="secondary" className="shrink-0 text-[10px]">
                     <Layers size={10} className="mr-0.5" />
                     Deck
                   </Badge>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0 text-destructive/70 hover:text-destructive"
+                    onClick={() => onDeleteDeck(deck)}
+                    disabled={deletingDeckId === deck.id}
+                    data-testid={`button-delete-deck-${deck.id}`}
+                  >
+                    {deletingDeckId === deck.id ? (
+                      <Spinner className="size-3" />
+                    ) : (
+                      <Trash2 size={13} />
+                    )}
+                  </Button>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-2">
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Link href={`/flashcards/deck/${deck.id}`} className="block space-y-2">
                 {deck.description ? (
                   <p className="line-clamp-2 text-xs text-muted-foreground">{deck.description}</p>
                 ) : (
                   <p className="text-xs text-muted-foreground">Open to add cards and study</p>
                 )}
                 <p className="text-[10px] text-muted-foreground">Updated {deck.relativeUpdatedAt}</p>
-              </CardContent>
-            </Card>
-          </Link>
+              </Link>
+            </CardContent>
+          </Card>
         </motion.div>
       ))}
     </div>

@@ -15,11 +15,13 @@ export default function Whiteboard() {
   const [routeMatch, routeParams] = useRoute<{ whiteboardId: string }>("/whiteboard/:whiteboardId");
   const routeWhiteboardId = routeMatch && routeParams ? routeParams.whiteboardId : null;
 
-  const { boards, isLoading, isError, isCreating, createBoard } = useWhiteboards();
+  const { boards, isLoading, isError, isCreating, isDeleting, createBoard, deleteBoard } =
+    useWhiteboards();
 
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string>(routeWhiteboardId ?? "");
   const [selectedBoardDirty, setSelectedBoardDirty] = useState(false);
+  const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null);
   const attemptedLastRestore = useRef(false);
 
   useEffect(() => {
@@ -97,6 +99,49 @@ export default function Whiteboard() {
     }
   };
 
+  const handleDelete = async (whiteboardId: string) => {
+    const target = boards.find((board) => board.id === whiteboardId);
+    if (!target) return;
+
+    const deletingSelectedBoard = selected?.id === whiteboardId;
+    const needsUnsavedConfirm = deletingSelectedBoard && selectedBoardDirty;
+    const confirmed = window.confirm(
+      needsUnsavedConfirm
+        ? `Delete "${target.title.trim() || "Untitled Whiteboard"}"? Unsaved local changes for this board will be lost.`
+        : `Delete "${target.title.trim() || "Untitled Whiteboard"}"?`,
+    );
+    if (!confirmed) return;
+
+    setDeletingBoardId(whiteboardId);
+    try {
+      await deleteBoard(whiteboardId);
+      const remaining = boards.filter((board) => board.id !== whiteboardId);
+      const next = remaining[0] ?? null;
+      try {
+        window.localStorage.removeItem(`studyroom.whiteboard.draft:${whiteboardId}`);
+        if (window.sessionStorage.getItem(LAST_WHITEBOARD_ID_KEY) === whiteboardId) {
+          if (next) {
+            window.sessionStorage.setItem(LAST_WHITEBOARD_ID_KEY, next.id);
+          } else {
+            window.sessionStorage.removeItem(LAST_WHITEBOARD_ID_KEY);
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+      if (deletingSelectedBoard) {
+        setSelectedBoardDirty(false);
+      }
+      setSelectedId(next?.id ?? "");
+      setLocation(next ? `/whiteboard/${next.id}` : "/whiteboard");
+      toast({ title: "Whiteboard deleted" });
+    } catch {
+      toast({ title: "Failed to delete whiteboard", variant: "destructive" });
+    } finally {
+      setDeletingBoardId(null);
+    }
+  };
+
   return (
     <div className="-m-6 flex h-[calc(100vh-3.5rem-3rem)] min-h-0 min-w-0 overflow-hidden rounded-xl border border-border/40">
       <WhiteboardList
@@ -105,9 +150,11 @@ export default function Whiteboard() {
         onSearchChange={setSearch}
         selectedId={selected?.id ?? null}
         onSelect={(board) => handleSelect(board.id)}
+        onDelete={(board) => void handleDelete(board.id)}
         onCreate={() => void handleCreate()}
         isCreating={isCreating}
         isLoading={isLoading}
+        deletingId={isDeleting ? deletingBoardId : null}
       />
 
       {selected ? (

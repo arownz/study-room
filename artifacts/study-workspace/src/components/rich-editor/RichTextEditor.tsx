@@ -144,7 +144,15 @@ function isCanvasTextStructuralEmpty(html: string): boolean {
     return !trimmed.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
   }
   const doc = new DOMParser().parseFromString(html, "text/html");
-  return (doc.body.textContent ?? "").replace(/\s+/g, " ").trim().length === 0;
+  const body = doc.body;
+  if (
+    body.querySelector(
+      "ul,ol,li,blockquote,pre,code,h1,h2,h3,h4,h5,h6,[data-type='taskList'],[data-type='taskItem'],input[type='checkbox']",
+    )
+  ) {
+    return false;
+  }
+  return (body.textContent ?? "").replace(/\s+/g, " ").trim().length === 0;
 }
 
 interface ToolbarButton {

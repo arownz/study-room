@@ -52,7 +52,9 @@ export default function Flashcards() {
     isLoading: decksLoading,
     isError: decksError,
     isCreating: deckCreating,
+    isDeleting: deckDeleting,
     createDeck,
+    deleteDeck,
   } = useFlashcardDecks();
 
   const {
@@ -85,6 +87,7 @@ export default function Flashcards() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<FlashcardViewModel | null>(null);
   const [studyState, setStudyState] = useState<{ startId: string } | null>(null);
+  const [deletingDeckId, setDeletingDeckId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!routeCardId || !cardDetailQuery.data?.data) return;
@@ -103,6 +106,24 @@ export default function Flashcards() {
       toast({ title: "Deck created" });
     } catch {
       toast({ title: "Failed to create deck", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteDeck = async (deck: { id: string; title: string }) => {
+    if (!window.confirm(`Delete "${deck.title}" and all of its flashcards?`)) {
+      return;
+    }
+    setDeletingDeckId(deck.id);
+    try {
+      await deleteDeck(deck.id);
+      if (routeDeckId === deck.id) {
+        setLocation("/flashcards");
+      }
+      toast({ title: "Deck deleted" });
+    } catch {
+      toast({ title: "Failed to delete deck", variant: "destructive" });
+    } finally {
+      setDeletingDeckId(null);
     }
   };
 
@@ -267,6 +288,8 @@ export default function Flashcards() {
         isLoading={decksLoading}
         isError={decksError}
         onCreateDeck={() => setDeckCreateOpen(true)}
+        onDeleteDeck={(deck) => void handleDeleteDeck(deck)}
+        deletingDeckId={deckDeleting ? deletingDeckId : null}
       />
 
       <FlashcardDeckCreateDialog

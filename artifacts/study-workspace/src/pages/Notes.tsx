@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useRoute } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
@@ -11,6 +11,26 @@ import type { NotesFilter } from "@/features/notes/types";
 import { htmlToPlainText } from "@/components/rich-editor/RichTextEditor";
 
 const LAST_NOTE_ID_KEY = "studyroom.notes.lastNoteId";
+
+function readLastNoteId(): string | null {
+  try {
+    return (
+      window.localStorage.getItem(LAST_NOTE_ID_KEY) ??
+      window.sessionStorage.getItem(LAST_NOTE_ID_KEY)
+    );
+  } catch {
+    return null;
+  }
+}
+
+function writeLastNoteId(noteId: string): void {
+  try {
+    window.localStorage.setItem(LAST_NOTE_ID_KEY, noteId);
+    window.sessionStorage.setItem(LAST_NOTE_ID_KEY, noteId);
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
 
 export default function Notes() {
   const { toast } = useToast();
@@ -33,37 +53,30 @@ export default function Notes() {
 
   const [filter, setFilter] = useState<NotesFilter>("all");
   const [search, setSearch] = useState("");
-  const [selectedId, setSelectedId] = useState<string>(routeNoteId ?? "");
+  const [selectedId, setSelectedId] = useState<string>(() => routeNoteId ?? readLastNoteId() ?? "");
   const [duplicateBusy, setDuplicateBusy] = useState(false);
   const [selectedNoteDirty, setSelectedNoteDirty] = useState(false);
-  const attemptedLastNoteRestore = useRef(false);
-
-  useEffect(() => {
-    if (routeNoteId) setSelectedId(routeNoteId);
-  }, [routeNoteId]);
 
   useEffect(() => {
     if (routeNoteId) {
-      try {
-        sessionStorage.setItem(LAST_NOTE_ID_KEY, routeNoteId);
-      } catch {
-        /* ignore quota / private mode */
-      }
+      setSelectedId(routeNoteId);
+      writeLastNoteId(routeNoteId);
+    }
+  }, [routeNoteId]);
+
+  useEffect(() => {
+    if (selectedId) {
+      writeLastNoteId(selectedId);
+    }
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (routeNoteId || isLoading || isError || !selectedId) return;
+    if (notes.some((note) => note.id === selectedId)) {
+      setLocation(`/notes/${selectedId}`);
       return;
     }
-    if (attemptedLastNoteRestore.current || isLoading || isError) return;
-    let last: string | null = null;
-    try {
-      last = sessionStorage.getItem(LAST_NOTE_ID_KEY);
-    } catch {
-      return;
-    }
-    if (!last) return;
-    attemptedLastNoteRestore.current = true;
-    if (notes.some((n) => n.id === last)) {
-      setLocation(`/notes/${last}`);
-    }
-  }, [routeNoteId, isLoading, isError, notes, setLocation]);
+  }, [routeNoteId, isLoading, isError, notes, selectedId, setLocation]);
 
   const visibleNotes = useMemo(() => {
     const lowered = search.toLowerCase();
@@ -85,9 +98,13 @@ export default function Notes() {
       return;
     }
     if (!visibleNotes.some((note) => note.id === selectedId)) {
-      const next = visibleNotes[0];
+      const storedId = readLastNoteId();
+      const next =
+        (storedId ? visibleNotes.find((note) => note.id === storedId) : null) ??
+        visibleNotes[0];
       setSelectedId(next.id);
-      if (routeNoteId && next.id !== routeNoteId) {
+      writeLastNoteId(next.id);
+      if (!routeNoteId || next.id !== routeNoteId) {
         setLocation(`/notes/${next.id}`);
       }
     }
@@ -97,6 +114,7 @@ export default function Notes() {
 
   const handleSelect = (id: string) => {
     setSelectedId(id);
+    writeLastNoteId(id);
     setLocation(`/notes/${id}`);
   };
 
@@ -112,6 +130,7 @@ export default function Notes() {
     try {
       const created = await createNote();
       setSelectedId(created.id);
+      writeLastNoteId(created.id);
       setLocation(`/notes/${created.id}`);
       setSelectedNoteDirty(false);
       toast({ title: "Note created" });
@@ -146,6 +165,7 @@ export default function Notes() {
       const title = base ? `${base} (copy)` : "Untitled Note (copy)";
       const created = await createNote({ title, content: selected.content });
       setSelectedId(created.id);
+      writeLastNoteId(created.id);
       setLocation(`/notes/${created.id}`);
       toast({ title: "Note duplicated" });
     } catch {
