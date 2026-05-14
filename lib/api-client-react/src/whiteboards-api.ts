@@ -1,5 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { QueryKey, UseMutationOptions, UseMutationResult, UseQueryOptions, UseQueryResult } from "@tanstack/react-query";
+import type {
+  QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
+  UseQueryOptions,
+  UseQueryResult,
+} from "@tanstack/react-query";
 import { customFetch } from "./custom-fetch";
 
 export interface WhiteboardRecord {
@@ -31,7 +37,9 @@ export interface ApiEnvelope<T> {
   code?: string;
 }
 
-function buildQueryString(params?: Record<string, string | number | undefined>) {
+function buildQueryString(
+  params?: Record<string, string | number | undefined>,
+) {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params ?? {})) {
     if (value === undefined || value === "") continue;
@@ -42,7 +50,12 @@ function buildQueryString(params?: Record<string, string | number | undefined>) 
 }
 
 export const getListWhiteboardsQueryKey = (params?: ListWhiteboardsParams) =>
-  ["/api/v1/whiteboards", params?.limit ?? 100, params?.offset ?? 0, params?.q ?? ""] as const;
+  [
+    "/api/v1/whiteboards",
+    params?.limit ?? 100,
+    params?.offset ?? 0,
+    params?.q ?? "",
+  ] as const;
 
 export const getWhiteboardQueryKey = (whiteboardId: string) =>
   ["/api/v1/whiteboards", whiteboardId] as const;
@@ -63,7 +76,9 @@ export function useListWhiteboards(
         })}`,
       ),
     ...options,
-  }) as UseQueryResult<ApiEnvelope<ListWhiteboardsData>> & { queryKey: QueryKey };
+  }) as UseQueryResult<ApiEnvelope<ListWhiteboardsData>> & {
+    queryKey: QueryKey;
+  };
   return { ...query, queryKey };
 }
 
@@ -75,14 +90,21 @@ export function useGetWhiteboard(
   const query = useQuery({
     queryKey,
     enabled: whiteboardId.length > 0,
-    queryFn: () => customFetch<ApiEnvelope<WhiteboardRecord>>(`/api/v1/whiteboards/${whiteboardId}`),
+    queryFn: () =>
+      customFetch<ApiEnvelope<WhiteboardRecord>>(
+        `/api/v1/whiteboards/${whiteboardId}`,
+      ),
     ...options,
   }) as UseQueryResult<ApiEnvelope<WhiteboardRecord>> & { queryKey: QueryKey };
   return { ...query, queryKey };
 }
 
 export function useCreateWhiteboard(
-  options?: UseMutationOptions<ApiEnvelope<WhiteboardRecord>, Error, { title?: string }>,
+  options?: UseMutationOptions<
+    ApiEnvelope<WhiteboardRecord>,
+    Error,
+    { title?: string }
+  >,
 ): UseMutationResult<ApiEnvelope<WhiteboardRecord>, Error, { title?: string }> {
   const queryClient = useQueryClient();
   return useMutation({
@@ -94,7 +116,9 @@ export function useCreateWhiteboard(
       }),
     ...options,
     onSuccess: async (data, variables, onMutateResult, context) => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/v1/whiteboards"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/v1/whiteboards"],
+      });
       await options?.onSuccess?.(data, variables, onMutateResult, context);
     },
   });
@@ -114,33 +138,56 @@ export function useUpdateWhiteboard(
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ whiteboardId, data }) =>
-      customFetch<ApiEnvelope<WhiteboardRecord>>(`/api/v1/whiteboards/${whiteboardId}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(data),
-      }),
+      customFetch<ApiEnvelope<WhiteboardRecord>>(
+        `/api/v1/whiteboards/${whiteboardId}`,
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(data),
+        },
+      ),
     ...options,
     onSuccess: async (data, variables, onMutateResult, context) => {
-      queryClient.setQueryData(getWhiteboardQueryKey(variables.whiteboardId), data);
-      await queryClient.invalidateQueries({ queryKey: ["/api/v1/whiteboards"] });
+      queryClient.setQueryData(
+        getWhiteboardQueryKey(variables.whiteboardId),
+        data,
+      );
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/v1/whiteboards"],
+      });
       await options?.onSuccess?.(data, variables, onMutateResult, context);
     },
   });
 }
 
 export function useDeleteWhiteboard(
-  options?: UseMutationOptions<ApiEnvelope<{ id: string }>, Error, { whiteboardId: string }>,
-): UseMutationResult<ApiEnvelope<{ id: string }>, Error, { whiteboardId: string }> {
+  options?: UseMutationOptions<
+    ApiEnvelope<{ id: string }>,
+    Error,
+    { whiteboardId: string }
+  >,
+): UseMutationResult<
+  ApiEnvelope<{ id: string }>,
+  Error,
+  { whiteboardId: string }
+> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ whiteboardId }) =>
-      customFetch<ApiEnvelope<{ id: string }>>(`/api/v1/whiteboards/${whiteboardId}`, {
-        method: "DELETE",
-      }),
+      customFetch<ApiEnvelope<{ id: string }>>(
+        `/api/v1/whiteboards/${whiteboardId}`,
+        {
+          method: "DELETE",
+        },
+      ),
     ...options,
     onSuccess: async (data, variables, onMutateResult, context) => {
-      queryClient.removeQueries({ queryKey: getWhiteboardQueryKey(variables.whiteboardId) });
-      await queryClient.invalidateQueries({ queryKey: ["/api/v1/whiteboards"] });
+      queryClient.removeQueries({
+        queryKey: getWhiteboardQueryKey(variables.whiteboardId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/v1/whiteboards"],
+      });
       await options?.onSuccess?.(data, variables, onMutateResult, context);
     },
   });

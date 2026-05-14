@@ -5,14 +5,6 @@ import { env } from "./config/env";
 import { logger } from "./lib/logger";
 import { attachStudyRoomSocket } from "./realtime/study-room-socket";
 
-const rawPort = String(env.PORT);
-
-const port = Number(rawPort);
-
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
-
 const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
@@ -24,11 +16,11 @@ const io = new Server(httpServer, {
 
 attachStudyRoomSocket(io);
 
-httpServer.listen(port, (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
-  }
+httpServer.on("error", (err) => {
+  logger.error({ err }, "Error listening on port");
+  process.exit(1);
+});
 
-  logger.info({ port }, "Server listening");
+httpServer.listen(env.API_PORT, () => {
+  logger.info({ port: env.API_PORT, origin: env.API_ORIGIN }, "Server listening");
 });

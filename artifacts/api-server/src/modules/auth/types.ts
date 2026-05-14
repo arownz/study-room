@@ -1,15 +1,16 @@
 import type { auth } from "./auth";
 
-export type AuthSession = NonNullable<
+type AuthSessionResult = NonNullable<
   Awaited<ReturnType<typeof auth.api.getSession>>
 >;
 
-export type AuthUser = AuthSession["user"];
+export type AuthSession = AuthSessionResult["session"];
+export type AuthUser = AuthSessionResult["user"];
 
 declare global {
   namespace Express {
     interface Request {
-      authSession?: AuthSession["session"];
+      authSession?: AuthSession;
       authUser?: AuthUser;
     }
   }

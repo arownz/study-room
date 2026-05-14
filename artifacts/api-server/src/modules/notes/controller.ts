@@ -18,7 +18,8 @@ export class NotesController {
   };
 
   getNoteById = async (req: Request, res: Response) => {
-    const data = await this.service.getNoteById(req.authUser!.id, req.params.noteId);
+    const { noteId } = req.params as { noteId: string };
+    const data = await this.service.getNoteById(req.authUser!.id, noteId);
     return sendSuccess(res, noteResponseSchema.parse(data));
   };
 
@@ -28,17 +29,20 @@ export class NotesController {
   };
 
   updateNote = async (req: Request, res: Response) => {
-    const data = await this.service.updateNote(req.authUser!.id, req.params.noteId, req.body);
+    const { noteId } = req.params as { noteId: string };
+    const data = await this.service.updateNote(req.authUser!.id, noteId, req.body);
     return sendSuccess(res, noteResponseSchema.parse(data));
   };
 
   deleteNote = async (req: Request, res: Response) => {
-    const data = await this.service.deleteNote(req.authUser!.id, req.params.noteId);
+    const { noteId } = req.params as { noteId: string };
+    const data = await this.service.deleteNote(req.authUser!.id, noteId);
     return sendSuccess(res, data);
   };
 
   autosaveNote = async (req: Request, res: Response) => {
-    const data = await this.service.autosaveNote(req.authUser!.id, req.params.noteId, req.body);
+    const { noteId } = req.params as { noteId: string };
+    const data = await this.service.autosaveNote(req.authUser!.id, noteId, req.body);
     return sendSuccess(res, noteResponseSchema.parse(data));
   };
 
@@ -53,30 +57,35 @@ export class NotesController {
   };
 
   updateFolder = async (req: Request, res: Response) => {
-    const data = await this.service.updateFolder(req.authUser!.id, req.params.folderId, req.body);
+    const { folderId } = req.params as { folderId: string };
+    const data = await this.service.updateFolder(req.authUser!.id, folderId, req.body);
     return sendSuccess(res, noteFolderResponseSchema.parse(data));
   };
 
   deleteFolder = async (req: Request, res: Response) => {
-    const data = await this.service.deleteFolder(req.authUser!.id, req.params.folderId);
+    const { folderId } = req.params as { folderId: string };
+    const data = await this.service.deleteFolder(req.authUser!.id, folderId);
     return sendSuccess(res, data);
   };
 
   listCollaborators = async (req: Request, res: Response) => {
-    const data = await this.service.listCollaborators(req.authUser!.id, req.params.noteId);
+    const { noteId } = req.params as { noteId: string };
+    const data = await this.service.listCollaborators(req.authUser!.id, noteId);
     return sendSuccess(res, listNoteCollaboratorsResponseSchema.parse(data));
   };
 
   upsertCollaborator = async (req: Request, res: Response) => {
-    const data = await this.service.upsertCollaborator(req.authUser!.id, req.params.noteId, req.body);
+    const { noteId } = req.params as { noteId: string };
+    const data = await this.service.upsertCollaborator(req.authUser!.id, noteId, req.body);
     return sendSuccess(res, listNoteCollaboratorsResponseSchema.parse(data));
   };
 
   removeCollaborator = async (req: Request, res: Response) => {
+    const params = req.params as { noteId: string; collaboratorUserId: string };
     const data = await this.service.removeCollaborator(
       req.authUser!.id,
-      req.params.noteId,
-      req.params.collaboratorUserId,
+      params.noteId,
+      params.collaboratorUserId,
     );
     return sendSuccess(res, data);
   };

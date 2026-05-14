@@ -15,7 +15,8 @@ export class FlashcardsController {
   };
 
   getFlashcardById = async (req: Request, res: Response) => {
-    const data = await this.service.getFlashcardById(req.authUser!.id, req.params.flashcardId);
+    const { flashcardId } = req.params as { flashcardId: string };
+    const data = await this.service.getFlashcardById(req.authUser!.id, flashcardId);
     return sendSuccess(res, flashcardDtoSchema.parse(data));
   };
 
@@ -25,16 +26,18 @@ export class FlashcardsController {
   };
 
   updateFlashcard = async (req: Request, res: Response) => {
+    const { flashcardId } = req.params as { flashcardId: string };
     const data = await this.service.updateFlashcard(
       req.authUser!.id,
-      req.params.flashcardId,
+      flashcardId,
       req.body,
     );
     return sendSuccess(res, flashcardDtoSchema.parse(data));
   };
 
   deleteFlashcard = async (req: Request, res: Response) => {
-    const data = await this.service.deleteFlashcard(req.authUser!.id, req.params.flashcardId);
+    const { flashcardId } = req.params as { flashcardId: string };
+    const data = await this.service.deleteFlashcard(req.authUser!.id, flashcardId);
     return sendSuccess(res, data);
   };
 }

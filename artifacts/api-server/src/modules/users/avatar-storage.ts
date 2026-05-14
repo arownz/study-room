@@ -45,7 +45,7 @@ export const avatarUpload = multer({
 });
 
 export function buildAvatarPublicUrl(filename: string): string {
-  const base = env.BETTER_AUTH_URL.replace(/\/$/, "");
+  const base = env.API_ORIGIN.replace(/\/$/, "");
   return `${base}/uploads/avatars/${filename}`;
 }
 

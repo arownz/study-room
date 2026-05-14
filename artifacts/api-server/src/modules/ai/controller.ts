@@ -21,12 +21,14 @@ export class AiController {
   };
 
   listMessages = async (req: Request, res: Response) => {
-    const data = await this.service.listMessages(req.authUser!.id, req.params.threadId);
+    const { threadId } = req.params as { threadId: string };
+    const data = await this.service.listMessages(req.authUser!.id, threadId);
     return sendSuccess(res, data);
   };
 
   appendMessage = async (req: Request, res: Response) => {
-    const data = await this.service.appendMessage(req.authUser!.id, req.params.threadId, req.body);
+    const { threadId } = req.params as { threadId: string };
+    const data = await this.service.appendMessage(req.authUser!.id, threadId, req.body);
     return sendSuccess(res, data);
   };
 }

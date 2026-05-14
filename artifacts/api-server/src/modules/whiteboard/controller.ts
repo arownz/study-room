@@ -13,12 +13,16 @@ export class WhiteboardController {
   constructor(private readonly service: WhiteboardService) {}
 
   list = async (req: Request, res: Response) => {
-    const data = await this.service.list(req.authUser!.id, req.query as ListWhiteboardsQuery);
+    const data = await this.service.list(
+      req.authUser!.id,
+      req.query as unknown as ListWhiteboardsQuery,
+    );
     return sendSuccess(res, listWhiteboardsResponseSchema.parse(data));
   };
 
   getById = async (req: Request, res: Response) => {
-    const data = await this.service.getById(req.authUser!.id, req.params.whiteboardId);
+    const { whiteboardId } = req.params as { whiteboardId: string };
+    const data = await this.service.getById(req.authUser!.id, whiteboardId);
     return sendSuccess(res, whiteboardDtoSchema.parse(data));
   };
 
@@ -28,17 +32,19 @@ export class WhiteboardController {
   };
 
   update = async (req: Request, res: Response) => {
+    const { whiteboardId } = req.params as { whiteboardId: string };
     const data = await this.service.update(
       req.authUser!.id,
-      req.params.whiteboardId,
+      whiteboardId,
       req.body as UpdateWhiteboardBody,
     );
     return sendSuccess(res, whiteboardDtoSchema.parse(data));
   };
 
   remove = async (req: Request, res: Response) => {
-    await this.service.remove(req.authUser!.id, req.params.whiteboardId);
-    return sendSuccess(res, { id: req.params.whiteboardId });
+    const { whiteboardId } = req.params as { whiteboardId: string };
+    await this.service.remove(req.authUser!.id, whiteboardId);
+    return sendSuccess(res, { id: whiteboardId });
   };
 
   getMine = async (req: Request, res: Response) => {

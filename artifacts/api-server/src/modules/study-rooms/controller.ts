@@ -18,7 +18,8 @@ export class StudyRoomsController {
   };
 
   getStudyRoomById = async (req: Request, res: Response) => {
-    const data = await this.service.getStudyRoomById(req.authUser!.id, req.params.roomId);
+    const { roomId } = req.params as { roomId: string };
+    const data = await this.service.getStudyRoomById(req.authUser!.id, roomId);
     return sendSuccess(res, studyRoomDtoSchema.parse(data));
   };
 
@@ -28,51 +29,59 @@ export class StudyRoomsController {
   };
 
   updateStudyRoom = async (req: Request, res: Response) => {
-    const data = await this.service.updateStudyRoom(req.authUser!.id, req.params.roomId, req.body);
+    const { roomId } = req.params as { roomId: string };
+    const data = await this.service.updateStudyRoom(req.authUser!.id, roomId, req.body);
     return sendSuccess(res, studyRoomDtoSchema.parse(data));
   };
 
   deleteStudyRoom = async (req: Request, res: Response) => {
-    const data = await this.service.deleteStudyRoom(req.authUser!.id, req.params.roomId);
+    const { roomId } = req.params as { roomId: string };
+    const data = await this.service.deleteStudyRoom(req.authUser!.id, roomId);
     return sendSuccess(res, data);
   };
 
   listGoals = async (req: Request, res: Response) => {
-    const data = await this.service.listStudyRoomGoals(req.authUser!.id, req.params.roomId);
+    const { roomId } = req.params as { roomId: string };
+    const data = await this.service.listStudyRoomGoals(req.authUser!.id, roomId);
     return sendSuccess(res, listStudyRoomGoalsResponseSchema.parse(data));
   };
 
   createGoal = async (req: Request, res: Response) => {
-    const data = await this.service.createStudyRoomGoal(req.authUser!.id, req.params.roomId, req.body);
+    const { roomId } = req.params as { roomId: string };
+    const data = await this.service.createStudyRoomGoal(req.authUser!.id, roomId, req.body);
     return sendSuccess(res, studyRoomGoalDtoSchema.parse(data), 201);
   };
 
   updateGoal = async (req: Request, res: Response) => {
+    const params = req.params as { roomId: string; goalId: string };
     const data = await this.service.updateStudyRoomGoal(
       req.authUser!.id,
-      req.params.roomId,
-      req.params.goalId,
+      params.roomId,
+      params.goalId,
       req.body,
     );
     return sendSuccess(res, studyRoomGoalDtoSchema.parse(data));
   };
 
   deleteGoal = async (req: Request, res: Response) => {
+    const params = req.params as { roomId: string; goalId: string };
     const data = await this.service.deleteStudyRoomGoal(
       req.authUser!.id,
-      req.params.roomId,
-      req.params.goalId,
+      params.roomId,
+      params.goalId,
     );
     return sendSuccess(res, data);
   };
 
   getTimer = async (req: Request, res: Response) => {
-    const data = await this.service.getStudyRoomTimer(req.authUser!.id, req.params.roomId);
+    const { roomId } = req.params as { roomId: string };
+    const data = await this.service.getStudyRoomTimer(req.authUser!.id, roomId);
     return sendSuccess(res, studyRoomTimerDtoSchema.parse(data));
   };
 
   patchTimer = async (req: Request, res: Response) => {
-    const data = await this.service.patchStudyRoomTimer(req.authUser!.id, req.params.roomId, req.body);
+    const { roomId } = req.params as { roomId: string };
+    const data = await this.service.patchStudyRoomTimer(req.authUser!.id, roomId, req.body);
     return sendSuccess(res, studyRoomTimerDtoSchema.parse(data));
   };
 }

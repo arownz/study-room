@@ -16,7 +16,8 @@ export class FlashcardDecksController {
   };
 
   getDeckById = async (req: Request, res: Response) => {
-    const data = await this.service.getDeckById(req.authUser!.id, req.params.deckId);
+    const { deckId } = req.params as { deckId: string };
+    const data = await this.service.getDeckById(req.authUser!.id, deckId);
     return sendSuccess(res, flashcardDeckDtoSchema.parse(data));
   };
 
@@ -26,17 +27,20 @@ export class FlashcardDecksController {
   };
 
   updateDeck = async (req: Request, res: Response) => {
-    const data = await this.service.updateDeck(req.authUser!.id, req.params.deckId, req.body);
+    const { deckId } = req.params as { deckId: string };
+    const data = await this.service.updateDeck(req.authUser!.id, deckId, req.body);
     return sendSuccess(res, flashcardDeckDtoSchema.parse(data));
   };
 
   deleteDeck = async (req: Request, res: Response) => {
-    const data = await this.service.deleteDeck(req.authUser!.id, req.params.deckId);
+    const { deckId } = req.params as { deckId: string };
+    const data = await this.service.deleteDeck(req.authUser!.id, deckId);
     return sendSuccess(res, data);
   };
 
   deckStats = async (req: Request, res: Response) => {
-    const data = await this.service.deckStats(req.authUser!.id, req.params.deckId);
+    const { deckId } = req.params as { deckId: string };
+    const data = await this.service.deckStats(req.authUser!.id, deckId);
     return sendSuccess(res, flashcardDeckStatsSchema.parse(data));
   };
 }

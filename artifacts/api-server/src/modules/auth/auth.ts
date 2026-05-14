@@ -5,9 +5,9 @@ import { accounts, sessions, users, verificationTokens } from "@workspace/db/sch
 import { env, isProduction } from "../../config/env";
 
 export const auth = betterAuth({
-  baseURL: env.BETTER_AUTH_URL,
+  baseURL: env.API_ORIGIN,
   secret: env.BETTER_AUTH_SECRET,
-  trustedOrigins: [env.FRONTEND_ORIGIN, env.BETTER_AUTH_URL],
+  trustedOrigins: [env.FRONTEND_ORIGIN, env.API_ORIGIN],
   // Map Better Auth's internal model names to our Drizzle tables.
   // Keys here MUST match the model names Better Auth uses internally
   // (default: user, session, account, verification). Do not override
@@ -62,7 +62,7 @@ export const auth = betterAuth({
             .picture ??
           (profile as { picture?: string | null; image?: string | null })
             .image ??
-          null,
+          undefined,
       }),
     },
     discord: {
@@ -93,7 +93,7 @@ export const auth = betterAuth({
           };
         }
 
-        return { image: null };
+        return { image: undefined };
       },
     },
   },
