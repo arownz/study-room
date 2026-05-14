@@ -7,7 +7,6 @@ import { PomodoroFloatingWidget } from "@/features/pomodoro/components/PomodoroF
 import { PomodoroSpotifyPortal } from "@/features/pomodoro/components/PomodoroSpotifyPortal";
 import { PomodoroSpotifySlotProvider } from "@/features/pomodoro/pomodoro-spotify-slot-context";
 import { cn } from "@/lib/utils";
-import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const pageTitles: Record<string, string> = {
   "/": "Dashboard",
@@ -48,7 +47,6 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <SpeedInsights />
       <PomodoroSpotifySlotProvider>
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
         <TopNav
