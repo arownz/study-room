@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ExternalLink, Maximize2, Pause, Play, RotateCcw, Timer, X } from "lucide-react";
+import { ExternalLink, Maximize2, Minimize, Minimize2, Pause, Play, RotateCcw, Timer, X } from "lucide-react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -225,7 +225,7 @@ export function PomodoroFloatingWidget() {
                 saveTimerFloatDismissed(true);
               }}
             >
-              <X size={15} />
+              <Minimize size={15} />
             </Button>
             <div
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/70"
