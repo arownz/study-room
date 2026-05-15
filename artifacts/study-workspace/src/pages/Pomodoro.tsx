@@ -830,7 +830,7 @@ export default function Pomodoro() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="mt-[-2px] h-7 w-7 shrink-0 text-destructive/70 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                    className="-mt-0.5 h-7 w-7 shrink-0 text-destructive/70 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
                     onClick={() => deleteTask(task.id)}
                     data-testid={`button-delete-task-${task.id}`}
                   >
