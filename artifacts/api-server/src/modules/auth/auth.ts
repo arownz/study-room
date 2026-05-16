@@ -4,6 +4,12 @@ import { db } from "@workspace/db";
 import { accounts, sessions, users, verificationTokens } from "@workspace/db/schema";
 import { env, isProduction } from "../../config/env";
 
+const apiOrigin = new URL(env.API_ORIGIN);
+const frontendOrigin = new URL(env.FRONTEND_ORIGIN);
+const isCrossSiteDeployment =
+  apiOrigin.protocol !== frontendOrigin.protocol ||
+  apiOrigin.hostname !== frontendOrigin.hostname;
+
 export const auth = betterAuth({
   baseURL: env.API_ORIGIN,
   secret: env.BETTER_AUTH_SECRET,
@@ -125,7 +131,7 @@ export const auth = betterAuth({
     useSecureCookies: isProduction,
     defaultCookieAttributes: {
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: isProduction && isCrossSiteDeployment ? "none" : "lax",
       secure: isProduction,
       path: "/",
     },
