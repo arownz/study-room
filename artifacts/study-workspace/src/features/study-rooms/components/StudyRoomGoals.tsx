@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
-export function StudyRoomGoals(props: { roomId: string }) {
+export function StudyRoomGoals(props: { roomId: string; canManage: boolean }) {
   const draftKey = `studyroom.room-goal-draft:${props.roomId}`;
   const [draft, setDraft] = useState("");
 
@@ -73,6 +73,7 @@ export function StudyRoomGoals(props: { roomId: string }) {
                 key={goal.id}
                 type="button"
                 onClick={() => toggleGoal(goal.id, goal.done)}
+                disabled={!props.canManage || updateGoal.isPending}
                 className="group flex w-full items-start gap-2 text-left"
                 data-testid={`goal-item-${goal.id}`}
               >
@@ -97,7 +98,7 @@ export function StudyRoomGoals(props: { roomId: string }) {
           )}
         </div>
       </ScrollArea>
-      <div className="flex gap-1 border-t border-border/60 p-3">
+      {props.canManage ? <div className="flex gap-1 border-t border-border/60 p-3">
         <Input
           placeholder="Add goal..."
           value={draft}
@@ -120,7 +121,7 @@ export function StudyRoomGoals(props: { roomId: string }) {
         >
           <Plus size={12} />
         </Button>
-      </div>
+      </div> : null}
     </div>
   );
 }

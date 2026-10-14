@@ -26,8 +26,14 @@ export const userDtoSchema = z.object({
   updatedAt: z.string(),
 });
 
+export const userDirectoryEntrySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  avatar: z.string().nullable(),
+});
+
 export const listUsersResponseSchema = z.object({
-  items: z.array(userDtoSchema),
+  items: z.array(userDirectoryEntrySchema),
   page: z.object({
     limit: z.number().int(),
     offset: z.number().int(),
@@ -111,6 +117,7 @@ export const dashboardSummarySchema = z.object({
 
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 export type ListUsersResponse = z.infer<typeof listUsersResponseSchema>;
+export type UserDirectoryEntry = z.infer<typeof userDirectoryEntrySchema>;
 export type ConnectedAccount = z.infer<typeof connectedAccountSchema>;
 export type MeDto = z.infer<typeof meDtoSchema>;
 export type UpdateMeRequest = z.infer<typeof updateMeRequestSchema>;

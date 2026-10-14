@@ -32,12 +32,13 @@ function normalizePhase(value: string | null): "idle" | "focus" | "break" {
 export class StudyRoomsService {
   constructor(private readonly repository: StudyRoomsRepository) {}
 
-  private toDto(room: RoomRow) {
+  private toDto(room: RoomRow, userId: string) {
     return {
       id: room.id,
       name: room.name,
       description: room.description ?? null,
       isPublic: room.isPublic,
+      canManage: room.ownerId === userId,
       createdAt: room.createdAt.toISOString(),
       updatedAt: room.updatedAt.toISOString(),
     };
@@ -68,6 +69,14 @@ export class StudyRoomsService {
   }
 
   async assertRoomAccess(userId: string, roomId: string) {
+    const room = await this.repository.getStudyRoomByIdForAccess(userId, roomId);
+    if (!room) {
+      throw new AppError("Study room not found", 404, "STUDY_ROOM_NOT_FOUND");
+    }
+    return room;
+  }
+
+  async assertRoomOwner(userId: string, roomId: string) {
     const room = await this.repository.getStudyRoomById(userId, roomId);
     if (!room) {
       throw new AppError("Study room not found", 404, "STUDY_ROOM_NOT_FOUND");
@@ -78,16 +87,13 @@ export class StudyRoomsService {
   async listStudyRooms(userId: string, query: ListStudyRoomsQuery) {
     const items = await this.repository.listStudyRooms(userId, query);
     return {
-      items: items.map((room) => this.toDto(room)),
+      items: items.map((room) => this.toDto(room, userId)),
     };
   }
 
   async getStudyRoomById(userId: string, roomId: string) {
-    const room = await this.repository.getStudyRoomById(userId, roomId);
-    if (!room) {
-      throw new AppError("Study room not found", 404, "STUDY_ROOM_NOT_FOUND");
-    }
-    return this.toDto(room);
+    const room = await this.assertRoomAccess(userId, roomId);
+    return this.toDto(room, userId);
   }
 
   async createStudyRoom(userId: string, payload: CreateStudyRoomBody) {
@@ -95,7 +101,7 @@ export class StudyRoomsService {
     if (!room) {
       throw new AppError("Failed to create study room", 500, "STUDY_ROOM_CREATE_FAILED");
     }
-    return this.toDto(room);
+    return this.toDto(room, userId);
   }
 
   async updateStudyRoom(userId: string, roomId: string, payload: UpdateStudyRoomBody) {
@@ -103,7 +109,7 @@ export class StudyRoomsService {
     if (!room) {
       throw new AppError("Study room not found", 404, "STUDY_ROOM_NOT_FOUND");
     }
-    return this.toDto(room);
+    return this.toDto(room, userId);
   }
 
   async deleteStudyRoom(userId: string, roomId: string) {
@@ -133,7 +139,7 @@ export class StudyRoomsService {
   }
 
   async createStudyRoomGoal(userId: string, roomId: string, payload: CreateStudyRoomGoalBody) {
-    await this.assertRoomAccess(userId, roomId);
+    await this.assertRoomOwner(userId, roomId);
     const row = await this.repository.createGoal(roomId, userId, randomUUID(), payload);
     if (!row) {
       throw new AppError("Failed to create goal", 500, "GOAL_CREATE_FAILED");
@@ -151,7 +157,7 @@ export class StudyRoomsService {
   }
 
   async updateStudyRoomGoal(userId: string, roomId: string, goalId: string, payload: UpdateStudyRoomGoalBody) {
-    await this.assertRoomAccess(userId, roomId);
+    await this.assertRoomOwner(userId, roomId);
     const row = await this.repository.updateGoal(roomId, goalId, payload);
     if (!row) {
       throw new AppError("Goal not found", 404, "GOAL_NOT_FOUND");
@@ -169,7 +175,7 @@ export class StudyRoomsService {
   }
 
   async deleteStudyRoomGoal(userId: string, roomId: string, goalId: string) {
-    await this.assertRoomAccess(userId, roomId);
+    await this.assertRoomOwner(userId, roomId);
     const deleted = await this.repository.deleteGoal(roomId, goalId);
     if (!deleted) {
       throw new AppError("Goal not found", 404, "GOAL_NOT_FOUND");
@@ -184,7 +190,7 @@ export class StudyRoomsService {
   }
 
   async patchStudyRoomTimer(userId: string, roomId: string, body: PatchStudyRoomTimerBody) {
-    const room = await this.assertRoomAccess(userId, roomId);
+    const room = await this.assertRoomOwner(userId, roomId);
     const curPhase = normalizePhase(room.timerPhase);
 
     let nextPhase = body.phase ?? curPhase;

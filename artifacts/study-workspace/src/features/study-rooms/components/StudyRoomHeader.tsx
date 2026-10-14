@@ -165,7 +165,7 @@ export function StudyRoomHeader({
             >
               {camOn ? <Video size={14} /> : <VideoOff size={14} />}
             </Button>
-            <DropdownMenu>
+            {room.canManage ? <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon" className="h-8 w-8" data-testid="button-room-menu">
                   <Settings size={14} />
@@ -183,7 +183,7 @@ export function StudyRoomHeader({
                   <Trash2 size={13} /> Delete room
                 </DropdownMenuItem>
               </DropdownMenuContent>
-            </DropdownMenu>
+            </DropdownMenu> : null}
           </>
         )}
       </div>

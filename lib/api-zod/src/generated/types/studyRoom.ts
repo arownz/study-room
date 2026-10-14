@@ -11,6 +11,7 @@ export interface StudyRoom {
   name: string;
   description: string | null;
   isPublic: boolean;
+  canManage: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

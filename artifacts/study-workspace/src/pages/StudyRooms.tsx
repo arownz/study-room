@@ -119,10 +119,10 @@ export default function StudyRooms() {
               isSaving={isUpdating}
               isDeleting={isDeleting}
             />
-            <StudyRoomTimerBar roomId={selected.id} />
+            <StudyRoomTimerBar roomId={selected.id} canManage={selected.canManage} />
             <div className="flex min-h-0 flex-1">
               <StudyRoomChat room={selected} />
-              <StudyRoomGoals roomId={selected.id} />
+              <StudyRoomGoals roomId={selected.id} canManage={selected.canManage} />
             </div>
           </>
         ) : (

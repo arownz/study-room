@@ -33,6 +33,7 @@ export const studyRoomDtoSchema = z.object({
   name: z.string(),
   description: z.string().nullable(),
   isPublic: z.boolean(),
+  canManage: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

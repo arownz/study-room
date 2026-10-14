@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, max } from "drizzle-orm";
+import { and, asc, desc, eq, max, or } from "drizzle-orm";
 import { studyRoomGoals, studyRooms } from "@workspace/db/schema";
 import { db } from "../../lib/database";
 import {
@@ -20,10 +20,25 @@ export class StudyRoomsRepository {
     return db
       .select()
       .from(studyRooms)
-      .where(eq(studyRooms.ownerId, userId))
+      .where(or(eq(studyRooms.ownerId, userId), eq(studyRooms.isPublic, true)))
       .orderBy(desc(studyRooms.updatedAt))
       .limit(query.limit)
       .offset(query.offset);
+  }
+
+  async getStudyRoomByIdForAccess(userId: string, roomId: string) {
+    const rows = await db
+      .select()
+      .from(studyRooms)
+      .where(
+        and(
+          eq(studyRooms.id, roomId),
+          or(eq(studyRooms.ownerId, userId), eq(studyRooms.isPublic, true)),
+        ),
+      )
+      .limit(1);
+
+    return rows[0] ?? null;
   }
 
   async getStudyRoomById(userId: string, roomId: string) {

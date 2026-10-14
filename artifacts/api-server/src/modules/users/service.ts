@@ -8,6 +8,7 @@ import {
   type ListUsersQuery,
   type ListUsersResponse,
   type MeDto,
+  type UserDirectoryEntry,
   type UpdateMeRequest,
 } from "./contracts";
 import { UsersRepository } from "./repository";
@@ -41,6 +42,14 @@ function serializeUser(user: DbUser) {
   };
 }
 
+function serializeUserDirectoryEntry(user: DbUser): UserDirectoryEntry {
+  return {
+    id: user.id,
+    name: user.name,
+    avatar: resolveAvatarPublicUrl(user),
+  };
+}
+
 export type UserAvatarStreamResult =
   | { kind: "bytes"; mimeType: string; data: Buffer }
   | { kind: "redirect"; url: string }
@@ -53,7 +62,7 @@ export class UsersService {
     const items = await this.repository.listUsers(query);
 
     return {
-      items: items.map(serializeUser),
+      items: items.map(serializeUserDirectoryEntry),
       page: {
         limit: query.limit,
         offset: query.offset,

@@ -1416,6 +1416,8 @@ components:
           nullable: true
         isPublic:
           type: boolean
+        canManage:
+          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -1427,6 +1429,7 @@ components:
         - name
         - description
         - isPublic
+        - canManage
         - createdAt
         - updatedAt
     CreateStudyRoomRequest:

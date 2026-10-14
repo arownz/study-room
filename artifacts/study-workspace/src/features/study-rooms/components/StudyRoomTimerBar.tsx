@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-export function StudyRoomTimerBar(props: { roomId: string }) {
+export function StudyRoomTimerBar(props: { roomId: string; canManage: boolean }) {
   const { data: envelope } = useGetStudyRoomTimer(props.roomId);
   const dto = envelope?.data;
   const patch = usePatchStudyRoomTimer();
@@ -47,7 +47,7 @@ export function StudyRoomTimerBar(props: { roomId: string }) {
       <span className="font-mono text-sm tabular-nums">
         {mm}:{ss}
       </span>
-      <div className="ml-auto flex flex-wrap items-center gap-1">
+      {props.canManage ? <div className="ml-auto flex flex-wrap items-center gap-1">
         <Button
           size="sm"
           variant="secondary"
@@ -113,7 +113,7 @@ export function StudyRoomTimerBar(props: { roomId: string }) {
         >
           <RotateCcw size={14} />
         </Button>
-      </div>
+      </div> : null}
       {dto.leaderUserId && (
         <span className={cn("w-full text-[10px] text-muted-foreground sm:w-auto sm:ml-2")}>
           Leader session active

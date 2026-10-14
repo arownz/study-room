@@ -53,7 +53,7 @@ export function attachStudyRoomSocket(io: Server): void {
       if (!parsed.success) return;
       const { roomId } = parsed.data;
       const repo = new StudyRoomsRepository();
-      const room = await repo.getStudyRoomById(s.data.userId, roomId);
+      const room = await repo.getStudyRoomByIdForAccess(s.data.userId, roomId);
       if (!room) {
         socket.emit("studyRoom:error", { code: "NOT_FOUND" });
         return;
@@ -75,6 +75,7 @@ export function attachStudyRoomSocket(io: Server): void {
       const parsed = joinSchema.safeParse(raw);
       if (!parsed.success) return;
       const { roomId } = parsed.data;
+      if (!s.data.studyRooms.has(roomId)) return;
       await socket.leave(`study-room:${roomId}`);
       s.data.studyRooms.delete(roomId);
       io.to(`study-room:${roomId}`).emit("studyRoom:presence", {

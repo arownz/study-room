@@ -1,4 +1,5 @@
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+const OPENAI_TIMEOUT_MS = 30_000;
 
 export interface ChatTurn {
   role: "user" | "assistant";
@@ -31,6 +32,8 @@ export async function completeStudyTutorChat(history: ChatTurn[]): Promise<strin
     ],
   };
 
+  const signal = AbortSignal.timeout(OPENAI_TIMEOUT_MS);
+
   const res = await fetch(OPENAI_URL, {
     method: "POST",
     headers: {
@@ -38,6 +41,7 @@ export async function completeStudyTutorChat(history: ChatTurn[]): Promise<strin
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
+    signal,
   });
 
   if (!res.ok) {
